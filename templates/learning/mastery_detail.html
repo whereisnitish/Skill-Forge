@@ -1,0 +1,89 @@
+{% extends "layouts/app.html" %}
+{% load static ui humanize %}
+{% block title %}{{ skill.name }} · Mastery{% endblock %}
+{% block scripts %}<script src="{% static 'vendor/chart.umd.min.js' %}" defer nonce="{{ csp_nonce }}"></script>{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex items-center gap-2 text-sm text-muted"><a href="{% url 'learning:mastery' %}" class="transition-colors hover:text-fg">Mastery</a>{% icon "chevron-right" "size-3.5 text-faint" %}<span class="truncate text-fg" aria-current="page">{{ skill.name }}</span></nav>
+<header class="flex flex-col gap-5 border-b border-line pb-7 md:flex-row md:items-center md:justify-between">
+  <div class="flex items-center gap-5">
+    {% mastery_ring view.mean 88 8 skill.name %}
+    <div>
+      <p class="eyebrow">{{ skill.category.name }}</p>
+      <h1 class="page-title mt-1">{{ skill.name }}</h1>
+      <p class="mt-1 text-sm"><span class="font-semibold level-{{ view.level }}">{{ view.level_label }}</span>{% if view.measured %} <span class="text-muted">· {{ view.confidence }} confidence · ± {{ view.std|percent }}</span>{% endif %}</p>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2"><a href="{% url 'catalog:skill_detail' skill.slug %}" class="btn btn-secondary">Practise this skill</a></div>
+</header>
+
+{% if not view.measured %}
+<p class="panel-note mt-6 p-4 text-sm text-muted">No evidence yet. The {{ view.percent }}% shown is a cautious starting assumption from your self-reported level; it isn't a measurement.</p>
+{% endif %}
+
+<dl class="mt-7 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line shadow-card sm:grid-cols-2 lg:grid-cols-4">
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Evidence</dt><dd class="stat-value mt-2 text-3xl">{{ evidence_count }}</dd><dd class="mt-1 text-xs text-faint">attempts{% if formats %} · {{ formats|length }} format{{ formats|length|pluralize }}{% endif %}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Conservative estimate</dt><dd class="stat-value mt-2 text-3xl">{{ view.lower_bound|percent }}</dd><dd class="mt-1 text-xs text-faint">mean minus one std. dev.</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Last practised</dt><dd class="mt-2 text-xl font-semibold">{% if view.last_practiced_at %}{{ view.last_practiced_at|naturalday }}{% else %}—{% endif %}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Next review</dt><dd class="mt-2 text-xl font-semibold">{% if review %}{{ review.due_at|naturalday:"j M" }}{% else %}—{% endif %}</dd>{% if review %}<dd class="mt-1 text-xs text-faint">every ~{{ review.interval_days|floatformat:"-1" }} days · {{ review.lapses }} lapse{{ review.lapses|pluralize }}</dd>{% endif %}</div>
+</dl>
+
+<div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+  <div class="space-y-6">
+    <section class="card card-pad" aria-labelledby="history-chart">
+      <h2 id="history-chart" class="section-title">Progression</h2>
+      {% if evidence_count >= 2 %}
+      <div class="mt-4 h-64"><canvas data-chart="mastery-chart" aria-label="Mastery estimate after each attempt" role="img"></canvas></div>
+      {{ chart|json_script:"mastery-chart" }}
+      {% else %}<p class="mt-2 text-sm text-muted">A trend appears after at least two attempts.</p>{% endif %}
+    </section>
+    <section class="card card-pad" aria-labelledby="evidence-heading">
+      <h2 id="evidence-heading" class="section-title">Evidence behind the estimate</h2>
+      {% if evidence %}
+      <div class="mt-4 overflow-x-auto">
+        <table class="table min-w-[38rem]">
+          <thead><tr><th scope="col">When</th><th scope="col">Challenge</th><th scope="col">Score</th><th scope="col">Weight</th><th scope="col">Estimate</th></tr></thead>
+          <tbody>
+            {% for e in evidence %}
+            <tr>
+              <td class="whitespace-nowrap text-muted">{{ e.created_at|date:"j M" }}</td>
+              <td><a class="hover:underline" href="{% url 'learning:attempt' e.attempt_id %}">{{ e.attempt.challenge_version.title }}</a>
+                <span class="block text-xs text-faint">{{ e.attempt.challenge.get_kind_display }}{% if e.attempt.is_review %} · review{% endif %}{% if e.attempt.hints_used %} · {{ e.attempt.hints_used }} hint{{ e.attempt.hints_used|pluralize }}{% endif %}{% if e.detail.delayed_recall %} · delayed recall{% endif %}</span></td>
+              <td class="tabular-nums">{{ e.score|percent }}</td>
+              <td class="tabular-nums text-muted">{% if e.weight < 1 %}secondary{% else %}primary{% endif %}</td>
+              <td class="whitespace-nowrap tabular-nums">{{ e.mastery_before|percent }} → <span class="font-semibold">{{ e.mastery_after|percent }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="mt-3 text-xs text-faint">Model {{ model_version }}. Harder challenges and delayed recall count more; hints and revealed solutions count less; older evidence fades with a 45-day half-life.</p>
+      {% else %}<p class="mt-2 text-sm text-muted">No attempts yet.</p>{% endif %}
+    </section>
+  </div>
+  <aside class="card divide-y divide-line self-start">
+    <section class="card-pad">
+      <h2 class="section-title">Recent mistakes</h2>
+      <ul class="mt-3 space-y-2.5">
+        {% for error in errors %}<li class="text-sm"><a class="block rounded-lg p-1.5 -m-1.5 hover:bg-surface-2" href="{% url 'learning:attempt' error.attempt.pk %}"><span class="block">{{ error.label }}</span><span class="text-xs text-faint">{{ error.when|naturalday }}</span></a></li>{% empty %}<li class="text-sm text-muted">No misconceptions recorded for this skill.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="card-pad">
+      <h2 class="section-title">Prerequisites</h2>
+      <ul class="mt-3 space-y-3">
+        {% for p in prerequisites %}
+        <li class="text-sm">
+          <div class="flex items-center justify-between gap-2"><a class="hover:underline" href="{% url 'learning:mastery_detail' p.skill.slug %}">{{ p.skill.name }}</a><span class="text-xs {% if p.view.mean >= p.edge.min_mastery %}text-success{% else %}text-warning{% endif %}">{{ p.view.percent }}% / {{ p.edge.min_mastery|percent }}</span></div>
+          <p class="text-xs text-faint">{% if p.edge.required %}Required{% else %}Recommended{% endif %}</p>
+        </li>
+        {% empty %}<li class="text-sm text-muted">This is a foundational skill.</li>{% endfor %}
+      </ul>
+    </section>
+    {% if review_records %}
+    <section class="card-pad">
+      <h2 class="section-title">Review history</h2>
+      <ul class="mt-3 space-y-2 text-sm">{% for r in review_records %}<li class="flex justify-between gap-2"><span class="text-muted">{{ r.reviewed_at|date:"j M" }} · {{ r.outcome|humanize_code }}</span><span class="text-xs text-faint">→ {{ r.new_interval_days|floatformat:"-1" }} d</span></li>{% endfor %}</ul>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+.venv
+venv
+node_modules
+**/__pycache__
+*.pyc
+.git
+.env
+.env.*
+db.sqlite3
+test-db.sqlite3
+staticfiles
+static/dist
+.pytest_cache
+.ruff_cache
+htmlcov
+test-results
+playwright-report

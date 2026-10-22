@@ -1,0 +1,13 @@
+{% extends "emails/base.txt" %}
+{% block content %}NEW CONTACT FORM MESSAGE
+
+From:     {{ message.name }} <{{ message.email }}>
+Topic:    {{ message.get_topic_display }}
+Account:  {% if message.user %}{{ message.user.email }} (signed in){% else %}Not signed in{% endif %}
+Received: {{ message.created_at|date:"j M Y, H:i e" }}
+
+{{ message.message }}
+
+Reply to this email to respond — your reply goes straight to {{ message.email }}.
+Open in admin: {{ admin_url }}{% endblock %}
+{% block footer_reason %}Internal notification: someone submitted the contact form on {{ SITE_URL }}. Sent to {{ SUPPORT_EMAIL }}.{% endblock %}

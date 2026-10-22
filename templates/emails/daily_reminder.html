@@ -1,0 +1,30 @@
+{% extends "emails/base.html" %}
+{% block preheader %}{% if data.reason %}{{ data.reason }}{% else %}Your {{ data.budget }}-minute practice session is ready.{% endif %}{% endblock %}
+{% block eyebrow %}Today's practice · {{ data.budget }}-minute plan{% endblock %}
+{% block heading %}{% if data.challenge_title %}{{ data.challenge_title }}{% else %}Your daily practice is ready{% endif %}{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 16px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }}, {% if data.challenge_title %}here's the challenge picked for you today.{% else %}a short, focused session is waiting for you.{% endif %}</p>
+
+{% if data.challenge_title %}
+<p style="margin:0 0 12px;line-height:22px;">{% if data.skill %}<span style="display:inline-block;white-space:nowrap;margin:0 6px 6px 0;padding:4px 10px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;background-color:#e8ddc9;color:#173d32;">{{ data.skill }}</span>{% endif %}{% if data.kind_label %}<span style="display:inline-block;white-space:nowrap;margin:0 6px 6px 0;padding:4px 10px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;background-color:#f3ebdd;color:#5e5144;">{{ data.kind_label }}</span>{% endif %}{% if data.minutes %}<span style="display:inline-block;white-space:nowrap;margin:0 6px 6px 0;padding:4px 10px;border-radius:999px;font-size:12px;line-height:16px;font-weight:600;background-color:#f3ebdd;color:#5e5144;">About {{ data.minutes }} min</span>{% endif %}</p>
+{% endif %}
+
+{% if data.reason %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="panel" style="background-color:#f7f1e4;border:1px solid #e8ddc9;border-left:3px solid #c4a15a;border-radius:12px;padding:14px 18px;">
+      <p class="eyebrow" style="margin:0 0 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#7a5b22;">Why this one{% if data.reason_label %} · {{ data.reason_label }}{% endif %}</p>
+      <p class="body" style="margin:0;font-size:14px;line-height:21px;color:#4a3d33;">{{ data.reason }}</p>
+    </td>
+  </tr>
+</table>
+{% endif %}
+
+{% include "emails/_button.html" with url=action_url label="Start today's challenge" %}
+
+<p class="body" style="margin:22px 0 0;font-size:14px;line-height:21px;color:#4a3d33;">
+  {% if data.streak %}You're on a <strong class="fg" style="color:#382b24;">{{ data.streak }}-day streak</strong>. One challenge today keeps it going.{% else %}One challenge today starts a new streak — small and steady beats long and occasional.{% endif %}
+</p>
+{% endblock %}
+{% block footer_reason %}You're receiving this because daily reminders are on. We only send one on days you haven't practised yet, around {{ reminder_time }} ({{ timezone_name }}).{% endblock %}
+{% block footer_links %}<a href="{{ notification_settings_url }}" style="color:#6a5d4f;text-decoration:underline;">Change reminder time</a> &nbsp;·&nbsp; <a href="{{ unsubscribe_url }}" style="color:#6a5d4f;text-decoration:underline;">Turn off daily reminders</a>{% endblock %}

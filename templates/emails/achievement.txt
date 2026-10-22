@@ -1,0 +1,12 @@
+{% extends "emails/base.txt" %}
+{% block content %}ACHIEVEMENT UNLOCKED: {{ data.name }}
+
+{{ data.description }}
+
+Well earned, {{ user.friendly_name }}. Achievements on SkillForge come only from evaluated practice{% if data.total %} — you've now earned {{ data.total }}{% endif %}.
+
+View your progress:
+{{ action_url }}{% endblock %}
+{% block footer_reason %}You're receiving this because milestone and achievement emails are on.{% endblock %}
+{% block footer_links %}Email preferences: {{ notification_settings_url }}
+Turn off milestone & achievement emails: {{ unsubscribe_url }}{% endblock %}

@@ -1,0 +1,58 @@
+{% load ui %}
+<section id="current-challenge" class="card card-feature p-6 sm:p-8" aria-labelledby="current-title">
+  {% with rec=plan.current %}
+  {% if rec %}
+    {% with challenge=rec.challenge version=rec.challenge_version %}
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="eyebrow">Today's challenge{% if plan.completed %} · {{ plan.completed|length|add:1 }} of the day{% endif %}</p>
+      <span class="badge {% if rec.reason_code == 'review_due' or rec.reason_code == 'recent_struggle' %}badge-warning{% elif rec.reason_code == 'explore_unmeasured' %}badge-info{% else %}badge-accent{% endif %}">{{ rec.reason_label }}</span>
+    </div>
+    <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
+      <span class="icon-chip size-14 rounded-xl">{% icon challenge.kind_icon "size-6" %}</span>
+      <div class="min-w-0 flex-1">
+        <h2 id="current-title" class="font-display text-[1.7rem] leading-tight text-balance sm:text-[2rem]">{{ version.title }}</h2>
+        <p class="mt-2 max-w-2xl text-muted">{{ version.learning_objective }}</p>
+      </div>
+    </div>
+    <dl class="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-y border-line py-4 sm:grid-cols-4">
+      <div class="min-w-0"><dt class="text-xs font-medium text-muted">Skill</dt><dd class="mt-1 truncate text-sm font-semibold"><a class="transition-colors hover:text-accent-text" href="{% url 'catalog:skill_detail' challenge.skill.slug %}">{{ challenge.skill.name }}</a></dd></div>
+      <div class="min-w-0"><dt class="text-xs font-medium text-muted">Format</dt><dd class="mt-1 flex items-center gap-1.5 text-sm font-semibold">{% icon "layers" "size-4 flex-none text-faint" %}<span class="truncate">{{ challenge.get_kind_display }}</span></dd></div>
+      <div><dt class="text-xs font-medium text-muted">Estimated time</dt><dd class="mt-1 flex items-center gap-1.5 text-sm font-semibold">{% icon "clock" "size-4 text-faint" %}{{ challenge.estimated_minutes }} min</dd></div>
+      <div><dt class="text-xs font-medium text-muted">Difficulty</dt><dd class="mt-1.5">{% difficulty challenge.difficulty %}</dd></div>
+    </dl>
+    <div class="panel-note mt-5 flex items-start gap-3 p-4 text-sm">
+      {% icon "lightbulb" "size-4 mt-0.5 flex-none text-gold-text" %}
+      <div><p class="font-semibold text-fg">Why this challenge</p><p class="mt-0.5 text-muted">{{ rec.reason_text }}</p></div>
+    </div>
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <a href="{% url 'learning:challenge' challenge.slug %}?rec={{ rec.pk }}" class="btn btn-primary btn-lg" data-autofocus>Start challenge {% icon "arrow-right" "size-4" %}</a>
+      <form hx-post="{% url 'learning:skip' rec.pk %}" hx-target="#current-challenge" hx-swap="outerHTML" method="post" action="{% url 'learning:skip' rec.pk %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-ghost"><span class="spinner htmx-indicator" aria-hidden="true"></span>Skip for now</button>
+      </form>
+    </div>
+    {% endwith %}
+  {% elif plan.session and plan.is_complete %}
+    <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
+      <span class="result-burst grid size-16 flex-none place-items-center rounded-full bg-gold-soft text-gold-text">{% icon "trophy" "size-7" %}</span>
+      <div class="flex-1">
+        <p class="eyebrow">Daily goal reached</p>
+        <h2 id="current-title" class="mt-1 font-display text-[1.75rem] leading-tight">Today's plan is complete</h2>
+        <p class="mt-1.5 text-muted">You practised {{ plan.minutes_used }} minutes across {{ plan.completed|length }} challenge{{ plan.completed|length|pluralize }}. Rest is part of learning — come back tomorrow for reviews.</p>
+      </div>
+    </div>
+    <form method="post" action="{% url 'learning:practice_more' %}" class="mt-6">{% csrf_token %}<button type="submit" class="btn btn-secondary">{% icon "plus" "size-4" %} Practise one more</button></form>
+  {% elif plan.session and plan.exhausted %}
+    <h2 id="current-title" class="section-title text-[1.5rem]">You're caught up for now</h2>
+    <p class="mt-2 max-w-2xl text-muted">Nothing on your path is eligible right now — usually because remaining skills need their prerequisites first, or you've seen the available challenges very recently.</p>
+    <div class="mt-6 flex flex-wrap gap-3">
+      <a href="{% url 'learning:reviews' %}" class="btn btn-secondary">{% icon "rotate-ccw" "size-4" %} Reviews</a>
+      <a href="{% url 'catalog:skills' %}" class="btn btn-ghost">Explore skills</a>
+    </div>
+  {% else %}
+    <h2 id="current-title" class="section-title text-[1.5rem]">No active goal</h2>
+    <p class="mt-2 max-w-2xl text-muted">Your daily plan is built from an active goal. Create one or resume a paused goal to get recommendations.</p>
+    <div class="mt-6 flex flex-wrap gap-3"><a href="{% url 'learning:goal_create' %}" class="btn btn-primary">Create a goal</a><a href="{% url 'learning:goals' %}" class="btn btn-ghost">Manage goals</a></div>
+  {% endif %}
+  {% endwith %}
+</section>

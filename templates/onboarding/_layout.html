@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block title %}Set up your plan{% endblock %}
+{% block body %}
+<div class="min-h-dvh">
+  <header class="border-b border-line">
+    <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-5 sm:px-6">
+      {% include "components/logo.html" %}
+      <form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit">Log out</button></form>
+    </div>
+  </header>
+  <main id="main" class="mx-auto max-w-3xl px-4 pb-20 pt-10 sm:px-6 sm:pt-12">
+    <nav aria-label="Setup progress" class="mb-10">
+      <p class="kicker mb-3">Step {{ step_number }} of {{ step_labels|length }} · Setting up your plan</p>
+      <ol class="grid grid-cols-5 gap-2">
+        {% for label in step_labels %}
+        <li class="space-y-2">
+          <div class="h-1 rounded-full {% if forloop.counter < step_number %}bg-accent-fill{% elif forloop.counter == step_number %}bg-gold{% else %}bg-track{% endif %}"></div>
+          <span class="hidden text-xs sm:block {% if forloop.counter == step_number %}font-semibold text-fg{% elif forloop.counter < step_number %}text-muted{% else %}text-faint{% endif %}" {% if forloop.counter == step_number %}aria-current="step"{% endif %}>{% if forloop.counter < step_number %}<span class="sr-only">Completed: </span>{% endif %}{{ label }}</span>
+        </li>
+        {% endfor %}
+      </ol>
+    </nav>
+    <div class="animate-enter">{% block content %}{% endblock %}</div>
+  </main>
+</div>
+{% endblock %}

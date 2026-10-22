@@ -1,0 +1,9 @@
+{% extends "emails/base.html" %}
+{% block preheader %}{{ notification.body|default:notification.title }}{% endblock %}
+{% block eyebrow %}Account update{% endblock %}
+{% block heading %}{{ notification.title }}{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }},</p>
+{% if notification.body %}<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">{{ notification.body }}</p>{% endif %}
+{% include "emails/_button.html" with url=action_url label="Open SkillForge" %}
+{% endblock %}

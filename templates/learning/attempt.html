@@ -1,0 +1,10 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Feedback · {{ version.title }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted">
+  <a href="{% url 'learning:history' %}" class="hover:text-fg">History</a>{% icon "chevron-right" "size-3.5 text-faint" %}
+  <span class="text-fg">{{ version.title }}</span>
+</nav>
+{% include "learning/partials/_attempt_result.html" %}
+{% endblock %}

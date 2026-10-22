@@ -1,0 +1,279 @@
+paths:
+  - slug: python-craftsman
+    name: Python Craftsman
+    tagline: Write Python that is idiomatic, robust and fast.
+    goal_type: python
+    default: true
+    premium: false
+    icon: file-code-2
+    order: 1
+    version_notes: Initial curriculum.
+    description: |
+      A practical route from "it works" to "it's well made". You'll sharpen the
+      everyday tools — data structures, functions, comprehensions — then move on
+      to the features that separate competent Python from great Python:
+      generators, decorators, context managers, typing and async.
+    milestones:
+      - title: Idiomatic foundations
+        description: The building blocks you use in every file you write.
+        steps:
+          - py-data-structures
+          - py-functions
+          - py-comprehensions
+          - py-oop-dataclasses
+      - title: Functions as power tools
+        description: Closures, lazy iteration and decorators.
+        steps:
+          - py-closures-scope
+          - py-iterators-generators
+          - py-decorators
+      - title: Robust code
+        description: Fail clearly, clean up reliably and prove it with tests.
+        steps:
+          - py-exceptions
+          - py-context-managers
+          - py-testing-pytest
+      - title: Types, concurrency & speed
+        description: Advanced techniques for larger, faster codebases.
+        steps:
+          - skill: py-typing
+            target: 0.75
+          - skill: py-asyncio
+            target: 0.75
+          - skill: py-performance
+            target: 0.75
+
+  - slug: django-backend-engineer
+    name: Django Backend Engineer
+    tagline: Build Django backends that are correct, fast and secure.
+    goal_type: django
+    default: true
+    premium: false
+    icon: server
+    order: 2
+    version_notes: Initial curriculum.
+    description: |
+      From models and views to transactions, query optimisation and security.
+      This path is built around the problems that actually bite production
+      Django apps: N+1 queries, race conditions, missing permission checks and
+      background jobs that run twice.
+    milestones:
+      - title: Python for Django
+        description: The Python features Django leans on most.
+        steps:
+          - py-functions
+          - py-oop-dataclasses
+      - title: Core Django
+        description: Request in, response out — models, views, forms and HTTP.
+        steps:
+          - dj-models-orm
+          - dj-views-urls
+          - dj-forms-validation
+          - http-api-design
+      - title: Data & performance
+        description: Make the database work for you instead of against you.
+        steps:
+          - sql-joins
+          - dj-query-optimization
+          - sql-indexes
+          - dj-migrations
+      - title: Production backend
+        description: Security, integrity and work that happens outside the request.
+        steps:
+          - dj-auth-permissions
+          - skill: dj-transactions
+            target: 0.75
+          - dj-security
+          - caching-strategies
+          - skill: background-jobs
+            target: 0.75
+
+  - slug: interview-fundamentals
+    name: Technical Interview Fundamentals
+    tagline: Core patterns and clear thinking for coding interviews.
+    goal_type: interviews
+    default: true
+    premium: false
+    icon: briefcase
+    order: 3
+    version_notes: Initial curriculum.
+    description: |
+      Interviews reward recognising patterns and explaining your reasoning.
+      This path builds both: complexity analysis, the handful of patterns that
+      cover most coding questions, a first look at system design, and talking
+      through trade-offs out loud.
+    milestones:
+      - title: Complexity & core structures
+        description: Reason about cost before you write code.
+        steps:
+          - algo-complexity
+          - py-data-structures
+          - algo-hashing
+      - title: Problem-solving patterns
+        description: Two pointers, binary search and recursion.
+        steps:
+          - algo-two-pointers
+          - algo-binary-search
+          - algo-recursion
+      - title: Graphs & design basics
+        description: Traversals and your first system design conversation.
+        steps:
+          - algo-graphs
+          - http-api-design
+          - sd-scalability
+      - title: Talking it through
+        description: Explain decisions the way interviewers want to hear them.
+        steps:
+          - comm-explaining-tradeoffs
+
+  - slug: ai-llm-engineer
+    name: AI & LLM Engineer
+    tagline: Ship LLM features that are reliable, measurable and safe.
+    goal_type: ai
+    default: true
+    premium: false
+    icon: brain-circuit
+    order: 4
+    version_notes: Initial curriculum.
+    description: |
+      Vendor-neutral foundations for building on large language models:
+      tokens and context, prompt design, structured output you can trust,
+      retrieval, evaluation and tool use. The emphasis is engineering —
+      validation, failure handling and measurement — not prompt folklore.
+    milestones:
+      - title: Python essentials for AI work
+        description: Data handling and functions you'll use constantly.
+        steps:
+          - py-data-structures
+          - py-functions
+      - title: How LLMs behave
+        description: Tokens, context windows and prompts.
+        steps:
+          - llm-fundamentals
+          - llm-prompting
+      - title: Reliable outputs
+        description: Turn free text into data your code can trust.
+        steps:
+          - llm-structured-output
+      - title: Retrieval & evaluation
+        description: Ground answers in your data and measure quality.
+        steps:
+          - llm-rag
+          - skill: llm-evaluation
+            target: 0.75
+      - title: Tools & agents
+        description: Let models act — safely.
+        steps:
+          - skill: llm-tool-use
+            target: 0.75
+
+  - slug: system-design-foundations
+    name: System Design Foundations
+    tagline: Reason about scale, failure and trade-offs with confidence.
+    goal_type: system_design
+    default: true
+    premium: false
+    icon: network
+    order: 5
+    version_notes: Initial curriculum.
+    description: |
+      Learn the building blocks behind scalable systems — statelessness,
+      caching, load balancing, rate limiting, replication and partitioning —
+      and how to explain the trade-offs behind every choice.
+    milestones:
+      - title: Building blocks
+        description: APIs, horizontal scaling and caching.
+        steps:
+          - http-api-design
+          - sd-scalability
+          - caching-strategies
+      - title: Handling traffic
+        description: Spread load and protect your services.
+        steps:
+          - sd-load-balancing
+          - sd-rate-limiting
+      - title: Data at scale
+        description: Indexes, replication, partitioning and consistency.
+        steps:
+          - sql-joins
+          - sql-indexes
+          - skill: sd-data-partitioning
+            target: 0.75
+          - skill: sd-consistency
+            target: 0.75
+      - title: Communicating designs
+        description: Make your reasoning legible to others.
+        steps:
+          - comm-explaining-tradeoffs
+
+  - slug: technical-communication
+    name: Technical Communication
+    tagline: Write and speak about technical work with clarity.
+    goal_type: communication
+    default: true
+    premium: false
+    icon: message-circle-more
+    order: 6
+    version_notes: Initial curriculum.
+    description: |
+      Great engineers make their work easy to understand. Practise writing
+      pull request descriptions reviewers love, giving feedback that improves
+      code without bruising people, explaining trade-offs and communicating
+      calmly during incidents.
+    milestones:
+      - title: Writing about code
+        description: PR descriptions and review comments.
+        steps:
+          - comm-pr-descriptions
+          - comm-code-review-feedback
+      - title: Explaining decisions
+        description: Trade-offs and incident updates.
+        steps:
+          - comm-explaining-tradeoffs
+          - comm-incident-updates
+
+  - slug: interview-sprint
+    name: Interview Sprint
+    tagline: An intensive, deeper path for senior-level interview loops.
+    goal_type: interviews
+    default: false
+    premium: true
+    icon: zap
+    order: 7
+    version_notes: Initial curriculum.
+    description: |
+      For engineers with interviews on the calendar: harder algorithm
+      patterns, Python depth questions and a full system design round,
+      finished with communication under pressure. Part of the Pro and
+      Interview Preparation plans.
+    milestones:
+      - title: Algorithms under pressure
+        description: The patterns behind most medium and hard questions.
+        steps:
+          - skill: algo-two-pointers
+            target: 0.8
+          - skill: algo-binary-search
+            target: 0.8
+          - skill: algo-recursion
+            target: 0.8
+          - skill: algo-graphs
+            target: 0.8
+      - title: Python depth
+        description: The language questions senior candidates get.
+        steps:
+          - py-closures-scope
+          - py-iterators-generators
+          - py-decorators
+      - title: The system design round
+        description: Scale, data and resilience.
+        steps:
+          - sd-scalability
+          - sd-load-balancing
+          - sd-data-partitioning
+          - sd-consistency
+          - sd-rate-limiting
+      - title: Behavioural & communication
+        description: Explain trade-offs and handle "tell me about an incident".
+        steps:
+          - comm-explaining-tradeoffs
+          - comm-incident-updates

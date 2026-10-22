@@ -1,0 +1,1 @@
+{% autoescape off %}{{ data.count }} skill{{ data.count|pluralize }} ready for review{% if data.skills %}: {{ data.skills.0.name }}{% if data.count > 1 %} and more{% endif %}{% endif %}{% endautoescape %}

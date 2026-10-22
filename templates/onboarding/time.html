@@ -1,0 +1,26 @@
+{% extends "onboarding/_layout.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="text-display-lg">How much time do you have each day?</h1>
+<p class="mt-3 text-muted">Consistency beats intensity. Your daily plan will fit this budget, and you can always practise more.</p>
+<form method="post" class="mt-8" novalidate>
+  {% csrf_token %}
+  <fieldset>
+    <legend class="sr-only">Daily practice time</legend>
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {% for value, label in form.fields.daily_minutes.choices %}
+      <label class="option-card flex-col items-center py-6 text-center" for="minutes-{{ value }}">
+        <input type="radio" name="daily_minutes" id="minutes-{{ value }}" value="{{ value }}" {% if form.daily_minutes.value|stringformat:"s" == value|stringformat:"s" %}checked{% endif %}>
+        <span class="font-display text-[2rem] leading-none">{{ value }}</span>
+        <span class="text-xs text-muted">minutes</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% if form.daily_minutes.errors %}<p class="field-error mt-3" role="alert">Choose how much time you have.</p>{% endif %}
+  <div class="mt-8 flex items-center justify-between">
+    <a href="{% url 'onboarding:step' 'experience' %}" class="btn btn-ghost">{% icon "arrow-left" "size-4" %} Back</a>
+    <button type="submit" class="btn btn-primary btn-lg">Continue {% icon "arrow-right" "size-4" %}</button>
+  </div>
+</form>
+{% endblock %}

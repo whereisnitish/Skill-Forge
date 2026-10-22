@@ -1,0 +1,7 @@
+{% load ui %}
+<div class="theme-switch inline-flex items-center gap-0.5 rounded-[0.6rem] border border-line bg-surface p-0.5" role="group" aria-label="Colour theme">
+  {% url 'accounts_settings:theme' as theme_url %}
+  <button type="button" class="btn btn-ghost btn-sm btn-icon" data-theme-set="light" data-theme-url="{{ theme_url }}" aria-pressed="{% if theme == 'light' %}true{% else %}false{% endif %}" aria-label="Light theme" title="Light theme">{% icon "sun" "size-4" %}</button>
+  <button type="button" class="btn btn-ghost btn-sm btn-icon" data-theme-set="dark" data-theme-url="{{ theme_url }}" aria-pressed="{% if theme == 'dark' %}true{% else %}false{% endif %}" aria-label="Dark theme" title="Dark theme">{% icon "moon" "size-4" %}</button>
+  <button type="button" class="btn btn-ghost btn-sm btn-icon" data-theme-set="system" data-theme-url="{{ theme_url }}" aria-pressed="{% if theme == 'system' %}true{% else %}false{% endif %}" aria-label="Match system theme" title="Match system">{% icon "monitor" "size-4" %}</button>
+</div>

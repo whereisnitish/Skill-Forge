@@ -1,0 +1,35 @@
+{% load ui %}
+<p class="mb-4 text-sm text-muted">{{ result_count }} skill{{ result_count|pluralize }}</p>
+{% if view_mode == "map" and map.nodes %}
+<div class="hidden md:block">
+  <div class="card overflow-auto p-3" style="max-height: 72vh">
+    <svg class="skill-map" width="{{ map.width }}" height="{{ map.height }}" viewBox="0 0 {{ map.width }} {{ map.height }}" role="group" aria-label="Skill prerequisite map. Each arrow points from a prerequisite to the skill it unlocks.">
+      <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--sf-border-strong)" /></marker></defs>
+      {% for edge in map.edges %}<path class="skill-edge" d="{{ edge.d }}" data-edge-from="{{ edge.source }}" data-edge-to="{{ edge.target }}" marker-end="url(#arrow)" {% if not edge.required %}stroke-dasharray="5 5"{% endif %} />{% endfor %}
+      {% for node in map.nodes %}
+      <a href="{% url 'catalog:skill_detail' node.slug %}" class="skill-node {% if node.level == 'proficient' or node.level == 'mastered' %}is-strong{% elif node.measured %}is-progress{% elif node.ready %}is-ready{% else %}is-locked{% endif %}" data-skill="{{ node.id }}" aria-label="{{ node.name }}: {% if node.measured %}{{ node.percent }}% estimated mastery{% elif node.ready %}ready to learn{% else %}needs prerequisites{% endif %}">
+        <rect class="node-box" x="{{ node.x }}" y="{{ node.y }}" width="{{ map.node_w }}" height="{{ map.node_h }}" rx="10" stroke-width="1.25" {% if not node.ready and not node.measured %}stroke-dasharray="4 3"{% endif %} />
+        <text x="{{ node.x|add:12 }}" y="{{ node.y|add:21 }}" font-size="12.5" font-weight="600">{{ node.name|truncatechars:24 }}</text>
+        <text class="node-sub" x="{{ node.x|add:12 }}" y="{{ node.y|add:36 }}" font-size="10.5">{% if node.measured %}{{ node.percent }}% · {{ node.level|humanize_code }}{% elif node.ready %}Ready{% else %}Locked{% endif %}</text>
+        <rect class="node-bar-track" x="{{ node.x|add:12 }}" y="{{ node.y|add:42 }}" width="160" height="3" rx="1.5" />
+        {% if node.measured %}<rect class="node-bar" x="{{ node.x|add:12 }}" y="{{ node.y|add:42 }}" width="{{ node.bar_width|floatformat:0 }}" height="3" rx="1.5" />{% endif %}
+      </a>
+      {% endfor %}
+    </svg>
+  </div>
+  <div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-muted">
+    <span class="flex items-center gap-2"><span class="map-swatch is-locked" aria-hidden="true"></span>Locked — prerequisites not ready</span>
+    <span class="flex items-center gap-2"><span class="map-swatch is-ready" aria-hidden="true"></span>Ready to learn</span>
+    <span class="flex items-center gap-2"><span class="map-swatch is-progress" aria-hidden="true"></span>In progress</span>
+    <span class="flex items-center gap-2"><span class="map-swatch is-strong" aria-hidden="true"></span>Proficient or mastered</span>
+  </div>
+  <p class="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-xs text-faint"><span>Solid arrow: required prerequisite</span><span>Dashed arrow: recommended</span><span>Hover or focus a skill to highlight its connections.</span></p>
+</div>
+<p class="mb-4 flex gap-2 rounded-[var(--radius-panel)] border border-line bg-surface p-3 text-sm text-muted md:hidden">{% icon "info" "size-4 mt-0.5 flex-none text-faint" %} The map needs a wider screen — here's the same information as a list.</p>
+<div class="md:hidden">{% include "catalog/partials/_skill_cards.html" with items=rows %}</div>
+{% elif page.object_list %}
+{% include "catalog/partials/_skill_cards.html" with items=page.object_list %}
+{% include "components/pagination.html" with hx_target="#skill-results" %}
+{% else %}
+{% include "components/empty_state.html" with icon="search-x" title="No skills match" body="Try a different search or clear a filter." %}
+{% endif %}

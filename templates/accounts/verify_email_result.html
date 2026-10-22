@@ -1,0 +1,19 @@
+{% extends "layouts/auth.html" %}
+{% load ui %}
+{% block title %}Email verification{% endblock %}
+{% block content %}
+{% if status == "verified" %}
+<span class="grid size-12 place-items-center rounded-2xl bg-success-soft text-success animate-pop">{% icon "circle-check" "size-6" %}</span>
+<h1 class="page-title mt-5">Email verified</h1>
+<p class="mt-3 text-muted">Thanks! Your email address is confirmed.</p>
+{% elif status == "already" %}
+<span class="grid size-12 place-items-center rounded-2xl bg-info-soft text-info">{% icon "badge-check" "size-6" %}</span>
+<h1 class="page-title mt-5">Already verified</h1>
+<p class="mt-3 text-muted">This email address was verified earlier — nothing more to do.</p>
+{% else %}
+<span class="grid size-12 place-items-center rounded-2xl bg-danger-soft text-danger">{% icon "link-2-off" "size-6" %}</span>
+<h1 class="page-title mt-5">This link isn't valid</h1>
+<p class="mt-3 text-muted">The verification link is invalid or has expired. You can request a new one from Settings.</p>
+{% endif %}
+<a href="{% if user.is_authenticated %}{% url 'learning:today' %}{% else %}{% url 'accounts:login' %}{% endif %}" class="btn btn-primary mt-8 w-fit">Continue</a>
+{% endblock %}

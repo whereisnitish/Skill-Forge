@@ -1,0 +1,28 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}Pricing{% endblock %}
+{% block description %}SkillForge is free to start. Pro adds unlimited graded practice, advanced analytics, premium paths and more AI mentor requests.{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="Pricing" heading="Simple plans. Cancel any time." lede="The core adaptive loop is free. Paid plans add volume, depth and premium paths." %}
+<div class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+  {% include "marketing/_pricing_cards.html" %}
+
+  <section class="mx-auto mt-20 max-w-4xl" aria-labelledby="compare">
+    <h2 id="compare" class="page-title text-center">Compare plans</h2>
+    <div class="card mt-8 overflow-x-auto">
+      <table class="table min-w-[36rem]">
+        <caption class="sr-only">Plan comparison</caption>
+        <thead><tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col">Pro</th><th scope="col">Interview</th></tr></thead>
+        <tbody>
+          <tr><th scope="row" class="font-medium normal-case tracking-normal text-fg">Adaptive daily plan &amp; reviews</th><td>{% icon "check" "size-4 text-success" "Included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td></tr>
+          <tr><th scope="row" class="font-medium normal-case tracking-normal text-fg">Graded submissions per day</th><td>8</td><td>Unlimited</td><td>Unlimited</td></tr>
+          <tr><th scope="row" class="font-medium normal-case tracking-normal text-fg">AI mentor requests per day*</th><td>5</td><td>60</td><td>120</td></tr>
+          <tr><th scope="row" class="font-medium normal-case tracking-normal text-fg">Advanced analytics</th><td>{% icon "minus" "size-4 text-faint" "Not included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td></tr>
+          <tr><th scope="row" class="font-medium normal-case tracking-normal text-fg">Premium paths (Interview Sprint)</th><td>{% icon "minus" "size-4 text-faint" "Not included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td><td>{% icon "check" "size-4 text-success" "Included" %}</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-3 text-xs text-faint">* When the AI mentor is enabled for your deployment. Curated guidance is always available.</p>
+  </section>
+</div>
+{% endblock %}

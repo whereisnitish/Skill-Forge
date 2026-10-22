@@ -1,0 +1,20 @@
+{% extends "emails/base.html" %}
+{% block preheader %}{{ message.message|truncatechars:120 }}{% endblock %}
+{% block eyebrow %}Contact form · {{ message.get_topic_display }}{% endblock %}
+{% block heading %}New message from {{ message.name }}{% endblock %}
+{% block content %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px;font-size:14px;line-height:20px;">
+  <tr><td class="muted" width="110" style="padding:6px 0;color:#6a5d4f;">From</td><td class="fg" style="padding:6px 0;color:#382b24;font-weight:600;">{{ message.name }} &lt;<a href="mailto:{{ message.email }}" style="color:#173d32;">{{ message.email }}</a>&gt;</td></tr>
+  <tr><td class="muted" style="padding:6px 0;color:#6a5d4f;">Topic</td><td class="fg" style="padding:6px 0;color:#382b24;">{{ message.get_topic_display }}</td></tr>
+  <tr><td class="muted" style="padding:6px 0;color:#6a5d4f;">Account</td><td class="fg" style="padding:6px 0;color:#382b24;">{% if message.user %}{{ message.user.email }} (signed in){% else %}Not signed in{% endif %}</td></tr>
+  <tr><td class="muted" style="padding:6px 0;color:#6a5d4f;">Received</td><td class="fg" style="padding:6px 0;color:#382b24;">{{ message.created_at|date:"j M Y, H:i e" }}</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="panel body" style="background-color:#fbf7ef;border:1px solid #e8ddc9;border-radius:12px;padding:16px 18px;font-size:14px;line-height:22px;color:#4a3d33;white-space:pre-wrap;">{{ message.message }}</td>
+  </tr>
+</table>
+<p class="body" style="margin:18px 0 0;font-size:14px;line-height:21px;color:#4a3d33;">Reply to this email to respond — your reply goes straight to {{ message.email }}.</p>
+{% include "emails/_button.html" with url=admin_url label="Open in admin" %}
+{% endblock %}
+{% block footer_reason %}Internal notification: someone submitted the contact form on {{ SITE_URL }}. Sent to {{ SUPPORT_EMAIL }}.{% endblock %}

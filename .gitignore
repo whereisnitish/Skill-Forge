@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Django
+db.sqlite3
+test-db.sqlite3
+staticfiles/
+media/
+celerybeat-schedule*
+
+# Frontend build output (built by `npm run build` / Docker)
+node_modules/
+static/dist/
+
+# Environment & secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test artefacts
+test-results/
+playwright-report/
+email-previews/

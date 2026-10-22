@@ -1,0 +1,17 @@
+{% extends "emails/base.html" %}
+{% block preheader %}Update your payment method to keep your {{ data.plan|default:"SkillForge" }} plan active.{% endblock %}
+{% block eyebrow %}Billing{% endblock %}
+{% block heading %}We couldn't process your payment{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }},</p>
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">We weren't able to collect the latest payment for your <strong class="fg" style="color:#382b24;">{{ data.plan|default:"paid" }}</strong> plan. Our payment provider will retry automatically, but the quickest fix is to update your payment method.</p>
+{% include "emails/_button.html" with url=action_url label="Update payment method" %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px;">
+  <tr>
+    <td class="panel" style="background-color:#fbf7ef;border:1px solid #e8ddc9;border-radius:12px;padding:14px 18px;">
+      <p class="body" style="margin:0;font-size:14px;line-height:21px;color:#5e5144;">Your goals, history and progress are safe whatever happens to your plan. If the payment can't be collected, your account moves to the Free plan — nothing is deleted.</p>
+    </td>
+  </tr>
+</table>
+{% endblock %}
+{% block footer_reason %}You're receiving this important billing notice because of a paid plan on your SkillForge account.{% endblock %}

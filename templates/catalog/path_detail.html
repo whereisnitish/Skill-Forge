@@ -1,0 +1,58 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}{{ path.name }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex items-center gap-2 text-sm text-muted"><a href="{% url 'catalog:paths' %}" class="transition-colors hover:text-fg">Learning paths</a>{% icon "chevron-right" "size-3.5 text-faint" %}<span class="truncate text-fg" aria-current="page">{{ path.name }}</span></nav>
+<header class="flex flex-col gap-6 border-b border-line pb-7 md:flex-row md:items-end md:justify-between">
+  <div class="flex gap-5">
+    <span class="icon-chip size-14 rounded-xl">{% icon path.icon "size-6" %}</span>
+    <div>
+      <h1 class="page-title">{{ path.name }}</h1>
+      <p class="mt-1.5 text-muted">{{ path.tagline }}</p>
+      <p class="mt-2 text-xs text-faint">Showing version {{ version.number }}{% if goal %} — the version your goal follows{% endif %}.</p>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-2">
+    {% if goal %}<a href="{% url 'learning:goal_detail' goal.pk %}" class="btn btn-primary">Open your goal {% icon "arrow-right" "size-4" %}</a>
+    {% elif locked %}<a href="{% url 'billing:index' %}" class="btn btn-primary">{% icon "lock" "size-4" %} Available on Pro</a>
+    {% else %}<a href="{% url 'learning:goal_create' %}?path={{ path.slug }}" class="btn btn-primary">Enrol in this path</a>{% endif %}
+  </div>
+</header>
+{% if newer_version %}<p class="mt-6 flex gap-2 rounded-[var(--radius-panel)] border border-info/30 bg-info-soft p-4 text-sm">{% icon "info" "size-4 mt-0.5 flex-none text-info" %} A newer version (v{{ path.current_version.number }}) is available — you can switch from your goal page.</p>{% endif %}
+
+<div class="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem]">
+  <section aria-labelledby="ms-heading" class="order-2 lg:order-1">
+    <h2 id="ms-heading" class="section-title">Milestones</h2>
+    <ol class="timeline mt-5 space-y-5 pl-7 sm:pl-9">
+      {% for m in progress.milestones %}
+      <li class="relative">
+        <span class="timeline-dot top-5 -left-[2.53rem] sm:-left-[3.03rem] {% if m.complete %}is-done{% elif forloop.counter0 == progress.current_index %}is-current{% endif %}">{% if m.complete %}{% icon "check" "size-3.5" "Complete" %}{% else %}{{ m.order }}{% endif %}</span>
+        <div class="card card-pad {% if forloop.counter0 == progress.current_index and not m.complete %}border-accent/40{% endif %}">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="card-title">{{ m.title }}</h3>
+            <span class="text-xs font-medium tabular-nums {% if m.complete %}text-gold-text{% else %}text-muted{% endif %}">{{ m.completed_steps }} of {{ m.steps|length }} at target</span>
+          </div>
+          {% if m.description %}<p class="mt-1.5 text-sm text-muted">{{ m.description }}</p>{% endif %}
+          <ul class="mt-4 grid gap-2 sm:grid-cols-2">
+            {% for step in m.steps %}
+            <li><a href="{% url 'catalog:skill_detail' step.skill_slug %}" class="flex items-center justify-between gap-2 rounded-[var(--radius-panel)] border border-line bg-canvas/40 p-3 text-sm transition-colors hover:border-line-strong hover:bg-surface-2">
+              <span class="flex min-w-0 items-center gap-2">{% if step.complete %}{% icon "circle-check" "size-4 flex-none text-success" "At target" %}{% elif not step.ready %}{% icon "lock" "size-4 flex-none text-faint" "Needs prerequisites" %}{% else %}{% icon "circle-dashed" "size-4 flex-none text-accent-text" "Not yet" %}{% endif %}<span class="truncate">{{ step.skill_name }}</span></span>
+              <span class="flex-none text-xs text-faint">target {{ step.target|percent }}</span></a></li>
+            {% endfor %}
+          </ul>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  <aside class="order-1 space-y-5 lg:order-2">
+    <section class="card card-pad" aria-labelledby="pp-heading">
+      <h2 id="pp-heading" class="section-title">Your progress</h2>
+      <p class="mt-1 text-sm text-muted"><span class="font-semibold tabular-nums text-fg">{{ progress.completed_steps }}</span> of {{ progress.total_steps }} skills at target</p>
+      {% if progress.total_steps %}<div class="progress mt-4" role="progressbar" aria-label="Path progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% widthratio progress.fraction 1 100 %}"><div class="progress-bar {% if progress.complete %}is-gold{% endif %}" style="width: {{ progress.fraction|pct_width }}"></div></div>
+      <p class="mt-2 text-xs text-faint">The bar includes partial progress towards each target.</p>{% endif %}
+    </section>
+    {% if path.description %}<section class="card card-pad" aria-label="About this path"><div class="prose-sf max-w-none text-sm">{{ path.description|markdown }}</div></section>{% endif %}
+  </aside>
+</div>
+{% endblock %}

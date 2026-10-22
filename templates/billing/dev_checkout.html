@@ -1,0 +1,13 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Development checkout{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-lg">
+  <div class="flex gap-3 rounded-2xl border border-warning/50 bg-warning-soft p-4 text-sm" role="note">{% icon "flask-conical" "size-5 flex-none text-warning" %}<p><strong>Development only.</strong> This page simulates a plan change for local testing. No payment details are collected and no money moves. It does not exist in production.</p></div>
+  <div class="card card-pad mt-6">
+    <h1 class="page-title">Switch to {{ plan.name }}</h1>
+    <p class="mt-2 text-muted">{{ plan.tagline }}</p>
+    <form method="post" class="mt-6 flex flex-wrap gap-3">{% csrf_token %}<button type="submit" class="btn btn-primary">Activate {{ plan.name }} (dev)</button><a href="{% url 'billing:index' %}" class="btn btn-ghost">Cancel</a></form>
+  </div>
+</div>
+{% endblock %}

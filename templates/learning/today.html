@@ -1,0 +1,159 @@
+{% extends "layouts/app.html" %}
+{% load ui humanize %}
+{% block title %}Today{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between animate-enter">
+  <div class="min-w-0">
+    <p class="kicker">{% now "l j F" %}</p>
+    <h1 class="page-title mt-1.5">{{ d.greeting }}</h1>
+    {% if d.goal %}<p class="mt-2 text-muted">Working towards <a class="link" href="{% url 'learning:goal_detail' d.goal.pk %}">{{ d.goal.title }}</a>{% if d.goal.path %} · {{ d.goal.path.name }}{% endif %}</p>{% endif %}
+  </div>
+  <dl class="card grid grid-cols-2 divide-x divide-line py-3.5 sm:flex sm:w-fit">
+    <div class="flex items-center gap-3 px-4 sm:px-5" title="Longest streak: {{ d.longest_streak }} day{{ d.longest_streak|pluralize }}">
+      <span class="icon-chip size-9 {% if d.streak %}icon-chip-gold{% else %}bg-surface-2 text-faint{% endif %}">{% icon "flame" "size-[1.1rem]" %}</span>
+      <div><dt class="text-xs text-muted">Day streak</dt><dd class="text-lg font-semibold leading-tight tabular-nums">{{ d.streak }}</dd></div>
+    </div>
+    <div class="flex items-center gap-3 px-4 sm:px-5 {% if d.plan.session %}max-sm:border-e-0{% endif %}">
+      <span class="icon-chip size-9">{% icon "clock" "size-[1.1rem]" %}</span>
+      <div><dt class="text-xs text-muted">This week</dt><dd class="text-lg font-semibold leading-tight tabular-nums">{{ d.week_minutes }} <span class="text-sm font-medium text-muted">min</span></dd></div>
+    </div>
+    {% if d.plan.session %}
+    <div class="col-span-2 mt-3 border-t border-line px-4 pt-3 sm:col-span-1 sm:mt-0 sm:min-w-[11rem] sm:border-t-0 sm:px-5 sm:pt-0">
+      <dt class="flex items-center justify-between gap-3 text-xs text-muted"><span>Daily goal</span><span class="tabular-nums">{{ d.plan.minutes_used }} / {{ d.plan.minutes_budget }} min</span></dt>
+      <dd class="mt-2"><div class="progress progress-thin" role="progressbar" aria-label="Daily goal" aria-valuemin="0" aria-valuemax="{{ d.plan.minutes_budget }}" aria-valuenow="{{ d.plan.minutes_used }}"><div class="progress-bar {% if d.plan.is_complete %}is-gold{% endif %}" style="width: {{ d.plan.progress|pct_width }}"></div></div></dd>
+    </div>
+    {% endif %}
+  </dl>
+</header>
+
+<div class="mt-8 grid gap-6 lg:grid-cols-3">
+  <div class="space-y-6 lg:col-span-2">
+    <div class="animate-enter animate-enter-delay-1">{% include "learning/partials/_current_challenge.html" with plan=d.plan %}</div>
+
+    {% if d.plan.session %}
+    <section class="card card-pad animate-enter animate-enter-delay-2" aria-labelledby="plan-progress">
+      <div class="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 id="plan-progress" class="section-title">Today's plan</h2>
+        <span class="text-sm text-muted"><span class="font-semibold tabular-nums text-fg">{{ d.plan.minutes_used }}</span> of {{ d.plan.minutes_budget }} minutes</span>
+      </div>
+      <div class="progress mt-4" role="progressbar" aria-label="Daily plan progress" aria-valuemin="0" aria-valuemax="{{ d.plan.minutes_budget }}" aria-valuenow="{{ d.plan.minutes_used }}"><div class="progress-bar {% if d.plan.is_complete %}is-gold{% endif %}" style="width: {{ d.plan.progress|pct_width }}"></div></div>
+      {% if d.plan.completed %}
+      <ul class="mt-4 divide-y divide-line">
+        {% for rec in d.plan.completed %}
+        <li class="flex items-center justify-between gap-3 py-3 text-sm">
+          <span class="flex min-w-0 items-center gap-2.5">{% icon "circle-check" "size-4 flex-none text-success" "Completed" %}<span class="truncate">{{ rec.challenge_version.title }}</span></span>
+          <span class="flex-none text-xs text-faint">{{ rec.challenge.estimated_minutes }} min</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="mt-4 text-sm text-muted">Complete challenges to fill today's {{ d.plan.minutes_budget }}-minute budget. Each pick is chosen after seeing your previous result.</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if not d.has_history %}
+    <section class="card card-pad" aria-labelledby="getting-started">
+      <h2 id="getting-started" class="section-title">Getting started</h2>
+      <p class="mt-1 text-sm text-muted">Your desk fills in with real progress as you practise.</p>
+      <ol class="mt-5 space-y-3.5 text-sm">
+        <li class="flex items-center gap-3">{% icon "circle-check" "size-5 text-success" "Done" %}<span>Choose a goal and learning path</span></li>
+        <li class="flex items-center gap-3">{% icon "circle" "size-5 text-faint" "To do" %}<span>Complete your first challenge</span></li>
+        <li class="flex items-center gap-3">{% icon "circle" "size-5 text-faint" "To do" %}<span>Come back tomorrow — your first reviews will be scheduled</span></li>
+        <li class="flex items-center gap-3">{% if user.is_email_verified %}{% icon "circle-check" "size-5 text-success" "Done" %}{% else %}{% icon "circle" "size-5 text-faint" "To do" %}{% endif %}<span>Verify your email to enable reminders</span></li>
+      </ol>
+    </section>
+    {% else %}
+    <div class="grid gap-6 md:grid-cols-2">
+      <section class="card card-pad" aria-labelledby="week-activity">
+        <h2 id="week-activity" class="section-title">This week</h2>
+        <p class="mt-1 text-sm text-muted">{{ d.week_attempts }} challenge{{ d.week_attempts|pluralize }} · {{ d.week_minutes }} min</p>
+        <div class="mt-6 flex h-32 items-stretch justify-between gap-2" aria-hidden="true">
+          {% for day in d.week %}
+          <div class="flex h-full flex-1 flex-col items-center gap-2" title="{{ day.day|date:'l' }}: {{ day.attempts }} challenge{{ day.attempts|pluralize }}">
+            <div class="flex w-full flex-1 items-end">
+              <div class="w-full rounded-[4px] {% if day.attempts %}{% if day.is_today %}bg-gold-strong{% else %}bg-accent-fill{% endif %}{% else %}bg-track{% endif %}" style="height: {% if day.attempts %}{{ day.height }}%{% else %}4%{% endif %}; min-height: 4%"></div>
+            </div>
+            <span class="text-[0.7rem] {% if day.is_today %}font-semibold text-fg{% else %}text-faint{% endif %}">{{ day.label }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        <table class="sr-only"><caption>Challenges per day this week</caption><tbody>{% for day in d.week %}<tr><th scope="row">{{ day.day|date:"l" }}</th><td>{{ day.attempts }} challenges, {{ day.minutes }} minutes</td></tr>{% endfor %}</tbody></table>
+      </section>
+      <section class="card card-pad" aria-labelledby="recent-progress">
+        <div class="flex items-baseline justify-between gap-3"><h2 id="recent-progress" class="section-title">Recent progress</h2><a href="{% url 'learning:history' %}" class="link text-sm">History</a></div>
+        <ul class="mt-4 divide-y divide-line">
+          {% for e in d.recent_evidence %}
+          <li>
+            <a href="{% url 'learning:attempt' e.attempt_id %}" class="-mx-2 flex items-center justify-between gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-surface-2">
+              <span class="min-w-0"><span class="block truncate text-sm font-medium">{{ e.skill.name }}</span><span class="block truncate text-xs text-faint">{{ e.attempt.challenge_version.title }}</span></span>
+              <span class="flex flex-none items-center gap-1.5 text-sm tabular-nums">
+                <span class="text-faint">{{ e.mastery_before|percent }}</span>{% icon "arrow-right" "size-3.5 text-faint" %}
+                <span class="font-semibold {% if e.mastery_after >= e.mastery_before %}text-success{% else %}text-danger{% endif %}">{{ e.mastery_after|percent }}<span class="sr-only">{% if e.mastery_after >= e.mastery_before %} (up){% else %} (down){% endif %}</span></span>
+              </span>
+            </a>
+          </li>
+          {% empty %}<li class="py-2 text-sm text-muted">Mastery changes appear here after evaluated attempts.</li>{% endfor %}
+        </ul>
+      </section>
+    </div>
+    {% endif %}
+  </div>
+
+  <aside class="card divide-y divide-line self-start animate-enter animate-enter-delay-2" aria-label="Reviews, path progress and achievements">
+    <section class="card-pad" aria-labelledby="due-reviews">
+      <div class="flex items-baseline justify-between gap-3"><h2 id="due-reviews" class="section-title">Up for review</h2><a href="{% url 'learning:reviews' %}" class="link text-sm">All reviews</a></div>
+      <ul class="mt-4 space-y-2">
+        {% for review in d.due_reviews %}
+        <li class="flex items-center justify-between gap-3 rounded-[var(--radius-panel)] border border-line bg-canvas/50 px-3 py-2.5">
+          <span class="flex min-w-0 items-center gap-2 text-sm">{% icon "rotate-ccw" "size-4 flex-none text-accent-text" %}<span class="truncate">{{ review.skill_name }}</span></span>
+          {% if review.overdue %}<span class="badge badge-warning">Due now</span>{% else %}<span class="badge badge-accent">Today</span>{% endif %}
+        </li>
+        {% empty %}
+        <li class="text-sm text-muted">{% if d.upcoming_reviews %}Nothing due today.{% else %}Reviews are scheduled after you practise a skill.{% endif %}</li>
+        {% endfor %}
+      </ul>
+      {% if d.upcoming_reviews %}
+      <p class="kicker mt-5">Coming up</p>
+      <ul class="mt-2 space-y-1.5 text-sm text-muted">
+        {% for review in d.upcoming_reviews|slice:":3" %}<li class="flex justify-between gap-2"><span class="truncate">{{ review.skill_name }}</span><span class="flex-none text-xs text-faint">{{ review.due_at|naturalday:"j M" }}</span></li>{% endfor %}
+      </ul>
+      {% endif %}
+    </section>
+
+    {% if d.progress %}
+    <section class="card-pad" aria-labelledby="path-progress">
+      <div class="flex items-baseline justify-between gap-3"><h2 id="path-progress" class="section-title">Path progress</h2><span class="text-sm font-semibold tabular-nums">{{ d.progress.fraction|percent }}</span></div>
+      <p class="mt-1 text-xs text-faint">{{ d.progress.completed_steps }} of {{ d.progress.total_steps }} skills at target · the bar includes partial progress</p>
+      <div class="progress mt-3" role="progressbar" aria-label="Path progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{% widthratio d.progress.fraction 1 100 %}"><div class="progress-bar {% if d.progress.complete %}is-gold{% endif %}" style="width: {{ d.progress.fraction|pct_width }}"></div></div>
+      {% if d.progress.current %}
+      <p class="kicker mt-6">Current milestone</p>
+      <p class="mt-0.5 font-display text-lg leading-snug">{{ d.progress.current.title }}</p>
+      <ul class="mt-3 space-y-3">
+        {% for step in d.progress.current.steps %}
+        <li class="text-sm">
+          <div class="flex items-center justify-between gap-2">
+            <a href="{% url 'learning:mastery_detail' step.skill_slug %}" class="flex min-w-0 items-center gap-2 transition-colors hover:text-accent-text">{% if step.complete %}{% icon "circle-check" "size-4 flex-none text-success" "At target" %}{% elif not step.ready %}{% icon "lock" "size-4 flex-none text-faint" "Needs prerequisites" %}{% else %}{% icon "circle-dashed" "size-4 flex-none text-accent-text" "In progress" %}{% endif %}<span class="truncate">{{ step.skill_name }}</span></a>
+            <span class="flex-none text-xs tabular-nums text-faint">{% if step.mastery.measured %}{{ step.mastery.percent }}%{% else %}—{% endif %}</span>
+          </div>
+          <div class="progress progress-thin mt-1.5"><div class="progress-bar {% if not step.complete %}is-info{% endif %}" style="width: {{ step.fraction|pct_width }}"></div></div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% elif d.progress.complete %}<p class="mt-4 text-sm text-gold-text">Every milestone is complete. Consider a new goal or a harder path.</p>{% endif %}
+    </section>
+    {% endif %}
+
+    <section class="card-pad" aria-labelledby="achievements">
+      <h2 id="achievements" class="section-title">Achievements</h2>
+      {% if d.achievements %}
+      <ul class="mt-4 space-y-3">
+        {% for earned, definition in d.achievements %}
+        <li class="flex items-center gap-3"><span class="icon-chip icon-chip-gold size-9">{% icon definition.icon "size-4" %}</span><span class="min-w-0"><span class="block truncate text-sm font-semibold">{{ definition.name }}</span><span class="block text-xs text-faint">{{ earned.earned_at|naturalday }}</span></span></li>
+        {% endfor %}
+      </ul>
+      {% else %}<p class="mt-2 text-sm text-muted">Earned from real progress — your first one comes with your first evaluated challenge.</p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

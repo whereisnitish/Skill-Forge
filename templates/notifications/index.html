@@ -1,0 +1,15 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-4 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between">
+  <div><h1 class="page-title">Notifications</h1><p class="mt-2 text-muted">Reminders, milestones and account updates. Email delivery follows your <a class="link" href="{% url 'accounts_settings:index' %}#notifications">notification settings</a>.</p></div>
+  {% if unread_notifications %}<form method="post" action="{% url 'notifications:read_all' %}" hx-post="{% url 'notifications:read_all' %}">{% csrf_token %}<button class="btn btn-secondary btn-sm" type="submit">{% icon "check-check" "size-4" %} Mark all as read</button></form>{% endif %}
+</header>
+<ul class="mt-7 {% if page.object_list %}card divide-y divide-line overflow-hidden{% endif %}">
+  {% for notification in page %}{% include "notifications/_item.html" %}{% empty %}
+  <li>{% include "components/empty_state.html" with icon="bell" title="You're all caught up" body="Notifications about reviews, milestones and your account will appear here." %}</li>
+  {% endfor %}
+</ul>
+{% include "components/pagination.html" %}
+{% endblock %}

@@ -1,0 +1,1 @@
+{% load ui %}{% if saved %}<p class="flex items-center gap-1.5 text-sm text-success animate-enter" role="status">{% icon "circle-check" "size-4" %} Saved</p>{% elif saved is False %}<p class="flex items-center gap-1.5 text-sm text-danger" role="alert">{% icon "circle-alert" "size-4" %} Please fix the errors above.</p>{% endif %}

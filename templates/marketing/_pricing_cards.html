@@ -1,0 +1,28 @@
+{% load ui %}
+<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+  {% for plan in plans %}
+  <article class="card card-pad flex flex-col {% if plan.highlighted %}card-feature{% endif %}">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="section-title text-[1.4rem]">{{ plan.name }}</h3>
+      {% if plan.highlighted %}<span class="badge badge-gold">Recommended</span>{% endif %}
+    </div>
+    <p class="mt-1 text-sm text-muted">{{ plan.tagline }}</p>
+    <p class="mt-6 flex items-baseline gap-1.5 border-t border-line pt-5"><span class="stat-value text-[2.6rem]">{{ plan.price }}</span><span class="text-sm text-muted">{{ plan.period }}</span></p>
+    <ul class="mt-5 flex-1 space-y-2.5 text-sm">
+      {% for feature in plan.features %}
+      <li class="flex gap-2.5"><span class="mt-0.5 text-success">{% icon "check" "size-4" %}</span><span class="text-muted">{{ feature }}</span></li>
+      {% endfor %}
+    </ul>
+    <div class="mt-6">
+      {% if plan.contact_sales %}
+        <a href="{% url 'marketing:contact' %}?topic=teams" class="btn btn-secondary w-full">Talk to us</a>
+      {% elif plan.code == "free" %}
+        <a href="{% url 'accounts:register' %}?plan=free" class="btn btn-secondary w-full">Start free</a>
+      {% else %}
+        <a href="{% url 'accounts:register' %}?plan={{ plan.code }}" class="btn {% if plan.highlighted %}btn-primary{% else %}btn-secondary{% endif %} w-full">Choose {{ plan.name }}</a>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+<p class="mt-4 text-center text-xs text-faint">Prices in USD. Paid plans are billed through our payment provider; your plan only changes once the provider confirms payment.</p>

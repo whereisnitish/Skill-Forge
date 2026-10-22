@@ -1,0 +1,33 @@
+{% extends "layouts/marketing.html" %}
+{% block title %}Privacy policy (draft){% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+  <h1 class="text-display-lg">Privacy policy</h1>
+  <p class="mt-2 text-sm text-faint">Draft version · last updated October 2026</p>
+  <div class="mt-8">{% include "marketing/_draft_notice.html" %}</div>
+  <div class="prose-sf">
+    <h2>What we collect</h2>
+    <ul>
+      <li><strong>Account data:</strong> your email address, an optional display name, a password hash (never the password itself) and your timezone.</li>
+      <li><strong>Learning data:</strong> your goals, preferences, challenge attempts and answers, evaluation results, mastery estimates, review schedules and achievements.</li>
+      <li><strong>Operational data:</strong> technical logs (request identifiers, timings, error types) used to keep the service running. Logs do not contain your answers or passwords.</li>
+      <li><strong>Payment data:</strong> if you buy a paid plan, payment details are handled by our payment provider. We store only identifiers and your subscription status.</li>
+      <li><strong>Messages you send us</strong> through the contact form.</li>
+    </ul>
+    <h2>How we use it</h2>
+    <p>To run your account, choose and evaluate your practice, show your progress, send the reminders you've switched on, process payments and provide support. We don't sell personal data.</p>
+    <h2>AI processing</h2>
+    <p>If the AI mentor is enabled and you ask it a question, the relevant challenge content, your answer to that challenge and its evaluation are sent to the configured AI provider to generate an explanation. We don't send your name or email address. When the AI mentor isn't used, nothing is sent to an AI provider.</p>
+    <h2>Cookies</h2>
+    <p>We use strictly necessary cookies for signing in (session) and security (CSRF protection), and a preference cookie that remembers your colour theme. We don't use advertising or cross-site tracking cookies.</p>
+    <h2>Email</h2>
+    <p>We send account emails (verification, password resets) and, only if you enable them, practice reminders and milestone emails. Every reminder includes a link to switch it off.</p>
+    <h2>Retention and deletion</h2>
+    <p>Your data is kept while your account exists. You can permanently delete your account and learning data at any time from Settings. Routine backups may retain deleted data for a limited period before they expire.</p>
+    <h2>Your rights</h2>
+    <p>Depending on where you live, you may have rights to access, correct, export or delete your data, or to object to certain processing. Contact us to make a request.</p>
+    <h2>Contact</h2>
+    <p>Email <a href="mailto:{{ SUPPORT_EMAIL }}">{{ SUPPORT_EMAIL }}</a> or use the <a href="{% url 'marketing:contact' %}?topic=privacy">contact form</a>.</p>
+  </div>
+</div>
+{% endblock %}

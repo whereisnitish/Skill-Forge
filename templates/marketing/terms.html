@@ -1,0 +1,33 @@
+{% extends "layouts/marketing.html" %}
+{% block title %}Terms of service (draft){% endblock %}
+{% block content %}
+<div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+  <h1 class="text-display-lg">Terms of service</h1>
+  <p class="mt-2 text-sm text-faint">Draft version · last updated October 2026</p>
+  <div class="mt-8">{% include "marketing/_draft_notice.html" %}</div>
+  <div class="prose-sf">
+    <h2>Using SkillForge</h2>
+    <p>SkillForge provides adaptive practice for building skills. You need an account to use the app, and you're responsible for keeping your login details secure and for activity under your account.</p>
+    <h2>Acceptable use</h2>
+    <ul>
+      <li>Don't attempt to break, overload or bypass the security of the service — including the code execution sandbox.</li>
+      <li>Don't submit code or content intended to harm others or the service.</li>
+      <li>Don't scrape or redistribute the curriculum without permission.</li>
+    </ul>
+    <h2>Your content</h2>
+    <p>You keep ownership of the answers and code you submit. You allow us to store and process them to provide the service, including evaluation and, if you use it, the AI mentor.</p>
+    <h2>Evaluations, estimates and AI output</h2>
+    <p>Scores and mastery estimates are learning aids based on your activity on SkillForge. They are not certifications, qualifications or predictions of employment outcomes. AI mentor explanations may contain mistakes; use your judgement.</p>
+    <h2>Paid plans</h2>
+    <p>Paid plans renew automatically until cancelled. You can cancel at any time and keep paid features until the end of the current period. Prices and features may change with notice. Your plan changes only after our payment provider confirms payment.</p>
+    <h2>Availability</h2>
+    <p>We aim to keep SkillForge available and reliable but can't guarantee uninterrupted service. Some features (such as coding challenges or the AI mentor) depend on services that may be temporarily unavailable.</p>
+    <h2>Ending your account</h2>
+    <p>You can delete your account at any time from Settings. We may suspend accounts that break these terms.</p>
+    <h2>Liability and governing law</h2>
+    <p>To be completed following legal review.</p>
+    <h2>Contact</h2>
+    <p>Questions about these terms: <a href="mailto:{{ SUPPORT_EMAIL }}">{{ SUPPORT_EMAIL }}</a>.</p>
+  </div>
+</div>
+{% endblock %}

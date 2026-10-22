@@ -1,0 +1,4 @@
+<span class="inline-flex items-center gap-2 text-xs text-muted" title="Difficulty: {{ label }}">
+  <span class="difficulty-pips" aria-hidden="true">{% for on in pips %}<span{% if on %} class="is-on"{% endif %}></span>{% endfor %}</span>
+  {% if show_label %}<span>{{ label }}</span>{% else %}<span class="sr-only">Difficulty: {{ label }}</span>{% endif %}
+</span>

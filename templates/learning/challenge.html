@@ -1,0 +1,168 @@
+{% extends "layouts/app.html" %}
+{% load static ui %}
+{% block title %}{{ version.title }}{% endblock %}
+{% block scripts %}{% if challenge.kind == "python_code" %}<script src="{% static 'dist/editor.js' %}" defer nonce="{{ csp_nonce }}"></script>{% endif %}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex flex-wrap items-center gap-2 text-sm text-muted">
+  <a href="{% url 'learning:today' %}" class="transition-colors hover:text-fg">Today</a>{% icon "chevron-right" "size-3.5 text-faint" %}
+  <a href="{% url 'catalog:skill_detail' challenge.skill.slug %}" class="transition-colors hover:text-fg">{{ challenge.skill.name }}</a>{% icon "chevron-right" "size-3.5 text-faint" %}
+  <span class="max-w-full truncate text-fg" aria-current="page">{{ version.title }}</span>
+</nav>
+
+<header class="flex flex-col gap-6 border-b border-line pb-7 md:flex-row md:items-end md:justify-between animate-enter">
+  <div class="min-w-0">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="badge badge-accent">{% icon challenge.kind_icon "size-3.5" %} {{ challenge.get_kind_display }}</span>
+      {% if recommendation %}<span class="badge badge-neutral">{{ recommendation.reason_label }}</span>{% endif %}
+      {% if is_review_request %}<span class="badge badge-warning">{% icon "rotate-ccw" "size-3.5" %} Review</span>{% endif %}
+      {% if "interview" in challenge.tags %}<span class="badge badge-info">Interview-style</span>{% endif %}
+    </div>
+    <h1 class="page-title mt-4 text-balance">{{ version.title }}</h1>
+    <p class="mt-2.5 max-w-3xl text-muted"><span class="font-semibold text-fg">Objective:</span> {{ version.learning_objective }}</p>
+    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
+      <span class="flex items-center gap-1.5">{% icon "clock" "size-4 text-faint" %} About {{ challenge.estimated_minutes }} min</span>
+      {% difficulty challenge.difficulty %}
+      {% if previous_attempt %}<a href="{% url 'learning:attempt' previous_attempt.pk %}" class="flex items-center gap-1.5 transition-colors hover:text-fg">{% icon "history" "size-4 text-faint" %} Your last attempt</a>{% endif %}
+    </div>
+  </div>
+  <div class="card flex flex-none items-center gap-3 px-4 py-3">
+    {% mastery_ring mastery.mean 52 5 challenge.skill.name %}
+    <div><p class="text-xs text-muted">Your estimate · {{ challenge.skill.name }}</p><p class="text-sm font-semibold level-{{ mastery.level }}">{{ mastery.level_label }}</p><p class="text-xs text-faint">{{ mastery.confidence|title }} confidence</p></div>
+  </div>
+</header>
+
+{% if recommendation %}
+<div class="panel-note mt-6 flex items-start gap-3 px-4 py-3 text-sm">{% icon "lightbulb" "size-4 mt-0.5 flex-none text-gold-text" %}<p><span class="font-semibold text-fg">Why this challenge: </span><span class="text-muted">{{ recommendation.reason_text }}</span></p></div>
+{% endif %}
+
+<div class="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-8">
+  <div class="min-w-0 space-y-6">
+    <section class="card p-6 sm:p-8" aria-labelledby="prompt-heading">
+      <h2 id="prompt-heading" class="font-sans text-sm font-semibold text-gold-text">Instructions</h2>
+      <div class="prose-sf mt-3 max-w-none text-[1.0125rem]">{{ version.prompt|markdown }}</div>
+      {% if challenge.kind == "code_review" and content.code %}
+      <div class="mt-5"><p class="label mb-2">Code to review</p>{{ content.code|codeblock:content.language }}</div>
+      {% endif %}
+    </section>
+
+    {% if not can_evaluate %}
+    <div class="flex gap-3 rounded-[var(--radius-panel)] border border-warning/40 bg-warning-soft p-4 text-sm" role="status">
+      {% icon "server-off" "size-5 flex-none text-warning" %}
+      <div><p class="font-semibold text-fg">Code execution isn't available in this environment</p>
+        <p class="mt-1 text-muted">Coding challenges are graded by running your code against test cases in an isolated sandbox service, which isn't configured here. You can still write and save a draft and check your syntax; submissions are disabled so nothing is marked passed without being run.</p></div>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'learning:submit' challenge.slug %}" class="card space-y-5 p-6 sm:p-8" data-autosave-url="{% url 'learning:autosave' challenge.slug %}" novalidate>
+      {% csrf_token %}
+      {% if recommendation %}<input type="hidden" name="recommendation" value="{{ recommendation.pk }}">{% endif %}
+      {% if form_error %}<div class="flex gap-2 rounded-[var(--radius-panel)] border border-danger/40 bg-danger-soft p-3 text-sm text-danger" role="alert">{% icon "circle-alert" "size-4 mt-0.5 flex-none" %}<span>{{ form_error }}</span></div>{% endif %}
+
+      {% if challenge.kind == "multiple_choice" %}
+      <fieldset>
+        <legend class="mb-3 font-display text-lg">{% if content.multiple %}Select all that apply{% else %}Choose one answer{% endif %}</legend>
+        <div class="grid gap-2.5">
+          {% for option in content.options %}
+          <label class="option-card" for="opt-{{ option.id }}">
+            <input type="{% if content.multiple %}checkbox{% else %}radio{% endif %}" name="selected" id="opt-{{ option.id }}" value="{{ option.id }}" {% if option.id in selected %}checked{% endif %}>
+            <span class="option-mark" aria-hidden="true"></span>
+            <span class="prose-sf text-sm max-w-none">{{ option.text|markdown_inline }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      {% elif challenge.kind == "short_answer" %}
+      <div class="field">
+        <label for="answer" class="label">Your answer</label>
+        <input id="answer" name="answer" type="text" class="input font-mono" maxlength="300" autocomplete="off" placeholder="{{ content.placeholder|default:'Type your answer' }}" value="{{ response.answer|default:'' }}" data-autofocus>
+      </div>
+
+      {% elif challenge.kind == "concept_explanation" or challenge.kind == "code_review" %}
+      <div class="field">
+        <label for="text" class="label">{% if challenge.kind == "code_review" %}Your review{% else %}Your explanation{% endif %}</label>
+        <textarea id="text" name="text" rows="9" class="textarea" maxlength="6000" placeholder="{{ content.placeholder|default:'Explain in your own words…' }}" data-word-count="text-count" aria-describedby="text-help">{{ response.text|default:'' }}</textarea>
+        <p id="text-help" class="help flex flex-wrap justify-between gap-2"><span>{% if content.min_words %}Aim for at least {{ content.min_words }} words{% endif %}{% if content.max_words %} (max {{ content.max_words }}){% endif %}.</span><span id="text-count" aria-live="polite">0 words</span></p>
+      </div>
+      <p class="flex gap-2 text-xs text-faint">{% icon "info" "size-3.5 mt-px flex-none" %} Scored against a rubric of key ideas — it checks that the important points are present, not your writing style.</p>
+
+      {% elif challenge.kind == "debugging" %}
+      <fieldset>
+        <legend class="mb-3 font-display text-lg">Select the line that contains the defect</legend>
+        <div class="code-surface code-lines overflow-x-auto py-2" role="radiogroup" aria-label="Code lines">
+          {% for number, text in code_lines %}
+          <label class="code-line relative" for="line-{{ number }}">
+            <input type="radio" name="line" id="line-{{ number }}" value="{{ number }}" {% if response.line|stringformat:"s" == number|stringformat:"s" %}checked{% endif %}>
+            <span class="code-gutter">{{ number }}</span><span class="code-text">{{ text }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+      <div class="field">
+        <label for="explanation" class="label">What's wrong, and how would you fix it?</label>
+        <textarea id="explanation" name="explanation" rows="5" class="textarea" maxlength="6000" data-word-count="explanation-count" aria-describedby="explanation-help">{{ response.explanation|default:'' }}</textarea>
+        <p id="explanation-help" class="help flex justify-between gap-2"><span>Explain the bug and the fix.</span><span id="explanation-count" aria-live="polite">0 words</span></p>
+      </div>
+
+      {% elif challenge.kind == "python_code" %}
+      <div class="field">
+        <div class="flex items-center justify-between gap-2">
+          <label for="code" class="label">Your solution</label>
+          <span class="flex items-center gap-1.5 text-xs text-faint">{% icon "code-xml" "size-3.5" %} Python 3 · Tab indents</span>
+        </div>
+        <textarea id="code" name="code" rows="16" class="textarea font-mono text-sm" spellcheck="false" data-code-editor aria-label="Python code editor" aria-describedby="code-help">{% if response.code %}{{ response.code }}{% else %}{{ content.starter_code }}{% endif %}</textarea>
+        <p id="code-help" class="help">Your code runs against {{ visible_tests|length }} visible and {{ hidden_test_count }} hidden test{{ hidden_test_count|pluralize }} in an isolated sandbox.</p>
+      </div>
+      {% if visible_tests %}
+      <details class="panel-muted p-4">
+        <summary class="cursor-pointer text-sm font-semibold">Visible tests</summary>
+        <ul class="mt-3 space-y-3">{% for test in visible_tests %}<li><p class="text-sm">{{ test.name }}</p>{{ test.code|codeblock }}</li>{% endfor %}</ul>
+      </details>
+      {% endif %}
+      <div class="flex flex-wrap items-center gap-3">
+        <button type="button" class="btn btn-secondary btn-sm" hx-post="{% url 'learning:check_syntax' challenge.slug %}" hx-include="[name='code']" hx-target="#syntax-result">{% icon "scan-line" "size-4" %} Check syntax (no execution)</button>
+        <div id="syntax-result" aria-live="polite"></div>
+      </div>
+      {% endif %}
+
+      <div class="flex flex-col-reverse gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <p class="text-xs text-faint" data-autosave-status aria-live="polite">{% if draft and draft.response %}Draft restored from {{ draft.updated_at|date:"j M, H:i" }}{% else %}Your work is saved as a draft as you type.{% endif %}</p>
+        <button type="submit" class="btn btn-primary btn-lg" {% if not can_evaluate %}disabled aria-disabled="true"{% endif %}><span class="spinner" aria-hidden="true"></span>{% icon "send" "size-4 btn-icon-idle" %} Submit answer</button>
+      </div>
+      {% if submission_limit %}<p class="text-right text-xs text-faint">Free plan: {{ submission_limit }} graded submissions per day.</p>{% endif %}
+    </form>
+  </div>
+
+  <aside class="card divide-y divide-line self-start">
+    <section class="p-5 sm:p-6" aria-labelledby="hints-heading">
+      <h2 id="hints-heading" class="section-title flex items-center gap-2">{% icon "lightbulb" "size-4 text-gold-text" %} Hints</h2>
+      <div class="mt-3">{% include "learning/partials/_hints.html" %}</div>
+    </section>
+
+    <section class="p-5 sm:p-6" aria-labelledby="solution-heading">
+      <h2 id="solution-heading" class="section-title flex items-center gap-2">{% icon "eye" "size-4 text-faint" %} Solution</h2>
+      <div id="solution-region" class="mt-3">
+        {% if solution_revealed %}
+          {% include "learning/partials/_solution.html" %}
+        {% else %}
+        <p class="text-sm text-muted">The solution and explanation appear after you submit. Revealing it now means a correct answer will earn very little mastery credit.</p>
+        <form class="mt-3" hx-post="{% url 'learning:reveal_solution' challenge.slug %}" hx-target="#solution-region" method="post" action="{% url 'learning:reveal_solution' challenge.slug %}" hx-confirm="Reveal the solution? A correct answer after revealing will count for very little.">
+          {% csrf_token %}<button type="submit" class="btn btn-ghost btn-sm">Reveal solution</button>
+        </form>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="p-5 text-sm sm:p-6" aria-labelledby="about-heading">
+      <h2 id="about-heading" class="section-title">About this challenge</h2>
+      <dl class="mt-3 space-y-2 text-muted">
+        <div class="flex justify-between gap-3"><dt>Skill</dt><dd class="text-right text-fg">{{ challenge.skill.name }}</dd></div>
+        <div class="flex justify-between gap-3"><dt>Format</dt><dd class="text-right text-fg">{{ challenge.get_kind_display }}</dd></div>
+        <div class="flex justify-between gap-3"><dt>Content version</dt><dd class="text-right text-fg">v{{ version.number }}</dd></div>
+        <div class="flex justify-between gap-3"><dt>Evaluator</dt><dd class="text-right font-mono text-xs text-fg">{{ version.evaluation_version }}</dd></div>
+      </dl>
+      {% if not readiness.ready %}<p class="mt-3 flex gap-2 text-xs text-warning">{% icon "lock" "size-3.5 mt-px flex-none" %} Some prerequisites for this skill aren't solid yet — you can still try it.</p>{% endif %}
+    </section>
+  </aside>
+</div>
+{% endblock %}

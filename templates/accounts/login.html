@@ -1,0 +1,20 @@
+{% extends "layouts/auth.html" %}
+{% load ui %}
+{% block title %}Log in{% endblock %}
+{% block aside_eyebrow %}Welcome back{% endblock %}
+{% block aside_heading %}Your next challenge is ready when you are.{% endblock %}
+{% block content %}
+<h1 class="page-title">Log in to SkillForge</h1>
+<p class="mt-2 text-sm text-muted">New here? <a href="{% url 'accounts:register' %}" class="link">Create a free account</a></p>
+<form method="post" class="mt-8 space-y-5" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  {% if form.non_field_errors %}<div class="flex gap-2 rounded-xl border border-danger/40 bg-danger-soft p-3 text-sm text-danger" role="alert">{% icon "circle-alert" "size-4 mt-0.5 flex-none" %}<span>{{ form.non_field_errors|join:" " }}</span></div>{% endif %}
+  {% form_field form.username %}
+  <div class="space-y-2">
+    {% form_field form.password %}
+    <p class="text-right text-sm"><a href="{% url 'accounts:password_reset' %}" class="link">Forgot your password?</a></p>
+  </div>
+  <button type="submit" class="btn btn-primary btn-lg w-full"><span class="spinner" aria-hidden="true"></span>Log in</button>
+</form>
+{% endblock %}

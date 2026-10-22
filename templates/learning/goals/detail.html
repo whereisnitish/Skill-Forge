@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+{% load ui humanize %}
+{% block title %}{{ goal.title }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex items-center gap-2 text-sm text-muted"><a href="{% url 'learning:goals' %}" class="transition-colors hover:text-fg">Goals</a>{% icon "chevron-right" "size-3.5 text-faint" %}<span class="truncate text-fg" aria-current="page">{{ goal.title }}</span></nav>
+<header class="flex flex-col gap-5 border-b border-line pb-7 md:flex-row md:items-end md:justify-between">
+  <div>
+    <div class="flex flex-wrap items-center gap-2">
+      {% if goal.is_primary %}<span class="badge badge-gold">{% icon "star" "size-3" %} Current focus</span>{% endif %}
+      <span class="badge {% if goal.status == 'active' %}badge-accent{% elif goal.status == 'paused' %}badge-warning{% else %}badge-neutral{% endif %}">{{ goal.get_status_display }}</span>
+    </div>
+    <h1 class="page-title mt-3">{{ goal.title }}</h1>
+    <p class="mt-2 text-muted">{% if goal.path %}{{ goal.path.name }} (v{{ goal.path_version.number }}){% else %}Custom goal{% endif %} · {{ goal.get_experience_level_display }} · {{ goal.daily_minutes }} min/day{% if goal.target_date %} · target {{ goal.target_date|date:"j M Y" }} ({{ goal.target_date|naturalday }}){% endif %}</p>
+    {% if goal.motivation %}<p class="mt-4 max-w-2xl border-l-2 border-gold pl-4 font-display text-lg italic leading-snug text-muted">“{{ goal.motivation }}”</p>{% endif %}
+  </div>
+  <div class="flex flex-wrap gap-2">
+    <a href="{% url 'learning:goal_edit' goal.pk %}" class="btn btn-secondary btn-sm">{% icon "pencil" "size-4" %} Edit</a>
+    <form method="post" action="{% url 'learning:goal_status' goal.pk %}" class="flex flex-wrap gap-2">
+      {% csrf_token %}
+      {% if goal.status == "active" %}
+        {% if not goal.is_primary %}<button name="action" value="primary" class="btn btn-secondary btn-sm">{% icon "star" "size-4" %} Make current focus</button>{% endif %}
+        <button name="action" value="pause" class="btn btn-ghost btn-sm">{% icon "pause" "size-4" %} Pause</button>
+      {% elif goal.status == "paused" or goal.status == "archived" or goal.status == "completed" %}
+        <button name="action" value="resume" class="btn btn-secondary btn-sm">{% icon "play" "size-4" %} Resume</button>
+      {% endif %}
+      {% if goal.status != "archived" %}<button name="action" value="archive" class="btn btn-ghost btn-sm" data-confirm-click="Archive this goal? Your history is kept and you can resume it later.">{% icon "archive" "size-4" %} Archive</button>{% endif %}
+    </form>
+  </div>
+</header>
+
+{% if newer_version %}
+<div class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-panel)] border border-info/30 bg-info-soft p-4 text-sm">
+  <p class="flex gap-2">{% icon "sparkles" "size-4 mt-0.5 text-info" %} A newer version of this path is available.</p>
+  <form method="post" action="{% url 'learning:goal_status' goal.pk %}">{% csrf_token %}<button name="action" value="upgrade_path" class="btn btn-secondary btn-sm">Switch to v{{ goal.path.current_version.number }}</button></form>
+</div>
+{% endif %}
+
+<div class="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-8">
+  <div class="space-y-6">
+    {% if progress %}
+    <section class="card card-pad" aria-labelledby="milestones">
+      <div class="flex items-center justify-between gap-3"><h2 id="milestones" class="section-title">Milestones</h2><span class="text-sm text-muted">{{ progress.fraction|percent }} complete</span></div>
+      <div class="progress mt-3"><div class="progress-bar {% if progress.complete %}is-gold{% endif %}" style="width: {{ progress.fraction|pct_width }}"></div></div>
+      <ol class="mt-6 space-y-5">
+        {% for milestone in progress.milestones %}
+        <li class="relative rounded-[var(--radius-panel)] border {% if milestone.complete %}border-gold/45 bg-gold-soft{% elif forloop.counter0 == progress.current_index %}border-accent/35 bg-accent-soft{% else %}border-line{% endif %} p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="font-display text-lg leading-snug"><span class="text-gold-text">{{ milestone.order }}.</span> {{ milestone.title }}</p>
+            {% if milestone.complete %}<span class="badge badge-gold">{% icon "award" "size-3" %} Complete{% with c=completions|get_item:milestone.id %}{% if c %} · {{ c.completed_at|date:"j M" }}{% endif %}{% endwith %}</span>{% elif forloop.counter0 == progress.current_index %}<span class="badge badge-accent">In progress</span>{% else %}<span class="badge badge-neutral">Upcoming</span>{% endif %}
+          </div>
+          {% if milestone.description %}<p class="mt-1 text-sm text-muted">{{ milestone.description }}</p>{% endif %}
+          <ul class="mt-4 grid gap-2.5 sm:grid-cols-2">
+            {% for step in milestone.steps %}
+            <li>
+              <a href="{% url 'learning:mastery_detail' step.skill_slug %}" class="block rounded-[var(--radius-panel)] border border-line bg-surface p-3 transition-colors hover:border-line-strong">
+                <div class="flex items-center justify-between gap-2 text-sm">
+                  <span class="flex min-w-0 items-center gap-2">{% if step.complete %}{% icon "circle-check" "size-4 flex-none text-success" "Complete" %}{% elif not step.ready %}{% icon "lock" "size-4 flex-none text-faint" "Needs prerequisites" %}{% else %}{% icon "circle-dashed" "size-4 flex-none text-accent-text" "Pending" %}{% endif %}<span class="truncate font-medium">{{ step.skill_name }}</span></span>
+                  <span class="flex-none text-xs text-faint">{% if step.mastery.measured %}{{ step.mastery.percent }}%{% else %}—{% endif %} / {{ step.target|percent }}</span>
+                </div>
+                <div class="progress progress-thin mt-2"><div class="progress-bar {% if not step.complete %}is-info{% endif %}" style="width: {{ step.fraction|pct_width }}"></div></div>
+              </a>
+            </li>
+            {% endfor %}
+          </ul>
+        </li>
+        {% endfor %}
+      </ol>
+      <p class="mt-4 text-xs text-faint">A step is complete when your estimated mastery reaches its target with at least two pieces of evidence.</p>
+    </section>
+    {% endif %}
+  </div>
+  <aside class="card divide-y divide-line self-start">
+    <section class="card-pad text-sm">
+      <h2 class="section-title">Summary</h2>
+      <dl class="mt-3 space-y-2 text-muted">
+        <div class="flex justify-between gap-3"><dt>Attempts towards this goal</dt><dd class="font-semibold tabular-nums text-fg">{{ attempt_count }}</dd></div>
+        <div class="flex justify-between gap-3"><dt>Milestones complete</dt><dd class="font-semibold tabular-nums text-fg">{{ completions|length }}</dd></div>
+        <div class="flex justify-between gap-3"><dt>Created</dt><dd class="font-semibold text-fg">{{ goal.created_at|date:"j M Y" }}</dd></div>
+      </dl>
+    </section>
+    <section class="card-pad">
+      <h2 class="section-title">Prioritised skills</h2>
+      {% if focus_skills %}<ul class="mt-3 flex flex-wrap gap-2">{% for skill in focus_skills %}<li><a href="{% url 'catalog:skill_detail' skill.slug %}" class="badge badge-accent">{{ skill.name }}</a></li>{% endfor %}</ul>
+      {% else %}<p class="mt-2 text-sm text-muted">None. <a href="{% url 'learning:goal_edit' goal.pk %}" class="link">Add some</a> to have them recommended more often.</p>{% endif %}
+    </section>
+    <section class="card-pad">
+      <h2 class="section-title">Activity</h2>
+      <ul class="mt-3 space-y-2.5 text-sm">
+        {% for event in events %}<li class="flex justify-between gap-3"><span class="text-muted">{{ event.get_event_type_display }}{% if event.payload.title %}: {{ event.payload.title }}{% elif event.payload.to %} → {{ event.payload.to }}{% endif %}</span><span class="flex-none text-xs text-faint">{{ event.occurred_at|date:"j M" }}</span></li>{% empty %}<li class="text-muted">No changes yet.</li>{% endfor %}
+      </ul>
+    </section>
+  </aside>
+</div>
+{% endblock %}

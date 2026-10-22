@@ -1,0 +1,25 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Skill explorer{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-5 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between">
+  <div><p class="eyebrow">Curriculum</p><h1 class="page-title mt-2">Skill explorer</h1><p class="mt-2 text-muted">Every skill in the curriculum, how they connect, and where you stand.</p></div>
+  <div class="flex w-fit gap-1 rounded-[0.65rem] border border-line bg-surface p-1" role="tablist" aria-label="Display">
+    <a role="tab" class="tab {% if view_mode != 'map' %}is-active{% endif %}" aria-selected="{% if view_mode != 'map' %}true{% else %}false{% endif %}" href="{% query_with view='list' page='' %}">{% icon "list" "size-4 inline" %} List</a>
+    <a role="tab" class="tab {% if view_mode == 'map' %}is-active{% endif %}" aria-selected="{% if view_mode == 'map' %}true{% else %}false{% endif %}" href="{% query_with view='map' page='' %}">{% icon "network" "size-4 inline" %} Map</a>
+  </div>
+</header>
+<form method="get" class="card mt-7 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-5" role="search" aria-label="Filter skills"
+      hx-get="{% url 'catalog:skills' %}" hx-target="#skill-results" hx-trigger="change, submit, keyup changed delay:350ms from:#skill-q" hx-push-url="true">
+  <input type="hidden" name="view" value="{{ view_mode }}">
+  <div class="field lg:col-span-2"><label for="skill-q" class="label">Search</label><input id="skill-q" type="search" name="q" value="{{ filters.q }}" class="input" placeholder="e.g. generators, caching…"></div>
+  <div class="field"><label for="f-category" class="label">Category</label>
+    <select id="f-category" name="category" class="select"><option value="">All categories</option>{% for c in categories %}<option value="{{ c.slug }}" {% if filters.category == c.slug %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-difficulty" class="label">Difficulty</label>
+    <select id="f-difficulty" name="difficulty" class="select"><option value="">Any difficulty</option>{% for value, label in difficulties %}<option value="{{ value }}" {% if filters.difficulty == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="f-status" class="label">Status</label>
+    <select id="f-status" name="status" class="select">{% for value, label in statuses %}<option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></div>
+  <noscript><button class="btn btn-secondary" type="submit">Filter</button></noscript>
+</form>
+<div id="skill-results" class="mt-6" aria-live="polite">{% include "catalog/partials/_skills_results.html" %}</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "layouts/marketing.html" %}
+{% block title %}Frequently asked questions{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="FAQ" heading="Frequently asked questions" lede="Can't find what you need? Contact us and a person will reply." %}
+<div class="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
+  <div class="divide-y divide-line border-y border-line">
+  {% include "marketing/_faq_items.html" with limit=99 %}
+  </div>
+  <p class="pt-10 text-center"><a href="{% url 'marketing:contact' %}" class="btn btn-secondary">Contact support</a></p>
+</div>
+{% endblock %}

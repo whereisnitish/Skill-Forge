@@ -1,0 +1,175 @@
+{% load ui humanize %}
+<div id="attempt-result">
+{% if attempt.status == "queued" %}
+  <section class="card card-pad" hx-get="{% url 'learning:attempt_status' attempt.pk %}" hx-trigger="load delay:2s" hx-target="#attempt-result" hx-swap="outerHTML" aria-busy="true">
+    <div class="flex items-center gap-4">
+      <span class="grid size-12 flex-none place-items-center rounded-full bg-accent-soft text-accent-text"><span class="spinner size-5"></span></span>
+      <div><h1 class="page-title">Evaluating your submission…</h1><p class="mt-1 text-sm text-muted" role="status">Running your code against the test cases in the sandbox. This usually takes a few seconds.</p></div>
+    </div>
+    <div class="mt-6 space-y-3" aria-hidden="true"><div class="skeleton h-4 w-3/4"></div><div class="skeleton h-4 w-1/2"></div><div class="skeleton h-24 w-full"></div></div>
+    {% if attempt.evaluation_error %}<p class="mt-4 text-xs text-faint">Last attempt to evaluate: {{ attempt.evaluation_error }} — we'll keep retrying.</p>{% endif %}
+  </section>
+{% elif attempt.status == "failed" %}
+  <section class="card card-pad">
+    <div class="flex items-center gap-4">
+      <span class="grid size-12 place-items-center rounded-full bg-danger-soft text-danger">{% icon "server-crash" "size-6" %}</span>
+      <div><h1 class="page-title">We couldn't evaluate this submission</h1><p class="mt-1 text-sm text-muted">{{ attempt.evaluation_error|default:"The evaluator was unavailable." }} Your answer is saved, but it hasn't been scored and didn't change your mastery estimate.</p></div>
+    </div>
+    <a href="{{ retry_url }}" class="btn btn-primary mt-6">Try again</a>
+  </section>
+{% else %}
+  {# ── Verdict ───────────────────────────────────────────── #}
+  <section class="card p-6 sm:p-8 {% if evaluation.verdict == 'correct' %}card-feature{% endif %} animate-enter" aria-labelledby="verdict">
+    <div class="flex flex-col gap-5 sm:flex-row sm:items-center">
+      {% if evaluation.verdict == "correct" %}
+        <span class="result-burst grid size-16 flex-none place-items-center rounded-full bg-gold-soft text-gold-text animate-pop">{% icon "circle-check-big" "size-8" %}</span>
+      {% elif evaluation.verdict == "partial" %}
+        <span class="grid size-16 flex-none place-items-center rounded-full bg-warning-soft text-warning animate-pop">{% icon "circle-dot-dashed" "size-8" %}</span>
+      {% else %}
+        <span class="grid size-16 flex-none place-items-center rounded-full bg-danger-soft text-danger animate-pop">{% icon "circle-x" "size-8" %}</span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <p class="eyebrow">{{ challenge.get_kind_display }} · {{ challenge.skill.name }}</p>
+        <h1 id="verdict" class="page-title mt-1.5">{% if evaluation.verdict == "correct" %}Correct{% elif evaluation.verdict == "partial" %}Partially correct{% else %}Not quite{% endif %} <span class="text-faint">· {{ evaluation.score|percent }}</span></h1>
+        <p class="mt-1 text-muted">{{ evaluation.summary }}</p>
+      </div>
+      <div class="flex flex-none flex-wrap gap-2">
+        {% if plan and plan.current %}
+          <a href="{% url 'learning:challenge' plan.current.challenge.slug %}?rec={{ plan.current.pk }}" class="btn btn-primary">Next challenge {% icon "arrow-right" "size-4" %}</a>
+        {% else %}
+          <a href="{% url 'learning:today' %}" class="btn btn-primary">Back to Today {% icon "arrow-right" "size-4" %}</a>
+        {% endif %}
+        {% if not evaluation.passed %}<a href="{{ retry_url }}" class="btn btn-secondary">{% icon "rotate-ccw" "size-4" %} Try again</a>{% endif %}
+      </div>
+    </div>
+    {% if later_attempts %}<p class="mt-4 text-xs text-faint">You've attempted this challenge {{ later_attempts }} more time{{ later_attempts|pluralize }} since this record.</p>{% endif %}
+  </section>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+    <div class="min-w-0 space-y-6">
+      {% if feedback.checks or feedback.feedback %}
+      <section class="card card-pad" aria-labelledby="checks-heading">
+        <h2 id="checks-heading" class="section-title">What we checked</h2>
+        {% if feedback.checks %}
+        <ul class="mt-4 space-y-2.5">
+          {% for check in feedback.checks %}
+          <li class="flex gap-3 rounded-[var(--radius-panel)] border border-line bg-canvas/40 p-3 text-sm">
+            {% if check.passed %}{% icon "circle-check" "size-5 flex-none text-success" "Passed" %}{% else %}{% icon "circle-x" "size-5 flex-none text-danger" "Missed" %}{% endif %}
+            <div class="min-w-0"><p class="font-medium">{{ check.label }}{% if check.hidden %} <span class="badge badge-neutral ml-1">Hidden test</span>{% endif %}</p>{% if check.detail %}<p class="mt-0.5 break-words font-mono text-xs text-muted">{{ check.detail }}</p>{% endif %}</div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+        {% if feedback.feedback %}
+        <ul class="mt-4 space-y-2">
+          {% for item in feedback.feedback %}<li class="flex gap-2 text-sm text-muted">{% icon "message-square" "size-4 mt-0.5 flex-none text-info" %}<span class="prose-sf text-sm">{{ item|markdown_inline }}</span></li>{% endfor %}
+        </ul>
+        {% endif %}
+        {% if feedback.details.scoring == "keyword-rubric" %}<p class="mt-4 text-xs text-faint">Scored with a keyword rubric: it checks that key ideas are present, not writing quality.</p>{% endif %}
+      </section>
+      {% endif %}
+
+      {% if evaluation.misconceptions %}
+      <section class="card card-pad" aria-labelledby="mis-heading">
+        <h2 id="mis-heading" class="section-title flex items-center gap-2">{% icon "brain" "size-4 text-gold-text" %} Possible misconception{{ evaluation.misconceptions|length|pluralize }}</h2>
+        <ul class="mt-3 space-y-2">{% for item in evaluation.misconceptions %}<li class="panel-note px-3 py-2.5 text-sm text-fg">{{ item.label }}</li>{% endfor %}</ul>
+        <p class="mt-3 text-xs text-faint">Recurring misconceptions influence which challenges you're given next.</p>
+      </section>
+      {% endif %}
+
+      <section class="card card-pad" aria-labelledby="answer-heading">
+        <h2 id="answer-heading" class="section-title">Your answer</h2>
+        <div class="mt-4">
+        {% if challenge.kind == "multiple_choice" %}
+          <ul class="grid gap-2.5">
+            {% for option in options %}
+            <li class="option-card cursor-default {% if option.correct %}is-correct{% elif option.id in selected %}is-wrong{% endif %}">
+              <span class="mt-0.5 flex-none">{% if option.correct %}{% icon "circle-check" "size-5 text-success" "Correct option" %}{% elif option.id in selected %}{% icon "circle-x" "size-5 text-danger" "Your choice, incorrect" %}{% else %}{% icon "circle" "size-5 text-faint" %}{% endif %}</span>
+              <div class="min-w-0">
+                <div class="prose-sf text-sm max-w-none">{{ option.text|markdown_inline }}</div>
+                {% if option.id in selected %}<p class="mt-1 text-xs font-semibold text-muted">Your answer</p>{% endif %}
+                {% if option.id in selected or option.correct %}<p class="mt-1 text-xs text-muted">{{ option.feedback }}</p>{% endif %}
+              </div>
+            </li>
+            {% endfor %}
+          </ul>
+        {% elif challenge.kind == "short_answer" %}
+          <p class="code-surface inline-block px-3 py-2">{{ response.answer }}</p>
+        {% elif challenge.kind == "debugging" %}
+          <div class="code-surface overflow-x-auto py-2">
+            {% for number, text in code_lines %}
+            <div class="code-line cursor-default {% if number in bug_lines %}is-bug{% elif number|stringformat:'s' == response.line|stringformat:'s' %}bg-danger-soft{% endif %}">
+              <span class="code-gutter">{{ number }}</span><span class="code-text">{{ text }}</span>
+              {% if number|stringformat:'s' == response.line|stringformat:'s' %}<span class="ml-auto pr-3 text-xs text-muted">your pick</span>{% elif number in bug_lines %}<span class="ml-auto pr-3 text-xs text-success">defect</span>{% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          <p class="mt-4 whitespace-pre-line text-sm text-muted">{{ response.explanation }}</p>
+        {% elif challenge.kind == "python_code" %}
+          {{ response.code|codeblock }}
+        {% else %}
+          <p class="whitespace-pre-line text-sm text-muted">{{ response.text }}</p>
+        {% endif %}
+        </div>
+        <p class="mt-4 text-xs text-faint">Submitted {{ attempt.submitted_at|date:"j M Y, H:i" }} · attempt #{{ attempt.attempt_number }} · content v{{ version.number }} · {{ evaluation.evaluator_version }}{% if attempt.hints_used %} · {{ attempt.hints_used }} hint{{ attempt.hints_used|pluralize }} used{% endif %}{% if attempt.solution_revealed %} · solution revealed{% endif %}. Saved permanently as submitted.</p>
+      </section>
+
+      <section class="card card-pad" aria-labelledby="explain-heading">
+        <h2 id="explain-heading" class="section-title">Explanation</h2>
+        <div class="prose-sf mt-3 max-w-none">{{ version.explanation|markdown }}</div>
+        {% if version.solution %}
+        <details class="mt-5 rounded-[var(--radius-panel)] border border-line bg-canvas/40 p-4" {% if not evaluation.passed %}open{% endif %}>
+          <summary class="cursor-pointer text-sm font-semibold">Worked solution</summary>
+          <div class="prose-sf mt-3 max-w-none">{{ version.solution|markdown }}</div>
+        </details>
+        {% endif %}
+      </section>
+
+      <section class="card card-pad" aria-labelledby="mentor-heading">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="mentor-heading" class="section-title flex items-center gap-2">{% icon "bot" "size-[1.1rem] text-accent-text" %} Mentor</h2>
+          {% if mentor_live %}<span class="badge badge-accent">AI mentor</span>{% else %}<span class="badge badge-neutral">Curated guidance</span>{% endif %}
+        </div>
+        <p class="mt-1 text-sm text-muted">{% if mentor_live %}Ask for an explanation. The mentor explains results; it can't change your score.{% else %}The AI mentor isn't enabled here, so guidance is assembled from curated content and your own evidence.{% endif %}</p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          {% if not evaluation.passed %}
+          <form hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-region" method="post" action="{% url 'mentor:ask' %}">{% csrf_token %}<input type="hidden" name="kind" value="explain_failure"><input type="hidden" name="attempt" value="{{ attempt.pk }}"><button class="btn btn-secondary btn-sm" type="submit"><span class="spinner htmx-indicator" aria-hidden="true"></span>Explain my mistake</button></form>
+          {% endif %}
+          <form hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-region" method="post" action="{% url 'mentor:ask' %}">{% csrf_token %}<input type="hidden" name="kind" value="explain_concept"><input type="hidden" name="attempt" value="{{ attempt.pk }}"><button class="btn btn-secondary btn-sm" type="submit"><span class="spinner htmx-indicator" aria-hidden="true"></span>Explain the concept</button></form>
+          <form hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-region" method="post" action="{% url 'mentor:ask' %}">{% csrf_token %}<input type="hidden" name="kind" value="next_steps"><input type="hidden" name="attempt" value="{{ attempt.pk }}"><button class="btn btn-secondary btn-sm" type="submit"><span class="spinner htmx-indicator" aria-hidden="true"></span>What should I practise next?</button></form>
+        </div>
+        <div id="mentor-region" class="mt-4" aria-live="polite"></div>
+      </section>
+    </div>
+
+    <aside class="card divide-y divide-line self-start">
+      <section class="p-5 sm:p-6" aria-labelledby="update-heading">
+        <h2 id="update-heading" class="section-title">Learning update</h2>
+        {% if primary_evidence %}
+        <div class="mt-4 flex items-center gap-4">
+          {% mastery_ring primary_evidence.mastery_after 64 6 primary_evidence.skill.name %}
+          <div>
+            <p class="text-sm font-semibold">{{ primary_evidence.skill.name }}</p>
+            <p class="mt-0.5 flex items-center gap-1.5 text-sm tabular-nums"><span class="text-faint">{{ primary_evidence.mastery_before|percent }}</span>{% icon "arrow-right" "size-3.5 text-faint" %}<span class="font-semibold {% if primary_evidence.mastery_after >= primary_evidence.mastery_before %}text-success{% else %}text-danger{% endif %}">{{ primary_evidence.mastery_after|percent }}</span></p>
+            <p class="text-xs text-faint">± {{ primary_evidence.std_after|percent }} uncertainty</p>
+          </div>
+        </div>
+        {% if primary_evidence.detail.delayed_recall %}<p class="mt-3 flex gap-2 text-xs text-gold-text">{% icon "brain" "size-3.5 mt-px" %} Remembered after a gap — this counts as stronger evidence.</p>{% endif %}
+        {% if attempt.hints_used or attempt.solution_revealed %}<p class="mt-3 text-xs text-faint">Credit reduced for assistance ({{ primary_evidence.detail.assistance_factor|percent }} of normal).</p>{% endif %}
+        {% for e in evidence %}{% if e.weight < 1 %}
+        <p class="mt-3 flex justify-between gap-2 text-xs text-muted"><span>{{ e.skill.name }} <span class="text-faint">(secondary)</span></span><span class="tabular-nums">{{ e.mastery_before|percent }} → {{ e.mastery_after|percent }}</span></p>
+        {% endif %}{% endfor %}
+        <a href="{% url 'learning:mastery_detail' primary_evidence.skill.slug %}" class="btn btn-ghost btn-sm mt-4 w-full">See the evidence {% icon "arrow-right" "size-4" %}</a>
+        {% else %}<p class="mt-2 text-sm text-muted">No mastery change was recorded for this attempt.</p>{% endif %}
+      </section>
+      <section class="p-5 sm:p-6" aria-labelledby="review-heading">
+        <h2 id="review-heading" class="section-title">Next review</h2>
+        {% if review %}
+          <p class="mt-3 text-sm"><span class="stat-value text-2xl">{{ review.new_due_at|naturalday:"j M" }}</span></p>
+          <p class="mt-1 text-sm text-muted">{% if review.outcome == "lapse" %}Missed on review — interval reset so it comes back soon.{% elif review.outcome == "early_review" %}Practised early — your existing schedule is unchanged.{% elif review.outcome == "first_failure" %}We'll bring this back tomorrow.{% else %}Interval: {{ review.new_interval_days|floatformat:"-1" }} day{{ review.new_interval_days|pluralize }}.{% endif %}</p>
+        {% else %}<p class="mt-2 text-sm text-muted">No review scheduled from this attempt.</p>{% endif %}
+      </section>
+    </aside>
+  </div>
+{% endif %}
+</div>

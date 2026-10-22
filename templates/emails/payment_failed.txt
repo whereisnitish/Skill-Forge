@@ -1,0 +1,8 @@
+{% extends "emails/base.txt" %}
+{% block content %}Hi {{ user.friendly_name }},
+
+We weren't able to collect the latest payment for your {{ data.plan|default:"paid" }} plan. Our payment provider will retry automatically, but the quickest fix is to update your payment method:
+{{ action_url }}
+
+Your goals, history and progress are safe whatever happens to your plan. If the payment can't be collected, your account moves to the Free plan — nothing is deleted.{% endblock %}
+{% block footer_reason %}You're receiving this important billing notice because of a paid plan on your SkillForge account.{% endblock %}

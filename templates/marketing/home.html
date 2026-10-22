@@ -1,0 +1,326 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}SkillForge — Build skills that actually stick{% endblock %}
+{% block title_suffix %}{% endblock %}
+{% block content %}
+
+{# ─────────────────────────────── Hero ─────────────────────────────── #}
+<section class="relative overflow-hidden" aria-labelledby="hero-title">
+  <div class="relative mx-auto grid max-w-7xl items-center gap-14 px-4 pb-20 pt-14 sm:px-6 md:pt-20 lg:grid-cols-[1.02fr_1fr] lg:gap-16 lg:px-8 lg:pb-28">
+    <div class="animate-enter">
+      <p class="eyebrow flex items-center gap-3"><span class="rule-gold" aria-hidden="true"></span>Personalized learning, built around you</p>
+      <h1 id="hero-title" class="text-display-xl mt-6 max-w-2xl text-balance">
+        Build skills that <em class="italic text-accent-text">actually stick.</em>
+      </h1>
+      <p class="lede mt-6 max-w-xl">
+        Stop learning randomly. Follow a smarter path that adapts to your goals, strengthens your weak spots, and helps you make progress every day.
+      </p>
+      <div class="mt-9 flex flex-wrap items-center gap-3">
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg">Start learning {% icon "arrow-right" "size-4" %}</a>
+        <a href="#how-it-works" class="btn btn-secondary btn-lg">Explore how it works</a>
+      </div>
+      <ul class="mt-10 flex flex-wrap gap-x-6 gap-y-2.5 border-t border-line pt-6 text-sm text-muted">
+        <li class="flex items-center gap-2">{% icon "check" "size-4 text-success" %} Free plan, no card required</li>
+        <li class="flex items-center gap-2">{% icon "check" "size-4 text-success" %} Sessions from 10 minutes a day</li>
+        <li class="flex items-center gap-2">{% icon "check" "size-4 text-success" %} Honest, evidence-based progress</li>
+      </ul>
+    </div>
+
+    {# Product preview — the real Today, path and mastery components, filled with sample data #}
+    <figure class="relative mx-auto w-full max-w-xl animate-enter animate-enter-delay-2 lg:max-w-none" aria-labelledby="hero-preview-caption">
+      <div class="card p-5 sm:p-7 lg:pb-16 elevated">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="kicker">Today · 15-minute plan</p>
+            <p class="mt-1 font-display text-2xl leading-tight">Good morning, Ada</p>
+          </div>
+          <span class="badge badge-gold">{% icon "flame" "size-3.5" %} 12-day streak</span>
+        </div>
+
+        <ol class="relative mt-7 grid grid-cols-3 text-center text-xs" aria-label="Learning path: Python Craftsman">
+          <span class="absolute left-[16.67%] right-[16.67%] top-3 h-px bg-line-strong" aria-hidden="true"></span>
+          <span class="absolute left-[16.67%] top-3 h-px w-[33.33%] bg-gold" aria-hidden="true"></span>
+          <li class="relative">
+            <span class="timeline-dot is-done static mx-auto">{% icon "check" "size-3.5" %}</span>
+            <p class="mt-2 font-semibold text-fg">Comprehensions</p>
+            <p class="text-gold-text">Mastered</p>
+          </li>
+          <li class="relative">
+            <span class="timeline-dot is-current static mx-auto">2</span>
+            <p class="mt-2 font-semibold text-fg">Generators</p>
+            <p class="text-accent-text">Practising now</p>
+          </li>
+          <li class="relative">
+            <span class="timeline-dot static mx-auto">{% icon "lock" "size-3" %}</span>
+            <p class="mt-2 font-semibold text-muted">Decorators</p>
+            <p class="text-faint">Unlocks next</p>
+          </li>
+        </ol>
+
+        <div class="mt-7 rounded-[var(--radius-panel)] border border-line bg-canvas/60 p-4 sm:p-5">
+          <div class="flex items-start gap-3">
+            <span class="icon-chip">{% icon "bug" "size-[1.1rem]" %}</span>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-semibold text-gold-text">Today's recommended challenge</p>
+              <p class="mt-1 font-display text-lg leading-snug">Find the bug in a lazy pipeline</p>
+              <p class="mt-1 text-xs text-muted">Generators · Debugging · 6 min · Intermediate</p>
+            </div>
+          </div>
+          <p class="panel-note mt-4 flex items-start gap-2 px-3 py-2.5 text-xs text-muted">{% icon "lightbulb" "size-3.5 mt-px flex-none text-gold-text" %} Selected because you struggled with generators in two recent exercises.</p>
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <span class="btn btn-primary btn-sm btn-replica" aria-hidden="true">Start challenge {% icon "arrow-right" "size-3.5" %}</span>
+            <span class="text-xs text-faint">2 of 3 today</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card relative z-10 mt-4 p-5 lg:-mt-10 lg:ml-auto lg:mr-[-1.5rem] lg:w-[70%] elevated">
+        <div class="flex items-center justify-between gap-3">
+          <p class="text-sm font-semibold">Skill mastery</p>
+          <span class="text-xs text-faint">Estimates · confidence shown</span>
+        </div>
+        <ul class="mt-4 space-y-3.5 text-sm">
+          <li>
+            <div class="flex justify-between gap-3"><span>Comprehensions</span><span class="text-xs font-semibold level-mastered">Mastered · 91%</span></div>
+            <div class="progress progress-thin mt-1.5"><div class="progress-bar is-gold" style="width: 91%"></div></div>
+          </li>
+          <li>
+            <div class="flex justify-between gap-3"><span>Generators</span><span class="text-xs font-semibold level-developing">Developing · 54%</span></div>
+            <div class="progress progress-thin mt-1.5"><div class="progress-bar" style="width: 54%"></div></div>
+          </li>
+          <li>
+            <div class="flex justify-between gap-3"><span>Closures</span><span class="text-xs font-semibold level-exploring">Exploring · 32%</span></div>
+            <div class="progress progress-thin mt-1.5"><div class="progress-bar is-info" style="width: 32%"></div></div>
+          </li>
+        </ul>
+      </div>
+      <figcaption id="hero-preview-caption" class="mt-4 text-center text-xs text-faint lg:text-right">Illustrative preview of the Today screen, shown with sample data.</figcaption>
+    </figure>
+  </div>
+</section>
+
+{# ─────────────────────────────── How it works ─────────────────────────────── #}
+<section id="how-it-works" class="section-band scroll-mt-20 border-y border-line py-20 lg:py-24" aria-labelledby="loop-title">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="grid gap-6 lg:grid-cols-[1fr_1.25fr] lg:items-end lg:gap-16">
+      <div>
+        <p class="eyebrow">How SkillForge works</p>
+        <h2 id="loop-title" class="text-display-lg mt-4 text-balance">Every answer changes what you practise next.</h2>
+      </div>
+      <p class="lede">SkillForge keeps a model of what you know. Each attempt adds evidence, and tomorrow's plan is built from that evidence — not from a fixed syllabus.</p>
+    </div>
+    <ol class="mt-14 grid gap-x-8 gap-y-10 sm:grid-cols-2 lg:grid-cols-4">
+      <li class="border-t border-line-strong pt-6">
+        <span class="font-display text-3xl text-gold-text" aria-hidden="true">01</span>
+        <h3 class="card-title mt-3 flex items-center gap-2">{% icon "target" "size-[1.1rem] text-accent-text" %} Practise</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted">A focused challenge sized to your available time: code, debugging, explanation or review.</p>
+      </li>
+      <li class="border-t border-line-strong pt-6">
+        <span class="font-display text-3xl text-gold-text" aria-hidden="true">02</span>
+        <h3 class="card-title mt-3 flex items-center gap-2">{% icon "scan-search" "size-[1.1rem] text-accent-text" %} Evaluate</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Deterministic checks — test cases, answer keys and transparent rubrics — with feedback on what you missed.</p>
+      </li>
+      <li class="border-t border-line-strong pt-6">
+        <span class="font-display text-3xl text-gold-text" aria-hidden="true">03</span>
+        <h3 class="card-title mt-3 flex items-center gap-2">{% icon "chart-line" "size-[1.1rem] text-accent-text" %} Update your model</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Mastery estimates move with the evidence, with confidence shown alongside — one lucky answer is not mastery.</p>
+      </li>
+      <li class="border-t border-line-strong pt-6">
+        <span class="font-display text-3xl text-gold-text" aria-hidden="true">04</span>
+        <h3 class="card-title mt-3 flex items-center gap-2">{% icon "route" "size-[1.1rem] text-accent-text" %} Choose what's next</h3>
+        <p class="mt-2 text-sm leading-relaxed text-muted">Weak spots, due reviews, goal priorities and prerequisites decide the next challenge — and we tell you why.</p>
+      </li>
+    </ol>
+    <div class="mt-12">
+      <a href="{% url 'marketing:how_it_works' %}" class="link inline-flex items-center gap-1.5 text-sm">Read how the engine works {% icon "arrow-right" "size-4" %}</a>
+    </div>
+  </div>
+</section>
+
+{# ─────────────────────────────── Adaptive learning ─────────────────────────────── #}
+<section class="py-20 lg:py-28" aria-labelledby="journey-title">
+  <div class="mx-auto grid max-w-7xl gap-14 px-4 sm:px-6 lg:grid-cols-[1fr_1.1fr] lg:gap-20 lg:px-8">
+    <div>
+      <p class="eyebrow">Adaptive learning</p>
+      <h2 id="journey-title" class="text-display-lg mt-4 text-balance">From “I sort of get it” to “I can explain it.”</h2>
+      <p class="lede mt-5">An illustrative three weeks for a developer working on Python generators. Your journey will depend on your own answers.</p>
+      <div class="card mt-9 p-5 sm:p-6">
+        <p class="text-sm font-semibold">Why this challenge?</p>
+        <ul class="mt-4 space-y-3 text-sm">
+          <li class="flex flex-col items-start gap-2 sm:flex-row sm:gap-3"><span class="badge badge-warning flex-none">Due for review</span><span class="text-muted">Scheduled because Closures is due for review — you last practised it 4 days ago.</span></li>
+          <li class="flex flex-col items-start gap-2 sm:flex-row sm:gap-3"><span class="badge badge-accent flex-none">Unlocks next</span><span class="text-muted">Selected to practise Iterators &amp; generators, a prerequisite for Async programming.</span></li>
+          <li class="flex flex-col items-start gap-2 sm:flex-row sm:gap-3"><span class="badge badge-info flex-none">Goal priority</span><span class="text-muted">Selected because your goal prioritises ORM query optimisation.</span></li>
+        </ul>
+        <p class="mt-4 border-t border-line pt-3 text-xs text-faint">Example explanations, worded the way the app generates them.</p>
+      </div>
+      <span class="badge badge-neutral mt-6">Illustrative example — not a real user</span>
+    </div>
+    <ol class="timeline space-y-8 self-start pl-9">
+      <li class="relative">
+        <span class="timeline-dot -left-[3.03rem] top-0">1</span>
+        <p class="text-xs font-semibold text-faint">Day 1 · Placement</p>
+        <p class="mt-1.5 font-display text-lg leading-snug">A five-question check calibrates the starting point.</p>
+        <p class="mt-1 text-sm text-muted">Comprehensions look solid; generators are unmeasured.</p>
+      </li>
+      <li class="relative">
+        <span class="timeline-dot -left-[3.03rem] top-0 border-warning bg-warning-soft text-warning">2</span>
+        <p class="text-xs font-semibold text-faint">Day 3 · A blind spot appears</p>
+        <p class="mt-1.5 font-display text-lg leading-snug">Two misses: expecting a generator to be reusable after exhaustion.</p>
+        <p class="mt-1 text-sm text-muted">The misconception is recorded and the estimate drops — with low confidence.</p>
+      </li>
+      <li class="relative">
+        <span class="timeline-dot is-current -left-[3.03rem] top-0">3</span>
+        <p class="text-xs font-semibold text-faint">Day 4 · Targeted practice</p>
+        <p class="mt-1.5 font-display text-lg leading-snug">A debugging exercise built around exactly that mistake.</p>
+        <p class="mt-1 text-sm text-muted">“Selected because you struggled with generators in two recent exercises.”</p>
+      </li>
+      <li class="relative">
+        <span class="timeline-dot -left-[3.03rem] top-0 border-info bg-info-soft text-info">4</span>
+        <p class="text-xs font-semibold text-faint">Day 8 · Delayed review</p>
+        <p class="mt-1.5 font-display text-lg leading-snug">Recalled correctly after four days away.</p>
+        <p class="mt-1 text-sm text-muted">Delayed recall is strong evidence, so the next review is pushed further out.</p>
+      </li>
+      <li class="relative">
+        <span class="timeline-dot is-done -left-[3.03rem] top-0">{% icon "award" "size-3.5" %}</span>
+        <p class="text-xs font-semibold text-faint">Day 19 · Milestone</p>
+        <p class="mt-1.5 font-display text-lg leading-snug">“Functions as power tools” complete — decorators unlocked.</p>
+        <p class="mt-1 text-sm text-muted">Earned through varied formats, not a single quiz.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+{# ─────────────────────────────── Curriculum ─────────────────────────────── #}
+<section class="section-band border-y border-line py-20 lg:py-24" aria-labelledby="categories-title">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col justify-between gap-8 lg:flex-row lg:items-end">
+      <div class="max-w-2xl">
+        <p class="eyebrow">Skills and learning paths</p>
+        <h2 id="categories-title" class="text-display-lg mt-4">A curated curriculum, connected by prerequisites.</h2>
+        <p class="lede mt-5">Skills engineers actually use, versioned and linked so you build foundations before advanced topics.</p>
+      </div>
+      {% if stats.skills %}
+      <dl class="flex divide-x divide-line-strong">
+        <div class="pr-6 sm:pr-8"><dt class="text-xs font-medium text-muted">Skills</dt><dd class="stat-value mt-1 text-4xl">{{ stats.skills }}</dd></div>
+        <div class="px-6 sm:px-8"><dt class="text-xs font-medium text-muted">Challenges</dt><dd class="stat-value mt-1 text-4xl">{{ stats.challenges }}</dd></div>
+        <div class="pl-6 sm:pl-8"><dt class="text-xs font-medium text-muted">Learning paths</dt><dd class="stat-value mt-1 text-4xl">{{ stats.paths }}</dd></div>
+      </dl>
+      {% endif %}
+    </div>
+    <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {% for category in categories %}
+      <a href="{% url 'marketing:tracks' %}#category-{{ category.slug }}" class="card card-pad card-interactive group flex flex-col">
+        <span class="icon-chip transition-colors group-hover:bg-accent-fill group-hover:text-[var(--sf-btn-fg)]">{% icon category.icon "size-5" %}</span>
+        <h3 class="card-title mt-5">{{ category.name }}</h3>
+        <p class="mt-1.5 flex-1 text-sm text-muted">{{ category.description }}</p>
+        <p class="mt-5 flex items-center justify-between border-t border-line pt-3 text-xs font-medium text-muted">{{ category.skill_count }} skill{{ category.skill_count|pluralize }}{% icon "arrow-right" "size-3.5 text-faint transition-transform group-hover:translate-x-0.5" %}</p>
+      </a>
+      {% empty %}
+      <p class="text-sm text-muted sm:col-span-2 lg:col-span-4">The curriculum is loading — check back shortly.</p>
+      {% endfor %}
+    </div>
+    <div class="mt-10"><a href="{% url 'marketing:tracks' %}" class="btn btn-secondary">Browse learning tracks {% icon "arrow-right" "size-4" %}</a></div>
+  </div>
+</section>
+
+{# ─────────────────────────────── Progress and mastery ─────────────────────────────── #}
+<section class="py-20 lg:py-28" aria-labelledby="preview-title">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="max-w-2xl">
+      <p class="eyebrow">Progress and mastery</p>
+      <h2 id="preview-title" class="text-display-lg mt-4">Feedback you can act on. Progress you can trust.</h2>
+      <p class="lede mt-5">Previews of real interface components, shown with sample data. Mastery is an estimate with its confidence attached — a guide for practice, not a certificate.</p>
+    </div>
+    <div class="mt-12 grid gap-5 lg:grid-cols-3">
+      <div class="card card-pad">
+        <div class="flex items-center gap-3">
+          <span class="grid size-10 flex-none place-items-center rounded-full bg-warning-soft text-warning">{% icon "circle-dot-dashed" "size-5" %}</span>
+          <div><p class="font-semibold">Partially correct · 60%</p><p class="text-xs text-muted">Covered 3 of 5 key ideas</p></div>
+        </div>
+        <ul class="mt-5 space-y-2.5 text-sm">
+          <li class="flex gap-2">{% icon "circle-check" "size-4 mt-0.5 flex-none text-success" "Covered" %} Explains lazy evaluation</li>
+          <li class="flex gap-2">{% icon "circle-check" "size-4 mt-0.5 flex-none text-success" "Covered" %} Mentions the memory benefit</li>
+          <li class="flex gap-2">{% icon "circle-x" "size-4 mt-0.5 flex-none text-danger" "Missed" %} Generators can only be iterated once</li>
+        </ul>
+        <p class="panel-note mt-5 px-3 py-2.5 text-xs text-muted"><span class="font-semibold text-fg">Misconception:</span> treats a generator like a reusable list.</p>
+      </div>
+      <div class="card card-pad">
+        <p class="text-sm font-semibold">Skill mastery</p>
+        <ul class="mt-4 space-y-4 text-sm">
+          <li>
+            <div class="flex justify-between"><span>Comprehensions</span><span class="level-mastered font-medium">Mastered</span></div>
+            <div class="progress progress-thin mt-2"><div class="progress-bar is-gold" style="width: 91%"></div></div>
+            <p class="mt-1 text-xs text-faint">High confidence · 9 attempts</p>
+          </li>
+          <li>
+            <div class="flex justify-between"><span>Generators</span><span class="level-developing font-medium">Developing</span></div>
+            <div class="progress progress-thin mt-2"><div class="progress-bar" style="width: 54%"></div></div>
+            <p class="mt-1 text-xs text-faint">Medium confidence · 4 attempts</p>
+          </li>
+          <li>
+            <div class="flex justify-between"><span>Async programming</span><span class="level-not_started font-medium">Not started</span></div>
+            <div class="progress progress-thin mt-2"><div class="progress-bar" style="width: 0%"></div></div>
+            <p class="mt-1 text-xs text-faint">Locked until generators are solid</p>
+          </li>
+        </ul>
+      </div>
+      <div class="card card-pad">
+        <p class="text-sm font-semibold">Due for review</p>
+        <ul class="mt-4 divide-y divide-line text-sm">
+          <li class="flex items-center justify-between py-3 first:pt-0"><span class="flex items-center gap-2">{% icon "rotate-ccw" "size-4 text-warning" %} Closures</span><span class="badge badge-warning">Overdue</span></li>
+          <li class="flex items-center justify-between py-3"><span class="flex items-center gap-2">{% icon "rotate-ccw" "size-4 text-accent-text" %} SQL joins</span><span class="badge badge-accent">Today</span></li>
+          <li class="flex items-center justify-between py-3"><span class="flex items-center gap-2">{% icon "calendar" "size-4 text-faint" %} Dataclasses</span><span class="text-xs text-faint">In 6 days</span></li>
+        </ul>
+        <p class="mt-3 text-xs text-faint">Intervals grow when you remember and shrink when you don't.</p>
+      </div>
+    </div>
+
+    <div class="mt-20 grid gap-x-10 gap-y-10 border-t border-line pt-14 md:grid-cols-2 lg:grid-cols-3" aria-label="Why it's different">
+      <div><span class="text-accent-text">{% icon "calendar-check" "size-6" %}</span><h3 class="card-title mt-4">An adaptive daily plan</h3><p class="mt-2 text-sm leading-relaxed text-muted">Sized to the minutes you have. Built one challenge at a time from your latest results.</p></div>
+      <div><span class="text-accent-text">{% icon "gauge" "size-6" %}</span><h3 class="card-title mt-4">Honest mastery estimates</h3><p class="mt-2 text-sm leading-relaxed text-muted">Every estimate shows its confidence and the evidence behind it. Skills fade if you stop practising them.</p></div>
+      <div><span class="text-accent-text">{% icon "repeat" "size-6" %}</span><h3 class="card-title mt-4">Spaced reviews</h3><p class="mt-2 text-sm leading-relaxed text-muted">Reviews arrive just as you're about to forget, so knowledge moves into long-term memory.</p></div>
+      <div><span class="text-accent-text">{% icon "message-square-text" "size-6" %}</span><h3 class="card-title mt-4">Feedback that explains</h3><p class="mt-2 text-sm leading-relaxed text-muted">See which ideas you covered, which you missed, the likely misconception and a worked example.</p></div>
+      <div><span class="text-accent-text">{% icon "shield-check" "size-6" %}</span><h3 class="card-title mt-4">Real evaluation</h3><p class="mt-2 text-sm leading-relaxed text-muted">Coding challenges run against hidden test cases in an isolated sandbox. Nothing is marked passed without being checked.</p></div>
+      <div><span class="text-accent-text">{% icon "bot" "size-6" %}</span><h3 class="card-title mt-4">An optional AI mentor</h3><p class="mt-2 text-sm leading-relaxed text-muted">Ask why an answer fell short. The mentor explains — it can never change your score.</p></div>
+    </div>
+  </div>
+</section>
+
+{# ─────────────────────────────── Pricing ─────────────────────────────── #}
+<section id="pricing" class="section-band scroll-mt-20 border-y border-line py-20 lg:py-24" aria-labelledby="pricing-title">
+  <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-2xl text-center">
+      <p class="eyebrow">Pricing</p>
+      <h2 id="pricing-title" class="text-display-lg mt-4">Start free. Upgrade when it earns its place.</h2>
+    </div>
+    <div class="mt-12">{% include "marketing/_pricing_cards.html" %}</div>
+  </div>
+</section>
+
+{# ─────────────────────────────── FAQ ─────────────────────────────── #}
+<section class="py-20 lg:py-24" aria-labelledby="faq-title">
+  <div class="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[1fr_1.7fr] lg:gap-16 lg:px-8">
+    <div>
+      <p class="eyebrow">FAQ</p>
+      <h2 id="faq-title" class="text-display-lg mt-4">Questions, answered.</h2>
+      <p class="mt-4 text-muted">Can't find what you need? <a href="{% url 'marketing:contact' %}" class="link">Contact us</a> and a person will reply.</p>
+      <a href="{% url 'marketing:faq' %}" class="btn btn-secondary mt-7">All questions {% icon "arrow-right" "size-4" %}</a>
+    </div>
+    <div class="divide-y divide-line border-y border-line">{% include "marketing/_faq_items.html" with limit=5 %}</div>
+  </div>
+</section>
+
+{# ─────────────────────────────── Final CTA ─────────────────────────────── #}
+<section class="px-4 pb-20 sm:px-6 lg:px-8 lg:pb-24" aria-labelledby="cta-title">
+  <div class="surface-royal relative mx-auto max-w-6xl overflow-hidden rounded-[1.25rem] px-6 py-16 text-center sm:px-12 lg:py-20">
+    <div class="pointer-events-none absolute inset-3 rounded-[0.9rem] border border-gold/25" aria-hidden="true"></div>
+    <p class="eyebrow relative">Begin today</p>
+    <h2 id="cta-title" class="text-display-lg relative mx-auto mt-4 max-w-3xl text-balance">Ten focused minutes beat an hour of random tutorials.</h2>
+    <p class="lede relative mx-auto mt-5 max-w-xl">Pick a goal, take a short placement check and get your first adaptive challenge today.</p>
+    <div class="relative mt-9 flex flex-wrap justify-center gap-3">
+      <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg">Start learning {% icon "arrow-right" "size-4" %}</a>
+      <a href="{% url 'marketing:tracks' %}" class="btn btn-secondary btn-lg">Browse learning tracks</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

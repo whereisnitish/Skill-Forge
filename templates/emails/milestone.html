@@ -1,0 +1,34 @@
+{% extends "emails/base.html" %}
+{% block preheader %}Every skill in “{{ data.milestone }}” reached its target. Here's what's next.{% endblock %}
+{% block eyebrow %}Milestone complete{% endblock %}
+{% block heading %}You finished “{{ data.milestone }}”{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 18px;font-size:15px;line-height:24px;color:#4a3d33;">Nice work, {{ user.friendly_name }}. That's a real step towards <strong class="fg" style="color:#382b24;">{{ data.goal }}</strong>{% if data.path %} on your {{ data.path }} path{% endif %}. Every skill in this milestone reached its target, based on evidence from your own answers.</p>
+
+{% if data.total %}
+<p class="muted" style="margin:0 0 8px;font-size:13px;line-height:18px;color:#6a5d4f;"><strong class="fg" style="color:#382b24;">{{ data.completed }} of {{ data.total }}</strong> milestones complete</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px;">
+  <tr>
+    {% if data.percent > 0 %}<td width="{{ data.percent }}%" height="8" bgcolor="#426b4f" style="height:8px;background-color:#426b4f;border-radius:4px 0 0 4px;font-size:0;line-height:0;">&nbsp;</td>{% endif %}
+    {% if data.percent < 100 %}<td class="track" height="8" bgcolor="#ddd1be" style="height:8px;background-color:#ddd1be;border-radius:0 4px 4px 0;font-size:0;line-height:0;">&nbsp;</td>{% endif %}
+  </tr>
+</table>
+{% endif %}
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="panel" style="background-color:#eef3ec;border:1px solid #c9dccb;border-radius:12px;padding:14px 18px;">
+      {% if data.next %}
+      <p style="margin:0 0 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#3d6449;">Up next</p>
+      <p class="fg" style="margin:0;font-size:15px;line-height:22px;font-weight:600;color:#24402e;">{{ data.next }}</p>
+      {% else %}
+      <p style="margin:0 0 4px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:#3d6449;">Path complete</p>
+      <p class="fg" style="margin:0;font-size:15px;line-height:22px;color:#24402e;">That was the final milestone. Keep up your reviews, or set a new goal to keep growing.</p>
+      {% endif %}
+    </td>
+  </tr>
+</table>
+{% include "emails/_button.html" with url=action_url label="See your progress" %}
+{% endblock %}
+{% block footer_reason %}You're receiving this because milestone and achievement emails are on.{% endblock %}
+{% block footer_links %}<a href="{{ notification_settings_url }}" style="color:#6a5d4f;text-decoration:underline;">Email preferences</a> &nbsp;·&nbsp; <a href="{{ unsubscribe_url }}" style="color:#6a5d4f;text-decoration:underline;">Turn off milestone &amp; achievement emails</a>{% endblock %}

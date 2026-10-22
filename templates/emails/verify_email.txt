@@ -1,0 +1,14 @@
+{% extends "emails/base.txt" %}
+{% block content %}Hi {{ user.friendly_name }},
+
+Thanks for joining SkillForge. Please confirm that {{ user.email }} is your address. It lets us send only the reminders and progress updates you switch on, and helps you get back into your account if you ever forget your password.
+
+Confirm your email address:
+{{ verify_url }}
+
+This link expires in 3 days.
+
+WHAT HAPPENS NEXT
+{% for title, detail in next_steps %}{{ forloop.counter }}. {{ title }} — {{ detail }}
+{% endfor %}{% endblock %}
+{% block footer_reason %}You're receiving this because this address was used to create a SkillForge account. If that wasn't you, you can safely ignore this email.{% endblock %}

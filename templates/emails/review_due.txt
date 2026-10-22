@@ -1,0 +1,15 @@
+{% extends "emails/base.txt" %}
+{% block content %}SPACED REVIEW
+
+Hi {{ user.friendly_name }}, {{ data.count }} skill{{ data.count|pluralize }} {{ data.count|pluralize:"is,are" }} ready for review. Reviewing just before you'd forget is what moves knowledge into long-term memory.
+
+{% for skill in data.skills %}- {{ skill.name }} ({% if skill.overdue %}overdue{% else %}due today{% endif %})
+{% endfor %}{% if data.more %}…and {{ data.more }} more.
+{% endif %}
+Start reviewing:
+{{ action_url }}
+
+Remember it and the next review moves further out. Miss it and it comes back sooner.{% endblock %}
+{% block footer_reason %}You're receiving this because review reminders are on. We send at most one a day, only when reviews are due, around {{ reminder_time }} ({{ timezone_name }}).{% endblock %}
+{% block footer_links %}Email preferences: {{ notification_settings_url }}
+Turn off review reminders: {{ unsubscribe_url }}{% endblock %}

@@ -1,0 +1,17 @@
+{% load ui humanize %}
+<li id="notification-{{ notification.pk }}" class="relative flex items-start gap-4 p-4 sm:px-5 {% if not notification.read_at %}bg-accent-soft{% endif %}">
+  {% if not notification.read_at %}<span class="absolute left-0 top-4 bottom-4 w-[3px] rounded-r bg-gold" aria-hidden="true"></span>{% endif %}
+  <span class="grid size-10 flex-none place-items-center rounded-[var(--radius-panel)] {% if notification.kind == 'achievement' or notification.kind == 'milestone' %}bg-gold-soft text-gold-text{% elif notification.kind == 'review_due' %}bg-warning-soft text-warning{% elif notification.kind == 'billing' %}bg-danger-soft text-danger{% else %}bg-accent-soft text-accent-text{% endif %}">
+    {% if notification.kind == "achievement" %}{% icon "award" "size-5" %}{% elif notification.kind == "milestone" %}{% icon "flag" "size-5" %}{% elif notification.kind == "review_due" %}{% icon "rotate-ccw" "size-5" %}{% elif notification.kind == "billing" %}{% icon "credit-card" "size-5" %}{% else %}{% icon "bell" "size-5" %}{% endif %}
+  </span>
+  <div class="min-w-0 flex-1">
+    <p class="font-semibold">{% if not notification.read_at %}<span class="sr-only">Unread: </span>{% endif %}{{ notification.title }}</p>
+    {% if notification.body %}<p class="mt-0.5 text-sm text-muted">{{ notification.body }}</p>{% endif %}
+    <p class="mt-1 text-xs text-faint">{{ notification.created_at|naturaltime }}{% if notification.email_status == "sent" %} · emailed{% endif %}</p>
+  </div>
+  {% if not notification.read_at %}
+  <form method="post" action="{% url 'notifications:read' notification.pk %}" hx-post="{% url 'notifications:read' notification.pk %}" hx-target="#notification-{{ notification.pk }}" hx-swap="outerHTML">
+    {% csrf_token %}<button type="submit" class="btn btn-ghost btn-sm">Mark read</button>
+  </form>
+  {% elif notification.url %}<a href="{{ notification.url }}" class="btn btn-ghost btn-sm">Open</a>{% endif %}
+</li>

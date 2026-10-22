@@ -1,0 +1,110 @@
+{% extends "layouts/app.html" %}
+{% load static ui %}
+{% block title %}Analytics{% endblock %}
+{% block scripts %}<script src="{% static 'vendor/chart.umd.min.js' %}" defer nonce="{{ csp_nonce }}"></script>{% endblock %}
+{% block content %}
+<header class="border-b border-line pb-7">
+  <p class="eyebrow">Progress</p>
+  <h1 class="page-title mt-2">Progress analytics</h1>
+  <p class="mt-2 max-w-2xl text-muted">Built from your evaluated attempts. With only a few data points, trends are noisy — we'll tell you when there isn't enough to read into.</p>
+</header>
+
+<dl class="mt-7 grid grid-cols-2 gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line shadow-card lg:grid-cols-5">
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Challenges</dt><dd class="stat-value mt-2 text-3xl">{{ totals.attempts }}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Pass rate</dt><dd class="stat-value mt-2 text-3xl">{{ totals.pass_rate|percent }}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Skills practised</dt><dd class="stat-value mt-2 text-3xl">{{ totals.skills }}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Time practising</dt><dd class="stat-value mt-2 text-3xl">{{ totals.minutes|minutes }}</dd></div>
+  <div class="col-span-2 bg-surface p-5 lg:col-span-1"><dt class="text-xs font-medium text-muted">Plan completion</dt><dd class="stat-value mt-2 text-3xl">{{ completion.rate|percent }}</dd><dd class="mt-1 text-xs text-faint">{{ completion.completed }} done · {{ completion.skipped }} skipped</dd></div>
+</dl>
+
+{% if not totals.attempts %}
+<div class="mt-8">{% url 'learning:today' as today_url %}{% include "components/empty_state.html" with icon="chart-column" title="No activity yet" body="Charts appear here once you've completed some challenges." action_url=today_url action_label="Start today's challenge" %}</div>
+{% else %}
+<div class="mt-6 grid gap-6 lg:grid-cols-2">
+  <section class="card card-pad lg:col-span-2" aria-labelledby="activity-heading">
+    <div class="flex flex-wrap items-center justify-between gap-2"><h2 id="activity-heading" class="section-title">Activity · last 28 days</h2><span class="text-sm text-muted">{{ activity.active_days }} active day{{ activity.active_days|pluralize }}</span></div>
+    <div class="mt-4 h-60"><canvas data-chart="activity-chart" role="img" aria-label="Challenges and minutes per day over the last 28 days"></canvas></div>
+    {{ activity.chart|json_script:"activity-chart" }}
+    <details class="mt-3 text-sm"><summary class="cursor-pointer text-muted transition-colors hover:text-fg">View as table</summary>
+      <div class="mt-2 max-h-64 overflow-auto"><table class="table"><thead><tr><th scope="col">Day</th><th scope="col">Challenges</th><th scope="col">Minutes</th></tr></thead><tbody>{% for row in activity.table %}{% if row.count %}<tr><td>{{ row.label }}</td><td>{{ row.count }}</td><td>{{ row.minutes }}</td></tr>{% endif %}{% endfor %}</tbody></table></div>
+    </details>
+  </section>
+
+  <section class="card card-pad" aria-labelledby="accuracy-heading">
+    <h2 id="accuracy-heading" class="section-title">Accuracy by week</h2>
+    {% if trends.enough %}
+    <div class="mt-4 h-56"><canvas data-chart="accuracy-chart" role="img" aria-label="Average score per week"></canvas></div>
+    {{ trends.accuracy_chart|json_script:"accuracy-chart" }}
+    {% else %}<p class="mt-2 text-sm text-muted">Only {{ trends.sample }} evaluated attempt{{ trends.sample|pluralize }} so far — a trend needs at least 5.</p>{% endif %}
+  </section>
+
+  <section class="card card-pad" aria-labelledby="time-heading">
+    <h2 id="time-heading" class="section-title">Time spent by week</h2>
+    <div class="mt-4 h-56"><canvas data-chart="time-chart" role="img" aria-label="Minutes practised per week"></canvas></div>
+    {{ trends.time_chart|json_script:"time-chart" }}
+    <p class="mt-2 text-xs text-faint">Time is recorded for your reference only; it never affects mastery estimates.</p>
+  </section>
+
+  <section class="card card-pad lg:col-span-2" aria-labelledby="skill-heading">
+    <h2 id="skill-heading" class="section-title">Performance by skill</h2>
+    <div class="mt-4 overflow-x-auto">
+      <table class="table min-w-[32rem]">
+        <thead><tr><th scope="col">Skill</th><th scope="col">Attempts</th><th scope="col">Passed</th><th scope="col">Average score</th></tr></thead>
+        <tbody>
+          {% for row in performance %}
+          <tr><td><a class="font-medium hover:underline" href="{% url 'learning:mastery_detail' row.slug %}">{{ row.name }}</a></td><td>{{ row.attempts }}</td><td>{{ row.passed }}</td>
+            <td><div class="flex items-center gap-3"><div class="progress progress-thin w-28"><div class="progress-bar" style="width: {{ row.avg|pct_width }}"></div></div><span class="font-medium tabular-nums">{{ row.avg|percent }}</span></div></td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if advanced %}
+  <section class="card card-pad" aria-labelledby="retention-heading">
+    <h2 id="retention-heading" class="section-title">Retention on reviews</h2>
+    {% if retention.reviews %}
+    <div class="mt-4 grid grid-cols-2 gap-4">
+      <div class="panel-muted p-4"><p class="text-xs font-medium text-muted">Review pass rate</p><p class="stat-value mt-1.5 text-3xl">{{ retention.rate|percent }}</p><p class="text-xs text-faint">{{ retention.passed }} of {{ retention.reviews }}</p></div>
+      <div class="panel-muted p-4"><p class="text-xs font-medium text-muted">After 3+ day gaps</p><p class="stat-value mt-1.5 text-3xl">{{ retention.spaced_rate|percent }}</p><p class="text-xs text-faint">{{ retention.spaced_total }} review{{ retention.spaced_total|pluralize }}</p></div>
+    </div>
+    {% if not retention.enough %}<p class="mt-3 text-xs text-faint">Small sample — treat these numbers as early signals.</p>{% endif %}
+    {% else %}<p class="mt-2 text-sm text-muted">Retention appears once you've completed reviews.</p>{% endif %}
+  </section>
+  <section class="card card-pad" aria-labelledby="errors-heading">
+    <h2 id="errors-heading" class="section-title">Repeated error categories</h2>
+    {% if errors.total %}
+    <div class="mt-4 h-48"><canvas data-chart="errors-chart" role="img" aria-label="Mistakes by category over the last 90 days"></canvas></div>
+    {{ errors.chart|json_script:"errors-chart" }}
+    <ul class="mt-4 space-y-1.5 text-sm">{% for item in errors.top %}<li class="flex justify-between gap-3"><span class="text-muted">{{ item.label }}</span><span class="tabular-nums text-faint">×{{ item.count }}</span></li>{% endfor %}</ul>
+    {% else %}<p class="mt-2 text-sm text-muted">No misconceptions recorded in the last 90 days.</p>{% endif %}
+  </section>
+  <section class="card card-pad lg:col-span-2" aria-labelledby="difficulty-heading">
+    <h2 id="difficulty-heading" class="section-title">Difficulty progression</h2>
+    {% if trends.enough %}
+    <div class="mt-4 h-56"><canvas data-chart="difficulty-chart" role="img" aria-label="Average challenge difficulty per week"></canvas></div>
+    {{ trends.difficulty_chart|json_script:"difficulty-chart" }}
+    {% else %}<p class="mt-2 text-sm text-muted">Not enough attempts yet to show a trend.</p>{% endif %}
+  </section>
+  {% else %}
+  <section class="card card-pad card-feature lg:col-span-2">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div><h2 class="section-title flex items-center gap-2">{% icon "gem" "size-[1.1rem] text-gold-text" %} Advanced analytics</h2><p class="mt-1 text-sm text-muted">Retention on delayed reviews, repeated error categories and difficulty progression are part of Pro.</p></div>
+      <a href="{% url 'billing:index' %}" class="btn btn-primary btn-sm">See plans</a>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if goal_progress %}
+  <section class="card card-pad lg:col-span-2" aria-labelledby="goal-heading">
+    <h2 id="goal-heading" class="section-title">Goal progress · {{ goal.title }}</h2>
+    <ul class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {% for m in goal_progress.milestones %}
+      <li class="panel-muted p-4"><p class="flex items-start justify-between gap-2 text-sm font-semibold"><span>{{ m.title }}</span>{% if m.complete %}{% icon "award" "size-4 flex-none text-gold-text" "Milestone complete" %}{% endif %}</p><p class="mt-1 text-xs text-faint">{{ m.completed_steps }} / {{ m.steps|length }} skills</p><div class="progress progress-thin mt-2.5"><div class="progress-bar {% if m.complete %}is-gold{% endif %}" style="width: {{ m.fraction|pct_width }}"></div></div></li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

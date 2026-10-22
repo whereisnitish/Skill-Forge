@@ -1,0 +1,27 @@
+{% load ui %}
+<ul class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  {% for row in items %}
+  <li>
+    <a href="{% url 'catalog:skill_detail' row.skill.slug %}" class="card card-pad card-interactive flex h-full flex-col {% if row.state == 'locked' %}bg-surface-2/60 shadow-none{% endif %}">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-muted">{{ row.skill.category.name }}</p>
+          <h2 class="card-title mt-1 {% if row.state == 'locked' %}text-muted{% endif %}">{{ row.skill.name }}</h2>
+        </div>
+        {% if row.state == "strong" %}<span class="badge badge-gold flex-none">{% icon "award" "size-3" %} {{ row.view.level_label }}</span>
+        {% elif row.state == "in_progress" %}<span class="badge badge-accent flex-none">In progress</span>
+        {% elif row.state == "ready" %}<span class="badge badge-neutral flex-none">{% icon "circle-dashed" "size-3" %} Ready</span>
+        {% else %}<span class="badge badge-neutral flex-none">{% icon "lock" "size-3" %} Locked</span>{% endif %}
+      </div>
+      <p class="mt-2 flex-1 text-sm leading-relaxed text-muted">{{ row.skill.summary }}</p>
+      {% if row.view.measured %}
+      <div class="mt-4">
+        <div class="flex items-center justify-between text-xs"><span class="font-medium level-{{ row.view.level }}">{{ row.view.level_label }}</span><span class="tabular-nums text-muted">{{ row.view.percent }}% estimated</span></div>
+        <div class="progress progress-thin mt-1.5"><div class="progress-bar {% if row.state == 'strong' %}is-gold{% endif %}" style="width: {{ row.view.percent }}%"></div></div>
+      </div>
+      {% endif %}
+      <div class="mt-4 flex items-center justify-between border-t border-line pt-3 text-xs text-faint">{% difficulty row.skill.difficulty %}<span>{{ row.skill.challenge_count }} challenge{{ row.skill.challenge_count|pluralize }}</span></div>
+    </a>
+  </li>
+  {% endfor %}
+</ul>

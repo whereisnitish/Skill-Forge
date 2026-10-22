@@ -1,0 +1,45 @@
+{% load ui %}
+{% with items_limit=limit|default:99 %}
+<details class="group" open>
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">How is SkillForge different from a course or a question bank?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Courses follow a fixed order and question banks are random. SkillForge keeps a model of what you know, and every answer you give changes what it recommends next: weak areas, reviews you're due for, prerequisites you're missing and the priorities of your goal.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">How are my answers graded?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Deterministically. Multiple-choice and short answers are checked against answer keys. Written explanations and code reviews are scored against a published rubric of key ideas. Coding challenges run against test cases in an isolated sandbox. The AI mentor can explain a result but never changes it.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">What does the mastery percentage mean?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">It's an estimate of how likely you are to succeed on a typical challenge for that skill, based on your evidence so far. It always comes with a confidence level. Harder challenges count for more, hints count for less, and estimates fade gradually if you stop practising. It is a learning aid, not a certification.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">How much time do I need?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">You choose: 10, 15, 20, 30 or 45 minutes a day. The daily plan fits challenges to that budget, and you can always practise more.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">Do I need the AI mentor?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">No. Everything works without it. When the AI mentor isn't available you'll see curated guidance instead, clearly labelled as such.</div>
+</details>
+{% if items_limit > 5 %}
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">Is my code executed safely?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Code runs only in a separate sandbox service with no network access, strict time, memory and process limits, and no access to application secrets. If the sandbox isn't available, coding challenges say so — they are never marked as passed without running.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">Can I change my goal later?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Yes. You can create several goals, pause or archive them, change your daily time and choose skills to prioritise. Changes affect future recommendations; your past attempts are kept exactly as they were.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">What happens to my data if I delete my account?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Deleting your account from Settings permanently removes your profile, goals, attempts, mastery history and notifications. Paid subscriptions are cancelled with the payment provider first.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">Does SkillForge guarantee a job or interview result?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">No. SkillForge helps you practise deliberately and see your progress honestly. Outcomes depend on many things we don't control, and we won't pretend otherwise.</div>
+</details>
+<details class="group">
+  <summary class="flex cursor-pointer list-none items-center justify-between gap-6 rounded-md py-5 font-display text-lg leading-snug transition-colors hover:text-accent-text">Can I cancel a paid plan?<span class="flex-none text-gold-text transition-transform duration-200 group-open:rotate-45">{% icon "plus" "size-5" %}</span></summary>
+  <div class="max-w-[62ch] pb-6 pr-10 text-sm leading-relaxed text-muted">Yes, at any time from the billing portal. You keep paid features until the end of the period you've paid for.</div>
+</details>
+{% endif %}
+{% endwith %}

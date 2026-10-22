@@ -1,0 +1,45 @@
+{% load static ui %}<!doctype html>
+<html lang="en" data-theme="{{ theme }}"{% if reduce_motion %} data-motion="reduce"{% endif %}{% if text_scale == "large" %} data-text-scale="large"{% endif %}>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ SITE_NAME }}{% endblock %}{% block title_suffix %} · {{ SITE_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}Adaptive daily practice for software engineers. SkillForge learns what you know, exposes blind spots and schedules the practice that makes skills stick.{% endblock %}">
+  {% block robots %}{% endblock %}
+  <link rel="canonical" href="{{ SITE_URL }}{{ request.path }}">
+  <meta property="og:site_name" content="{{ SITE_NAME }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}{{ SITE_NAME }} — Learn less randomly. Practise more intelligently.{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Daily practice that adapts to your strengths, exposes your blind spots, and helps you get better at the work that matters.{% endblock %}">
+  <meta property="og:url" content="{{ SITE_URL }}{{ request.path }}">
+  <meta property="og:image" content="{{ SITE_URL }}{% static 'img/og-image.png' %}">
+  <meta name="twitter:card" content="summary_large_image">
+  {% if theme == "dark" %}<meta name="theme-color" content="#0f1e19">{% elif theme == "system" %}<meta name="theme-color" content="#f5efe3" media="(prefers-color-scheme: light)"><meta name="theme-color" content="#0f1e19" media="(prefers-color-scheme: dark)">{% else %}<meta name="theme-color" content="#f5efe3">{% endif %}
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="htmx-config" content='{"allowEval":false,"includeIndicatorStyles":false,"selfRequestsOnly":true,"scrollIntoViewOnBoost":false}'>
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{% static 'img/apple-touch-icon.png' %}">
+  <link rel="manifest" href="{% static 'site.webmanifest' %}">
+  <link rel="preload" href="{% static 'fonts/inter-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{% static 'fonts/dm-serif-display-latin-400-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{% static 'dist/app.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <a href="#main" class="sr-only-focusable fixed left-4 top-4 z-[100] btn btn-primary">Skip to content</a>
+  <svg width="0" height="0" class="absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="sf-ring-gradient" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="var(--sf-ring-from)" /><stop offset="1" stop-color="var(--sf-ring-to)" />
+      </linearGradient>
+    </defs>
+  </svg>
+  {% block body %}{% endblock %}
+  <div id="toast-region" class="pointer-events-none fixed bottom-4 right-4 z-[90] flex flex-col items-end gap-2 [&>*]:pointer-events-auto" aria-live="polite"></div>
+  {% for message in messages %}<span hidden data-django-message="{{ message }}" data-level="{{ message.tags }}"></span>{% endfor %}
+  <noscript>{% for message in messages %}<p class="fixed bottom-4 right-4 toast">{{ message }}</p>{% endfor %}</noscript>
+  <script src="{% static 'vendor/htmx.min.js' %}" defer nonce="{{ csp_nonce }}"></script>
+  {% block scripts %}{% endblock %}
+  <script src="{% static 'js/app.js' %}" defer nonce="{{ csp_nonce }}"></script>
+</body>
+</html>

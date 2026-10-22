@@ -1,0 +1,6 @@
+{% load ui %}
+<div class="space-y-3 animate-enter">
+  <p class="flex gap-2 rounded-[var(--radius-control)] bg-warning-soft p-2.5 text-xs text-fg" role="status">{% icon "eye" "size-3.5 mt-px flex-none text-warning" %} Solution revealed — this attempt will count as assisted.</p>
+  {% if version.solution %}<div class="prose-sf text-sm">{{ version.solution|markdown }}</div>{% endif %}
+  {% if version.explanation %}<div class="prose-sf text-sm text-muted">{{ version.explanation|markdown }}</div>{% endif %}
+</div>

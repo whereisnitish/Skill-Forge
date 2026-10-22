@@ -1,0 +1,13 @@
+{% load ui %}
+<section id="notifications" class="card card-pad scroll-mt-24" aria-labelledby="notifications-heading">
+  <h2 id="notifications-heading" class="section-title">Notifications</h2>
+  <p class="mt-1 text-sm text-muted">We only email you about what you turn on here{% if not user.is_email_verified %}, and only once your email is verified{% endif %}.</p>
+  <form method="post" action="{% url 'accounts_settings:notifications' %}" hx-post="{% url 'accounts_settings:notifications' %}" hx-target="#notifications" hx-swap="outerHTML" class="mt-5 space-y-4" novalidate>
+    {% csrf_token %}
+    {% form_field notifications_form.daily_reminder_enabled %}
+    {% form_field notifications_form.review_reminder_enabled %}
+    {% form_field notifications_form.milestone_emails_enabled %}
+    <div class="max-w-xs">{% form_field notifications_form.reminder_hour %}</div>
+    <div class="flex items-center gap-4"><button type="submit" class="btn btn-primary btn-sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>Save notifications</button>{% include "accounts/settings/_saved.html" %}</div>
+  </form>
+</section>

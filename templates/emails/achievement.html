@@ -1,0 +1,25 @@
+{% extends "emails/base.html" %}
+{% block preheader %}{{ data.description }}{% endblock %}
+{% block eyebrow_wrapper %}{% endblock %}
+{% block heading_wrapper %}{% endblock %}
+{% block content %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td align="center" style="padding:4px 0 6px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td width="72" height="72" align="center" valign="middle" bgcolor="#173d32" style="width:72px;height:72px;border-radius:36px;background-color:#173d32;color:#d9bd7e;font-size:32px;line-height:72px;">&#9733;</td>
+        </tr>
+      </table>
+      <p class="eyebrow" style="margin:18px 0 6px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:#7a5b22;">Achievement unlocked</p>
+      <p class="h1 fg" style="margin:0 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:34px;font-weight:400;letter-spacing:-0.2px;color:#382b24;">{{ data.name }}</p>
+      <p class="body" style="margin:0 auto;max-width:420px;font-size:15px;line-height:24px;color:#4a3d33;">{{ data.description }}</p>
+    </td>
+  </tr>
+</table>
+<hr class="rule" style="border:0;border-top:1px solid #ddd1be;margin:26px 0 18px;">
+<p class="body" style="margin:0;font-size:14px;line-height:21px;color:#4a3d33;text-align:center;">Well earned, {{ user.friendly_name }}. Achievements on SkillForge come only from evaluated practice{% if data.total %} — you've now earned <strong class="fg" style="color:#382b24;">{{ data.total }}</strong>{% endif %}.</p>
+{% include "emails/_button.html" with url=action_url label="View your progress" align="center" %}
+{% endblock %}
+{% block footer_reason %}You're receiving this because milestone and achievement emails are on.{% endblock %}
+{% block footer_links %}<a href="{{ notification_settings_url }}" style="color:#6a5d4f;text-decoration:underline;">Email preferences</a> &nbsp;·&nbsp; <a href="{{ unsubscribe_url }}" style="color:#6a5d4f;text-decoration:underline;">Turn off milestone &amp; achievement emails</a>{% endblock %}

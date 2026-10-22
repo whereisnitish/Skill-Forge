@@ -1,0 +1,13 @@
+{
+  "name": "SkillForge",
+  "short_name": "SkillForge",
+  "description": "Adaptive daily practice for software engineers.",
+  "start_url": "/app/",
+  "display": "standalone",
+  "background_color": "#f5efe3",
+  "theme_color": "#173d32",
+  "icons": [
+    { "src": "img/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "img/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

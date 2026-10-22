@@ -1,0 +1,16 @@
+{% extends "emails/base.txt" %}
+{% block content %}MILESTONE COMPLETE
+
+You finished "{{ data.milestone }}".
+
+Nice work, {{ user.friendly_name }}. That's a real step towards {{ data.goal }}{% if data.path %} on your {{ data.path }} path{% endif %}. Every skill in this milestone reached its target, based on evidence from your own answers.
+{% if data.total %}
+Progress: {{ data.completed }} of {{ data.total }} milestones complete.
+{% endif %}
+{% if data.next %}Up next: {{ data.next }}{% else %}That was the final milestone. Keep up your reviews, or set a new goal.{% endif %}
+
+See your progress:
+{{ action_url }}{% endblock %}
+{% block footer_reason %}You're receiving this because milestone and achievement emails are on.{% endblock %}
+{% block footer_links %}Email preferences: {{ notification_settings_url }}
+Turn off milestone & achievement emails: {{ unsubscribe_url }}{% endblock %}

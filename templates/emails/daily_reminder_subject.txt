@@ -1,0 +1,1 @@
+{% autoescape off %}{% if data.challenge_title %}Today's challenge: {{ data.challenge_title }}{% else %}Your daily SkillForge practice is ready{% endif %}{% endautoescape %}

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block body %}
+<div class="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
+  <aside class="surface-royal relative hidden overflow-hidden lg:flex lg:flex-col lg:justify-between lg:p-12 xl:p-16">
+    <div class="pointer-events-none absolute inset-4 rounded-2xl border border-gold/20" aria-hidden="true"></div>
+    <a href="{% url 'marketing:home' %}" class="relative w-fit rounded-lg">{% include "components/logo.html" %}</a>
+    <div class="relative max-w-md">
+      <p class="eyebrow">{% block aside_eyebrow %}Deliberate practice{% endblock %}</p>
+      <p class="text-display-lg mt-5 text-balance">{% block aside_heading %}Learn less randomly. Practise more intelligently.{% endblock %}</p>
+      <ul class="mt-10 space-y-5 border-t border-line pt-8 text-sm text-muted">
+        <li class="flex gap-3"><span class="text-gold-text">{% icon "route" "size-5" %}</span>A daily plan built from what you actually know.</li>
+        <li class="flex gap-3"><span class="text-gold-text">{% icon "gauge" "size-5" %}</span>Mastery estimates with honest confidence levels.</li>
+        <li class="flex gap-3"><span class="text-gold-text">{% icon "repeat" "size-5" %}</span>Reviews scheduled just before you'd forget.</li>
+      </ul>
+    </div>
+    <p class="relative text-xs text-faint">© {% now "Y" %} SkillForge</p>
+  </aside>
+  <main id="main" class="flex flex-col px-4 py-8 sm:px-8">
+    <div class="flex items-center justify-between">
+      <a href="{% url 'marketing:home' %}" class="rounded-lg lg:invisible">{% include "components/logo.html" %}</a>
+      {% include "components/theme_switch.html" %}
+    </div>
+    <div class="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-10 animate-enter">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+{% endblock %}

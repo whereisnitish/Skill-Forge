@@ -1,0 +1,54 @@
+{% extends "layouts/app.html" %}
+{% load ui humanize %}
+{% block title %}{{ skill.name }}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex items-center gap-2 text-sm text-muted"><a href="{% url 'catalog:skills' %}" class="transition-colors hover:text-fg">Skill explorer</a>{% icon "chevron-right" "size-3.5 text-faint" %}<span class="truncate text-fg" aria-current="page">{{ skill.name }}</span></nav>
+<header class="flex flex-col gap-6 border-b border-line pb-7 md:flex-row md:items-end md:justify-between">
+  <div class="min-w-0">
+    <p class="eyebrow">{{ skill.category.name }}</p>
+    <h1 class="page-title mt-2">{{ skill.name }}</h1>
+    <p class="mt-2 max-w-3xl text-muted">{{ skill.summary }}</p>
+    <div class="mt-3 flex flex-wrap items-center gap-4 text-sm text-muted">{% difficulty skill.difficulty %}<span class="flex items-center gap-1.5">{% icon "repeat" "size-4 text-faint" %} First review after {{ skill.review_interval_days }} day{{ skill.review_interval_days|pluralize }}</span></div>
+  </div>
+  <a href="{% url 'learning:mastery_detail' skill.slug %}" class="card card-interactive flex flex-none items-center gap-3.5 px-4 py-3">
+    {% mastery_ring view.mean 56 6 skill.name %}
+    <div><p class="text-sm font-semibold level-{{ view.level }}">{{ view.level_label }}</p><p class="text-xs text-faint">{% if view.measured %}{{ view.evidence_count }} attempt{{ view.evidence_count|pluralize }} · {{ view.confidence }} confidence{% else %}No evidence yet{% endif %}</p></div>
+  </a>
+</header>
+{% if not readiness.ready %}
+<p class="panel-note mt-6 flex gap-2.5 p-4 text-sm text-fg">{% icon "lock" "size-4 mt-0.5 flex-none text-gold-text" %} Your daily plan won't recommend this skill until its required prerequisites are in place. You can still practise it directly below.</p>
+{% endif %}
+
+<div class="mt-7 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-8">
+  <div class="space-y-6">
+    <section class="card card-pad"><h2 class="section-title">About this skill</h2><div class="prose-sf mt-3 max-w-none">{{ skill.description|markdown }}</div></section>
+    <section class="card card-pad"><h2 class="section-title">Learning objectives</h2>
+      <ul class="mt-3 space-y-2">{% for objective in skill.learning_objectives %}<li class="flex gap-2.5 text-sm">{% icon "target" "size-4 mt-1 flex-none text-gold-text" %}<span class="prose-sf text-sm">{{ objective|markdown_inline }}</span></li>{% endfor %}</ul>
+    </section>
+    <section class="card card-pad" aria-labelledby="challenges-heading">
+      <h2 id="challenges-heading" class="section-title">Challenges</h2>
+      <ul class="mt-4 divide-y divide-line">
+        {% for item in challenges %}
+        <li class="flex flex-col gap-3 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex min-w-0 items-start gap-3">
+            <span class="icon-chip size-9">{% icon item.challenge.kind_icon "size-4" %}</span>
+            <div class="min-w-0"><p class="font-medium">{{ item.challenge.current_version.title }}</p><p class="mt-0.5 text-xs text-faint">{{ item.challenge.get_kind_display }} · {{ item.challenge.estimated_minutes }} min · {{ item.challenge.difficulty_label }}{% if item.best is not None %} · best {{ item.best|percent }}{% endif %}</p></div>
+          </div>
+          {% if item.available %}<a href="{% url 'learning:challenge' item.challenge.slug %}" class="btn btn-secondary btn-sm flex-none">{% if item.best is not None %}Practise again{% else %}Start{% endif %}</a>
+          {% else %}<span class="badge badge-neutral flex-none" title="Requires the sandboxed code runner">{% icon "server-off" "size-3" %} Runner offline</span>{% endif %}
+        </li>
+        {% empty %}<li class="py-3 text-sm text-muted">No challenges published for this skill yet.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+  <aside class="card divide-y divide-line self-start">
+    <section class="card-pad"><h2 class="section-title">Prerequisites</h2>
+      <ul class="mt-3 space-y-2.5">{% for p in prerequisites %}<li class="flex items-center justify-between gap-2 text-sm"><a href="{% url 'catalog:skill_detail' p.link.prerequisite.slug %}" class="flex items-center gap-2 hover:underline">{% if p.view.mean >= p.link.min_mastery %}{% icon "circle-check" "size-4 flex-none text-success" "Ready" %}{% else %}{% icon "circle-dashed" "size-4 flex-none text-warning" "Not yet" %}{% endif %}{{ p.link.prerequisite.name }}</a><span class="text-xs text-faint">{{ p.link.get_strength_display }}</span></li>{% empty %}<li class="text-sm text-muted">None — a great place to start.</li>{% endfor %}</ul>
+    </section>
+    <section class="card-pad"><h2 class="section-title">Unlocks</h2>
+      <ul class="mt-3 flex flex-wrap gap-2">{% for s in unlocks %}<li><a class="badge badge-neutral hover:border-line-strong" href="{% url 'catalog:skill_detail' s.slug %}">{{ s.name }}</a></li>{% empty %}<li class="text-sm text-muted">Nothing depends on this skill yet.</li>{% endfor %}</ul>
+    </section>
+    {% if related %}<section class="card-pad"><h2 class="section-title">Related</h2><ul class="mt-3 flex flex-wrap gap-2">{% for s in related %}<li><a class="badge badge-neutral hover:border-line-strong" href="{% url 'catalog:skill_detail' s.slug %}">{{ s.name }}</a></li>{% endfor %}</ul></section>{% endif %}
+  </aside>
+</div>
+{% endblock %}

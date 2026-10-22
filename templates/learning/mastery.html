@@ -1,0 +1,50 @@
+{% extends "layouts/app.html" %}
+{% load ui humanize %}
+{% block title %}Mastery{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-5 border-b border-line pb-7 lg:flex-row lg:items-end lg:justify-between">
+  <div>
+    <p class="eyebrow">Progress</p>
+    <h1 class="page-title mt-2">Skill mastery</h1>
+    <p class="mt-2 max-w-2xl text-muted">Estimates of how likely you are to succeed on each skill, with how confident we are. They rise with evidence and fade slowly without practice.</p>
+  </div>
+  <nav class="flex w-fit flex-wrap gap-1 rounded-[0.65rem] border border-line bg-surface p-1" aria-label="Filter skills">
+    {% if goal %}<a class="tab {% if filter_by == 'goal' %}is-active{% endif %}" href="?show=goal" {% if filter_by == 'goal' %}aria-current="page"{% endif %}>Current goal</a>{% endif %}
+    <a class="tab {% if filter_by == 'practised' %}is-active{% endif %}" href="?show=practised" {% if filter_by == 'practised' %}aria-current="page"{% endif %}>Practised <span class="text-faint">{{ counts.practised }}</span></a>
+    <a class="tab {% if filter_by == 'attention' %}is-active{% endif %}" href="?show=attention" {% if filter_by == 'attention' %}aria-current="page"{% endif %}>Needs attention <span class="text-faint">{{ counts.attention }}</span></a>
+    <a class="tab {% if filter_by == 'strengths' %}is-active{% endif %}" href="?show=strengths" {% if filter_by == 'strengths' %}aria-current="page"{% endif %}>Strengths <span class="text-faint">{{ counts.strengths }}</span></a>
+    <a class="tab {% if filter_by == 'all' %}is-active{% endif %}" href="?show=all" {% if filter_by == 'all' %}aria-current="page"{% endif %}>All</a>
+  </nav>
+</header>
+
+<details class="panel-note mt-6 p-4 text-sm">
+  <summary class="cursor-pointer font-semibold">How to read these estimates</summary>
+  <div class="mt-3 grid gap-3 text-muted md:grid-cols-2">
+    <p><span class="font-semibold level-exploring">Exploring</span> — little evidence or a low estimate. <span class="font-semibold level-developing">Developing</span> — at least two attempts, estimate ≥ 40%. <span class="font-semibold level-proficient">Proficient</span> — four or more attempts, ≥ 70%. <span class="font-semibold level-mastered">Mastered</span> — six or more attempts, ≥ 85%, low uncertainty and at least one successful delayed recall.</p>
+    <p>Confidence reflects how much evidence there is. Estimates describe performance on SkillForge challenges — useful for choosing practice, not a certification.</p>
+  </div>
+</details>
+
+{% for category, items in groups.items %}
+<section class="mt-10" aria-labelledby="cat-{{ forloop.counter }}">
+  <h2 id="cat-{{ forloop.counter }}" class="section-title">{{ category }}</h2>
+  <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+    {% for item in items %}
+    <a href="{% url 'learning:mastery_detail' item.skill.slug %}" class="card card-pad card-interactive flex items-center gap-4">
+      {% if item.view.measured %}{% mastery_ring item.view.mean 56 6 item.skill.name %}{% else %}<span class="grid size-14 flex-none place-items-center rounded-full border-2 border-dashed border-line-strong text-faint">{% if item.ready %}{% icon "circle-dashed" "size-5" %}{% else %}{% icon "lock" "size-5" "Needs prerequisites" %}{% endif %}</span>{% endif %}
+      <div class="min-w-0 flex-1">
+        <p class="truncate font-semibold">{{ item.skill.name }}</p>
+        <p class="text-sm font-medium level-{{ item.view.level }}">{{ item.view.level_label }}{% if item.view.measured %} <span class="font-normal text-faint">· {{ item.view.confidence }} confidence</span>{% endif %}</p>
+        <p class="mt-0.5 truncate text-xs text-faint">
+          {% if item.view.measured %}{{ item.view.evidence_count }} attempt{{ item.view.evidence_count|pluralize }}{% if item.view.last_practiced_at %} · last {{ item.view.last_practiced_at|naturalday }}{% endif %}{% elif item.ready %}Ready to start{% else %}Needs prerequisites first{% endif %}
+        </p>
+      </div>
+      {% if item.attention %}<span class="badge badge-warning flex-none">{% if item.review and item.review.due_at <= now %}Review due{% else %}Weak{% endif %}</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% empty %}
+<div class="mt-8">{% include "components/empty_state.html" with icon="gauge" title="Nothing to show yet" body="Skills appear here once you've practised them. Start with today's challenge." %}</div>
+{% endfor %}
+{% endblock %}

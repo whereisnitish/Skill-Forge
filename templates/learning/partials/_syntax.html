@@ -1,0 +1,4 @@
+{% load ui %}
+{% if empty %}<p class="text-sm text-muted">Write some code first.</p>
+{% elif problem %}<p class="flex items-center gap-1.5 text-sm text-danger">{% icon "circle-x" "size-4" %} Syntax error — {{ problem }}</p>
+{% else %}<p class="flex items-center gap-1.5 text-sm text-success">{% icon "circle-check" "size-4" %} Syntax looks valid. (Parsed only — nothing was executed.)</p>{% endif %}

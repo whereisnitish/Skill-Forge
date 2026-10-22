@@ -1,0 +1,10 @@
+{% load ui %}
+<section id="profile" class="card card-pad scroll-mt-24" aria-labelledby="profile-heading">
+  <h2 id="profile-heading" class="section-title">Profile</h2>
+  <p class="mt-1 text-sm text-muted">How we greet you and when your day starts.</p>
+  <form method="post" action="{% url 'accounts_settings:profile' %}" hx-post="{% url 'accounts_settings:profile' %}" hx-target="#profile" hx-swap="outerHTML" class="mt-5 space-y-5" novalidate>
+    {% csrf_token %}
+    <div class="grid gap-5 sm:grid-cols-2">{% form_field name_form.display_name %}{% form_field profile_form.timezone %}</div>
+    <div class="flex items-center gap-4"><button type="submit" class="btn btn-primary btn-sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>Save profile</button>{% include "accounts/settings/_saved.html" %}</div>
+  </form>
+</section>

@@ -1,0 +1,75 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}Features{% endblock %}
+{% block description %}Adaptive daily plans, honest mastery estimates, spaced reviews, explained feedback, sandboxed code evaluation and an optional AI mentor.{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="Features" heading="Everything in service of getting measurably better." lede="SkillForge combines a curated curriculum with a transparent learning engine. Here is what that means day to day." %}
+
+<div class="mx-auto max-w-6xl space-y-20 px-4 py-20 sm:px-6 lg:px-8">
+  <section class="grid items-center gap-10 lg:grid-cols-2" aria-labelledby="f-plan">
+    <div>
+      <span class="icon-chip size-11">{% icon "calendar-check" "size-5" %}</span>
+      <h2 id="f-plan" class="text-display-lg mt-5">A plan for today, rebuilt after every answer.</h2>
+      <p class="mt-4 text-muted">Tell SkillForge how long you have. It fills the time with challenges chosen for you right now — and only decides the next one once it has seen your result on the last.</p>
+      <ul class="mt-6 space-y-3 text-sm text-muted">
+        <li class="flex gap-3">{% icon "check" "size-4 mt-0.5 text-success" %} Six formats: multiple choice, short answer, Python coding, debugging, concept explanations and code review.</li>
+        <li class="flex gap-3">{% icon "check" "size-4 mt-0.5 text-success" %} Every recommendation explains itself: “due for review”, “prerequisite for async”, “you struggled with this twice”.</li>
+        <li class="flex gap-3">{% icon "check" "size-4 mt-0.5 text-success" %} Skip a challenge and the next pick avoids it.</li>
+      </ul>
+    </div>
+    <div class="card card-feature card-pad">
+      <p class="text-xs font-semibold text-faint">Why this challenge?</p>
+      <ul class="mt-4 space-y-3 text-sm">
+        <li class="flex items-start gap-3 rounded-xl border border-line bg-canvas/60 p-3"><span class="badge badge-warning">Due for review</span><span class="text-muted">Scheduled because Closures is due for review — you last practised it 4 days ago.</span></li>
+        <li class="flex items-start gap-3 rounded-xl border border-line bg-canvas/60 p-3"><span class="badge badge-accent">Unlocks next</span><span class="text-muted">Selected to practise Iterators &amp; generators, a prerequisite for Async programming.</span></li>
+        <li class="flex items-start gap-3 rounded-xl border border-line bg-canvas/60 p-3"><span class="badge badge-info">Goal priority</span><span class="text-muted">Selected because your goal prioritises ORM query optimisation.</span></li>
+      </ul>
+      <p class="mt-4 text-xs text-faint">Example explanations, worded exactly as the app generates them.</p>
+    </div>
+  </section>
+
+  <section class="grid items-center gap-10 lg:grid-cols-2" aria-labelledby="f-mastery">
+    <div class="order-last card card-pad lg:order-first">
+      <div class="flex items-center gap-4">
+        {% mastery_ring 0.62 72 7 "Sample mastery estimate" %}
+        <div>
+          <p class="font-semibold">Iterators &amp; generators</p>
+          <p class="text-sm text-muted">Developing · medium confidence</p>
+          <p class="mt-1 text-xs text-faint">Based on 5 attempts across 3 formats</p>
+        </div>
+      </div>
+      <div class="mt-6 grid grid-cols-3 gap-3 text-center text-xs">
+        <div class="panel-muted p-3"><p class="stat-value text-lg">±11%</p><p class="text-faint">Uncertainty</p></div>
+        <div class="panel-muted p-3"><p class="stat-value text-lg">1</p><p class="text-faint">Delayed recalls</p></div>
+        <div class="panel-muted p-3"><p class="stat-value text-lg">3 days</p><p class="text-faint">Next review</p></div>
+      </div>
+      <p class="mt-4 text-xs text-faint">Sample data.</p>
+    </div>
+    <div>
+      <span class="icon-chip size-11">{% icon "gauge" "size-5" %}</span>
+      <h2 id="f-mastery" class="text-display-lg mt-5">Mastery you can trust — including its uncertainty.</h2>
+      <p class="mt-4 text-muted">Estimates are built from evidence, weighted by difficulty and independence. Hints and revealed solutions count for less. Successful recall after a gap counts for more. Nothing is labelled “Mastered” without repeated evidence and a successful delayed review.</p>
+    </div>
+  </section>
+
+  <section class="grid gap-5 md:grid-cols-3" aria-label="More features">
+    <div class="card card-pad"><span class="text-accent-text">{% icon "repeat" "size-6" %}</span><h3 class="card-title mt-4">Spaced reviews</h3><p class="mt-2 text-sm text-muted">An SM-2-style scheduler lengthens intervals when you remember and shortens them when you don't. Cramming early doesn't inflate the schedule.</p></div>
+    <div class="card card-pad"><span class="text-accent-text">{% icon "list-checks" "size-6" %}</span><h3 class="card-title mt-4">Transparent rubrics</h3><p class="mt-2 text-sm text-muted">Written answers are scored against named key ideas, so you always see exactly what was found and what was missing.</p></div>
+    <div class="card card-pad"><span class="text-accent-text">{% icon "shield-check" "size-6" %}</span><h3 class="card-title mt-4">Sandboxed code runs</h3><p class="mt-2 text-sm text-muted">Python solutions run in an isolated service with hidden test cases, resource limits and no network access.</p></div>
+    <div class="card card-pad"><span class="text-accent-text">{% icon "network" "size-6" %}</span><h3 class="card-title mt-4">Skill map</h3><p class="mt-2 text-sm text-muted">See how skills connect, what you're ready for and what each one unlocks — also available as an accessible list.</p></div>
+    <div class="card card-pad"><span class="text-accent-text">{% icon "chart-column" "size-6" %}</span><h3 class="card-title mt-4">Progress analytics</h3><p class="mt-2 text-sm text-muted">Activity, accuracy trends, retention on delayed reviews, recurring mistakes and difficulty progression.</p></div>
+    <div class="card card-pad"><span class="text-accent-text">{% icon "bot" "size-6" %}</span><h3 class="card-title mt-4">AI mentor (optional)</h3><p class="mt-2 text-sm text-muted">Explanations of why an answer fell short and what to practise next. Curated guidance is used whenever the AI isn't available.</p></div>
+  </section>
+
+  <section class="card card-pad" aria-labelledby="f-not">
+    <h2 id="f-not" class="section-title">What SkillForge is not</h2>
+    <div class="mt-4 grid gap-4 text-sm text-muted md:grid-cols-3">
+      <p><span class="font-semibold text-fg">Not a video course.</span> You learn by doing, with explanations after each attempt.</p>
+      <p><span class="font-semibold text-fg">Not a random quiz app.</span> Every challenge is chosen for a reason, and the reason is shown.</p>
+      <p><span class="font-semibold text-fg">Not a chatbot wrapper.</span> Grading and recommendations are deterministic and testable.</p>
+    </div>
+  </section>
+
+  <div class="text-center"><a href="{% url 'accounts:register' %}" class="btn btn-primary btn-lg">Start learning {% icon "arrow-right" "size-4" %}</a></div>
+</div>
+{% endblock %}

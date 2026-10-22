@@ -1,0 +1,19 @@
+{% extends "emails/base.html" %}
+{% block preheader %}Confirm this address to finish changing the email on your SkillForge account.{% endblock %}
+{% block eyebrow %}Account security{% endblock %}
+{% block heading %}Confirm your new email address{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }},</p>
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">You asked to use <strong class="fg" style="color:#382b24;">{{ user.email }}</strong> for your SkillForge account. Confirm it to finish the change — until then, reminders and progress emails are paused.</p>
+{% include "emails/_button.html" with url=verify_url label="Confirm new address" %}
+<p class="muted" style="margin:14px 0 22px;font-size:13px;line-height:20px;color:#6a5d4f;">This link expires in 3 days.</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="panel" style="background-color:#fbf4e6;border:1px solid #e6cf9f;border-radius:12px;padding:16px 18px;">
+      <p class="fg" style="margin:0 0 4px;font-size:14px;line-height:20px;font-weight:700;color:#8a5b1a;">Didn't request this?</p>
+      <p class="body" style="margin:0;font-size:14px;line-height:21px;color:#6b4513;">Someone may have access to your account. <a href="{{ password_reset_url }}" style="color:#8a5b1a;font-weight:600;">Reset your password</a> right away and let us know at {{ SUPPORT_EMAIL }}.</p>
+    </td>
+  </tr>
+</table>
+{% endblock %}
+{% block footer_reason %}You're receiving this because an email change was requested for a SkillForge account.{% endblock %}

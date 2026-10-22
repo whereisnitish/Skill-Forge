@@ -1,0 +1,35 @@
+{% load ui %}
+<p class="mb-3 text-sm text-muted">{{ page.paginator.count }} attempt{{ page.paginator.count|pluralize }}{% if filtered %} match your filters{% endif %}</p>
+{% if page.object_list %}
+<ul class="card divide-y divide-line overflow-hidden">
+  {% for attempt in page %}
+  {% with evaluation=attempt.evaluation %}
+  <li>
+    <a href="{% url 'learning:attempt' attempt.pk %}" class="flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-surface-2 sm:px-5">
+      {% if attempt.status != "evaluated" %}
+        <span class="grid size-10 flex-none place-items-center rounded-full bg-info-soft text-info">{% icon "hourglass" "size-5" "Awaiting evaluation" %}</span>
+      {% elif evaluation.verdict == "correct" %}
+        <span class="grid size-10 flex-none place-items-center rounded-full bg-success-soft text-success">{% icon "check" "size-5" "Correct" %}</span>
+      {% elif evaluation.verdict == "partial" %}
+        <span class="grid size-10 flex-none place-items-center rounded-full bg-warning-soft text-warning">{% icon "circle-dot-dashed" "size-5" "Partially correct" %}</span>
+      {% else %}
+        <span class="grid size-10 flex-none place-items-center rounded-full bg-danger-soft text-danger">{% icon "x" "size-5" "Incorrect" %}</span>
+      {% endif %}
+      <div class="min-w-0 flex-1">
+        <p class="truncate font-semibold">{{ attempt.challenge_version.title }}</p>
+        <p class="mt-0.5 truncate text-xs text-faint">{{ attempt.challenge.skill.name }} · {{ attempt.challenge.get_kind_display }}{% if attempt.is_review %} · review{% endif %}{% if attempt.is_diagnostic %} · placement{% endif %}{% if attempt.hints_used %} · {{ attempt.hints_used }} hint{{ attempt.hints_used|pluralize }}{% endif %}</p>
+      </div>
+      <div class="flex-none text-right">
+        <p class="text-sm font-semibold tabular-nums">{% if evaluation %}{{ evaluation.score|percent }}{% else %}—{% endif %}</p>
+        <p class="text-xs text-faint">{{ attempt.submitted_at|date:"j M, H:i" }}</p>
+      </div>
+    </a>
+  </li>
+  {% endwith %}
+  {% endfor %}
+</ul>
+{% include "components/pagination.html" with hx_target="#history-results" %}
+{% else %}
+{% if filtered %}{% include "components/empty_state.html" with icon="search-x" title="No attempts match" body="Try removing a filter or widening the date range." %}
+{% else %}{% url 'learning:today' as today_url %}{% include "components/empty_state.html" with icon="history" title="No attempts yet" body="Your completed challenges will appear here." action_url=today_url action_label="Go to Today" %}{% endif %}
+{% endif %}

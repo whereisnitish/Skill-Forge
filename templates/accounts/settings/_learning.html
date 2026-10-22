@@ -1,0 +1,13 @@
+{% load ui %}
+<section id="learning" class="card card-pad scroll-mt-24" aria-labelledby="learning-heading">
+  <h2 id="learning-heading" class="section-title">Learning preferences</h2>
+  <p class="mt-1 text-sm text-muted">These shape your daily plan. Changes apply to your next recommendation.</p>
+  <form method="post" action="{% url 'accounts_settings:learning' %}" hx-post="{% url 'accounts_settings:learning' %}" hx-target="#learning" hx-swap="outerHTML" class="mt-5 space-y-6" novalidate>
+    {% csrf_token %}
+    {% form_field learning_form.daily_minutes variant="inline" %}
+    {% form_field learning_form.difficulty_preference %}
+    {% form_field learning_form.preferred_formats variant="grid" %}
+    <p class="text-xs text-faint">Daily time also updates the plan for your current goal.</p>
+    <div class="flex items-center gap-4"><button type="submit" class="btn btn-primary btn-sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>Save preferences</button>{% include "accounts/settings/_saved.html" %}</div>
+  </form>
+</section>

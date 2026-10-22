@@ -1,0 +1,61 @@
+{% extends "onboarding/_layout.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="text-display-lg">Your learning plan</h1>
+<p class="mt-3 text-muted">Here's where we'll start. Review it, adjust anything, then begin.</p>
+
+<dl class="mt-8 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line shadow-card sm:grid-cols-3">
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Daily time</dt><dd class="mt-1.5 text-xl font-semibold">{{ daily_minutes }} min</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Level</dt><dd class="mt-1.5 text-xl font-semibold">{{ state.data.level|title }}</dd></div>
+  <div class="bg-surface p-5"><dt class="text-xs font-medium text-muted">Placement check</dt>
+    {% if diagnostic and diagnostic.answered %}<dd class="mt-1.5 text-xl font-semibold">{{ diagnostic.correct }}/{{ diagnostic.answered }} <span class="text-sm font-normal text-muted">correct</span></dd>
+    {% else %}<dd class="mt-1.5 text-sm text-muted">Skipped — we'll calibrate as you practise.</dd>{% endif %}
+  </div>
+</dl>
+
+<form method="post" class="mt-6 space-y-6" novalidate>
+  {% csrf_token %}
+  <section class="card card-pad card-feature" aria-labelledby="plan-path">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div class="flex gap-4">
+        <span class="icon-chip size-12 rounded-xl">{% icon path.icon "size-6" %}</span>
+        <div>
+          <p class="eyebrow">Recommended path</p>
+          <h2 id="plan-path" class="section-title mt-1.5 text-[1.5rem]">{{ path.name }}</h2>
+          <p class="mt-1 text-sm text-muted">{{ path.tagline }}</p>
+        </div>
+      </div>
+      {% if paths|length > 1 %}
+      <div class="flex items-end gap-2">
+        <div class="field"><label for="id_path" class="label text-xs">Switch path</label>
+          <select name="path" id="id_path" class="select text-sm">{% for p in paths %}<option value="{{ p.slug }}" {% if p.slug == path.slug %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>
+        </div>
+        <button type="submit" name="action" value="change_path" class="btn btn-secondary btn-sm">Preview</button>
+      </div>
+      {% else %}<input type="hidden" name="path" value="{{ path.slug }}">{% endif %}
+    </div>
+    <ol class="mt-6 grid gap-3 sm:grid-cols-2">
+      {% for milestone in milestones %}
+      <li class="rounded-[var(--radius-panel)] border border-line bg-canvas/50 p-4">
+        <p class="text-xs font-semibold text-gold-text">Milestone {{ milestone.order }}</p>
+        <p class="mt-1 font-display text-lg leading-snug">{{ milestone.title }}</p>
+        <p class="mt-1 text-xs text-muted">{% for step in milestone.steps.all %}{{ step.skill.name }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+      </li>
+      {% endfor %}
+    </ol>
+    {% if premium_paths %}<p class="mt-4 text-xs text-faint">Also available on Pro: {% for p in premium_paths %}{{ p.name }}{% if not forloop.last %}, {% endif %}{% endfor %}.</p>{% endif %}
+  </section>
+
+  <section class="card card-pad space-y-5" aria-label="Goal details">
+    {% form_field form.title %}
+    {% form_field form.focus_skills variant="grid" %}
+    {% form_field form.target_date %}
+    {% if formats %}<p class="text-sm text-muted">Preferred formats: <span class="text-fg">{{ formats|join:", " }}</span></p>{% endif %}
+  </section>
+
+  <div class="flex items-center justify-between">
+    <a href="{% url 'onboarding:step' 'preferences' %}" class="btn btn-ghost">{% icon "arrow-left" "size-4" %} Back</a>
+    <button type="submit" name="action" value="confirm" class="btn btn-primary btn-lg"><span class="spinner" aria-hidden="true"></span>Start learning {% icon "arrow-right" "size-4" %}</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% load ui %}
+<nav class="app-nav flex flex-col gap-0.5" aria-label="App">
+  <a class="nav-link {% nav_state 'learning:today' 'learning:challenge' 'learning:attempt' %}" href="{% url 'learning:today' %}" {% aria_current 'learning:today' %} title="Today">{% icon "calendar-days" "size-[1.1rem] flex-none" %}<span class="nav-label">Today</span></a>
+  <p class="nav-group" aria-hidden="true">Learn</p>
+  <a class="nav-link {% nav_state 'catalog:paths' 'catalog:path_detail' %}" href="{% url 'catalog:paths' %}" {% aria_current 'catalog:paths' %} title="Learning paths">{% icon "route" "size-[1.1rem] flex-none" %}<span class="nav-label">Learning paths</span></a>
+  <a class="nav-link {% nav_state 'catalog:skills' 'catalog:skill_detail' %}" href="{% url 'catalog:skills' %}" {% aria_current 'catalog:skills' %} title="Skill explorer">{% icon "network" "size-[1.1rem] flex-none" %}<span class="nav-label">Skill explorer</span></a>
+  <a class="nav-link {% nav_state 'learning:goals' 'learning:goal_detail' 'learning:goal_create' 'learning:goal_edit' %}" href="{% url 'learning:goals' %}" {% aria_current 'learning:goals' %} title="Goals">{% icon "flag" "size-[1.1rem] flex-none" %}<span class="nav-label">Goals</span></a>
+  <p class="nav-group" aria-hidden="true">Practice</p>
+  <a class="nav-link {% nav_state 'learning:reviews' %}" href="{% url 'learning:reviews' %}" {% aria_current 'learning:reviews' %} title="Reviews">{% icon "rotate-ccw" "size-[1.1rem] flex-none" %}<span class="nav-label">Reviews</span></a>
+  <a class="nav-link {% nav_state 'mentor:index' %}" href="{% url 'mentor:index' %}" {% aria_current 'mentor:index' %} title="Mentor">{% icon "bot" "size-[1.1rem] flex-none" %}<span class="nav-label">Mentor</span></a>
+  <p class="nav-group" aria-hidden="true">Progress</p>
+  <a class="nav-link {% nav_state 'learning:mastery' 'learning:mastery_detail' %}" href="{% url 'learning:mastery' %}" {% aria_current 'learning:mastery' %} title="Mastery">{% icon "gauge" "size-[1.1rem] flex-none" %}<span class="nav-label">Mastery</span></a>
+  <a class="nav-link {% nav_state 'learning:progress' %}" href="{% url 'learning:progress' %}" {% aria_current 'learning:progress' %} title="Analytics">{% icon "chart-column" "size-[1.1rem] flex-none" %}<span class="nav-label">Analytics</span></a>
+  <a class="nav-link {% nav_state 'learning:history' %}" href="{% url 'learning:history' %}" {% aria_current 'learning:history' %} title="Learning history">{% icon "history" "size-[1.1rem] flex-none" %}<span class="nav-label">Learning history</span></a>
+</nav>

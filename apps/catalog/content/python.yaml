@@ -1,0 +1,3577 @@
+# Python curriculum: 13 skills with 3 challenges each.
+# The skill graph (slugs, difficulties, prerequisites, relations) follows
+# docs/curriculum-map.md, section "python.yaml". Target: Python 3.12+.
+
+skills:
+  - slug: py-data-structures
+    name: Core data structures
+    category: python
+    difficulty: 1
+    review_interval_days: 4
+    summary: Choose between lists, tuples, dicts and sets by ordering, mutability and lookup cost, and reach for Counter, defaultdict and deque when they fit.
+    description: |
+      Python's built-in containers each make a different trade-off. Lists are
+      ordered, mutable sequences with fast appends and indexing; tuples are
+      immutable sequences that work well as fixed records and dictionary keys;
+      dicts map hashable keys to values and preserve insertion order; sets hold
+      unique hashable items. The `collections` module adds specialised tools
+      such as `Counter`, `defaultdict` and `deque`.
+
+      Choosing the right structure is one of the cheapest performance and
+      clarity wins available. A membership test on a set or dict is O(1) on
+      average, while the same test on a list scans every element: the
+      difference between a job that takes seconds and one that takes hours
+      once data grows. The right container also documents intent: a tuple
+      says "this record does not change", a set says "order and duplicates do
+      not matter".
+
+      Common pitfalls include using lists for repeated membership checks,
+      building nested lists with `[[0] * n] * m` (which repeats references to
+      one inner list), assigning with `=` when a copy was intended, and
+      forgetting that only hashable values can be dict keys or set members.
+    objectives:
+      - Pick a list, tuple, dict or set for a task based on ordering, mutability and lookup cost.
+      - Explain why membership tests are O(1) on average for sets and dicts but O(n) for lists.
+      - Use `collections.Counter`, `defaultdict` and `deque` for counting, grouping and queues.
+      - Avoid aliasing bugs when building or copying nested lists and dicts.
+    related: [algo-hashing]
+
+  - slug: py-functions
+    name: Functions & arguments
+    category: python
+    difficulty: 1
+    review_interval_days: 4
+    summary: Define and call functions with positional, keyword, default, keyword-only and variadic parameters, and avoid traps such as mutable default arguments.
+    description: |
+      Functions are Python's basic unit of reuse. A signature can mix
+      positional-or-keyword parameters, defaults, `*args` for extra positional
+      arguments, keyword-only parameters after `*` or `*args`, positional-only
+      parameters before `/`, and `**kwargs` for extra keyword arguments.
+      Functions are objects too: they can be passed around, stored and
+      returned.
+
+      Clear signatures make APIs hard to misuse. Keyword-only parameters stop
+      callers from passing a boolean flag in the wrong position, sensible
+      defaults keep call sites short, and `*args`/`**kwargs` let wrappers
+      forward arguments they know nothing about. Every decorator, callback and
+      framework hook you write relies on these rules.
+
+      The classic pitfall is a mutable default such as `def f(items=[])`.
+      Default values are evaluated once, when the `def` statement runs, so
+      every call shares the same list. Other common mistakes are forgetting
+      that a function without `return` returns `None`, mixing up positional
+      and keyword arguments, and accepting `**kwargs` so liberally that typos
+      in argument names go unnoticed.
+    objectives:
+      - Call functions with positional and keyword arguments and design keyword-only and positional-only parameters.
+      - Explain when default values are evaluated and avoid mutable default arguments.
+      - Collect and forward arguments with `*args` and `**kwargs`.
+      - Predict what a function returns, including the implicit `None`.
+    related: [py-closures-scope]
+
+  - slug: py-comprehensions
+    name: Comprehensions
+    category: python
+    difficulty: 2
+    review_interval_days: 3
+    summary: Build lists, dicts and sets declaratively with comprehensions and generator expressions, and know when a plain loop is clearer.
+    description: |
+      Comprehensions build a new collection from an iterable in a single
+      expression: `[f(x) for x in xs if cond(x)]` for lists, `{k: v for ...}`
+      for dicts, `{x for ...}` for sets and `(x for ...)` for lazy generator
+      expressions. Multiple `for` clauses nest from left to right, exactly as
+      the equivalent nested loops would be written.
+
+      Used well, comprehensions are shorter than the equivalent `append` loop,
+      usually a little faster, and make the shape of the result obvious at a
+      glance. They appear constantly in real code for transforming API
+      payloads, building lookup tables and filtering records.
+
+      Pitfalls: writing nested comprehensions with the clauses in the wrong
+      order; cramming side effects or complex branching into a comprehension
+      that should be a loop; building a whole list when a generator
+      expression passed straight to `sum()` or `any()` would do; and
+      forgetting that a dict comprehension silently keeps the last value for
+      a repeated key.
+    objectives:
+      - Write list, dict and set comprehensions with filters and conditional expressions.
+      - Read and write nested comprehensions with the clauses in the correct order.
+      - Choose a generator expression when the result is consumed only once.
+      - Recognise when a comprehension hurts readability and a loop is the better tool.
+    prerequisites:
+      - py-data-structures
+    related: [py-iterators-generators]
+
+  - slug: py-closures-scope
+    name: Scope & closures
+    category: python
+    difficulty: 3
+    review_interval_days: 2
+    summary: Predict name resolution with the LEGB rule, use closures, nonlocal and global deliberately, and avoid late-binding surprises.
+    description: |
+      Python resolves a name by searching the Local, Enclosing, Global and
+      Built-in scopes in that order (LEGB). Whether a name is local is decided
+      when the function is compiled: an assignment to a name anywhere in a
+      function body makes it local throughout that body unless it is declared
+      `global` or `nonlocal`. A closure is a nested function that keeps access
+      to variables of the function that created it, even after that outer
+      function has returned.
+
+      Closures power decorators, callbacks, factories and partial application,
+      so reading them fluently is essential for working with almost any Python
+      framework. Understanding scope also explains error messages that
+      otherwise look baffling, such as `UnboundLocalError` on a variable that
+      clearly exists at module level.
+
+      The best-known pitfall is late binding: closures capture variables, not
+      values, so lambdas created in a loop all see the loop variable's final
+      value. Others are overusing `global` for state that belongs in an
+      object, and shadowing built-ins such as `list` or `id`.
+    objectives:
+      - Apply the LEGB rule to predict which binding a name refers to.
+      - Explain why assigning to a name inside a function makes it local for the whole function body.
+      - Use `nonlocal` to rebind a variable of an enclosing function.
+      - Explain late binding in closures and fix it with a default argument or `functools.partial`.
+    prerequisites:
+      - py-functions
+    related: [py-decorators]
+
+  - slug: py-iterators-generators
+    name: Iterators & generators
+    category: python
+    difficulty: 3
+    review_interval_days: 2
+    summary: Produce values lazily with generators, understand the iterator protocol and single-pass iterators, and compose streaming pipelines with itertools.
+    description: |
+      An iterable is anything you can loop over; calling `iter()` on it returns
+      an iterator, an object whose `__next__` method returns the next value or
+      raises `StopIteration` when it is exhausted. Generator functions
+      (functions containing `yield`) and generator expressions are the easiest
+      way to build iterators: they run lazily, pausing at each `yield` until
+      the next value is requested.
+
+      Laziness lets you process data that does not fit in memory, such as
+      large log files, paginated APIs or database cursors, one item at a time,
+      and lets you stop early without computing the rest. Pipelines built from
+      generators and `itertools` (`islice`, `chain`, `pairwise`, `batched`)
+      keep memory flat and code composable.
+
+      The main pitfall is forgetting that iterators are single-pass: once a
+      generator, `map` object or file has been consumed, iterating it again
+      silently yields nothing. Others include calling `list()` on an infinite
+      iterator, expecting a generator function's body to run as soon as it is
+      called (it runs only when iterated), and using `itertools.groupby` on
+      data that is not sorted by the grouping key.
+    objectives:
+      - Explain the iterator protocol (`__iter__`, `__next__`, `StopIteration`) and how an iterable differs from an iterator.
+      - Write generator functions and generator expressions that stream data lazily.
+      - Recognise single-pass iterators and avoid accidental exhaustion.
+      - Compose pipelines with `yield from` and `itertools` helpers such as `islice` and `chain`.
+    prerequisites:
+      - py-comprehensions
+      - py-functions
+    related: [py-asyncio]
+
+  - slug: py-decorators
+    name: Decorators
+    category: python
+    difficulty: 3
+    review_interval_days: 2
+    summary: Write decorators that wrap functions correctly, preserve metadata with functools.wraps, and build parameterised decorator factories.
+    description: |
+      A decorator is a callable that takes a function and returns a
+      replacement. `@decorator` above a `def` is shorthand for
+      `func = decorator(func)`, applied once, when the function is defined.
+      Most decorators return a wrapper closure that runs extra code before or
+      after calling the original. A decorator that takes its own arguments,
+      such as `@retry(times=3)`, is a factory: calling it returns the actual
+      decorator.
+
+      Decorators keep cross-cutting concerns (caching, retries, timing,
+      authentication, registration) out of business logic, and frameworks
+      rely on them heavily: Flask and FastAPI routes, pytest fixtures,
+      Django's `login_required`, `functools.cache`, `property` and
+      `dataclass` are all decorators.
+
+      Common pitfalls: forgetting `functools.wraps`, so the wrapper hides the
+      original name, docstring and signature; not forwarding `*args`,
+      `**kwargs` or the return value; confusing the decorator factory with the
+      decorator itself; and writing caching decorators whose keys ignore
+      keyword arguments or grow without bound.
+    objectives:
+      - Explain that `@decorator` is applied once at definition time and is equivalent to `func = decorator(func)`.
+      - Write wrappers that forward arguments and return values and preserve metadata with `functools.wraps`.
+      - Build parameterised decorators (decorator factories) such as `@retry(times=3)`.
+      - Choose standard decorators such as `functools.cache`, `property` and `classmethod` appropriately.
+    prerequisites:
+      - py-closures-scope
+
+  - slug: py-exceptions
+    name: Exceptions & error handling
+    category: python
+    difficulty: 2
+    review_interval_days: 3
+    summary: Raise, catch and chain exceptions deliberately - catch specific types, keep tracebacks useful, and use else and finally correctly.
+    description: |
+      Exceptions are Python's way of signalling that something went wrong. A
+      `try` statement can have `except` clauses (checked top to bottom, first
+      match wins), an `else` clause that runs only when no exception occurred,
+      and a `finally` clause that always runs. `raise NewError(...) from exc`
+      chains a translated error to its cause, and custom exception classes let
+      callers handle your errors precisely. Since Python 3.11,
+      `ExceptionGroup` and `except*` handle several concurrent failures at
+      once.
+
+      Good error handling separates a service that degrades gracefully from
+      one that loses data or hides outages. Catching the specific exception
+      you expect, at the level that can actually do something about it, keeps
+      real bugs visible, and logging with the traceback makes incidents
+      diagnosable.
+
+      Typical pitfalls: bare `except:` or broad `except Exception` handlers
+      that swallow programming errors (a bare `except:` even catches
+      `KeyboardInterrupt`); wrapping far more code in `try` than the line that
+      can fail; logging an error without its traceback; ordering `except`
+      clauses so a broad one shadows a specific one; and returning from
+      `finally`, which discards any in-flight exception.
+    objectives:
+      - Catch specific exception types and explain the dangers of bare `except:` and overly broad handlers.
+      - Predict the execution order of `try`, `except`, `else` and `finally`.
+      - Translate low-level errors into domain exceptions with `raise ... from ...` and custom exception classes.
+      - Decide whether to handle, translate or propagate an exception at a given layer.
+    prerequisites:
+      - py-functions
+    related: [py-context-managers]
+
+  - slug: py-context-managers
+    name: Context managers
+    category: python
+    difficulty: 3
+    review_interval_days: 2
+    summary: Manage resources safely with the with statement, write context managers as classes or with contextlib, and handle exceptions in __exit__.
+    description: |
+      A context manager is an object that defines `__enter__` and `__exit__`.
+      The `with` statement calls `__enter__` on entry (binding its return value
+      to the `as` target) and guarantees that `__exit__` runs when the block
+      ends, whether it finishes normally, returns early or raises. `__exit__`
+      receives the exception details, and returning a truthy value suppresses
+      the exception. `contextlib.contextmanager` turns a generator with a
+      single `yield` into a context manager.
+
+      Files, locks, database transactions, network connections, temporary
+      settings and test patches all need reliable setup and teardown. Context
+      managers put that guarantee in one reusable place instead of scattering
+      `try/finally` blocks across a codebase, and `contextlib.ExitStack`
+      manages a dynamic number of them.
+
+      Pitfalls: in a `@contextmanager` generator, forgetting to wrap `yield` in
+      `try/finally`, so cleanup is skipped when the block raises; returning a
+      truthy value from `__exit__` by accident and silently swallowing errors;
+      doing work in `__init__` that belongs in `__enter__`; and assuming the
+      object bound by `as` is the context manager itself (it is whatever
+      `__enter__` returns).
+    objectives:
+      - Explain what the `with` statement guarantees and when `__enter__` and `__exit__` run.
+      - Write a class-based context manager and explain what the return value of `__exit__` does.
+      - Write generator-based context managers with `contextlib.contextmanager`, using `try/finally` around `yield`.
+      - Use `contextlib` helpers such as `suppress` and `ExitStack`.
+    prerequisites:
+      - py-exceptions
+      - skill: py-iterators-generators
+        strength: recommended
+        min_mastery: 0.5
+
+  - slug: py-oop-dataclasses
+    name: Classes, dataclasses & protocols
+    category: python
+    difficulty: 2
+    review_interval_days: 3
+    summary: Model data with classes and dataclasses, use properties and alternative constructors, and describe interfaces with protocols rather than deep inheritance.
+    description: |
+      Classes bundle data with behaviour. The `dataclasses` module generates
+      the boilerplate methods (`__init__`, `__repr__`, `__eq__`) for
+      data-centric classes from annotated fields, with options such as
+      `frozen=True` for immutable, hashable instances, `order=True` for
+      comparisons and `slots=True` for leaner objects. Properties expose
+      computed or validated attributes, `@classmethod` provides alternative
+      constructors, and `typing.Protocol` describes an interface by the
+      methods an object has rather than by what it inherits from.
+
+      Most application code moves structured data around: API payloads,
+      configuration, domain entities, events. Dataclasses make those types
+      explicit, comparable and easy to read, while composition and protocols
+      keep designs flexible without fragile inheritance trees.
+
+      Pitfalls: mutable defaults (dataclasses reject a bare `[]` default and
+      require `field(default_factory=list)`); expecting a regular `@dataclass`
+      to be hashable (with the default `eq=True` and no `frozen=True`,
+      `__hash__` is set to `None`); deep inheritance hierarchies where a
+      protocol or composition would do; and Java-style getters and setters
+      where a plain attribute or a `@property` is the idiomatic choice.
+    objectives:
+      - Define dataclasses with defaults, `field(default_factory=...)`, `frozen=True` and `order=True`.
+      - Explain which methods `@dataclass` generates and how `eq` and `frozen` affect hashing.
+      - Use `@property`, `@classmethod` alternative constructors and `@staticmethod` appropriately.
+      - Describe an interface with `typing.Protocol` and compare it with inheritance from a base class.
+    prerequisites:
+      - py-functions
+    related: [py-typing]
+
+  - slug: py-typing
+    name: Type hints
+    category: python
+    difficulty: 3
+    review_interval_days: 2
+    summary: Annotate code with type hints that mypy or pyright can verify - generics, unions, Protocol, TypedDict and the Python 3.12 type-parameter syntax.
+    description: |
+      Type hints describe what a function accepts and returns, as in
+      `def find(users: list[User], email: str) -> User | None`. The
+      interpreter stores annotations but does not enforce them; a static
+      checker such as mypy or pyright reads them to catch mistakes before the
+      code runs. Modern Python supports built-in generics (`list[int]`),
+      `X | Y` unions, `Protocol` for structural interfaces, `TypedDict` for
+      dict-shaped data and, since 3.12, the PEP 695 syntax for generics:
+      `def first[T](items: list[T]) -> T` and `type Pair[T] = tuple[T, T]`.
+
+      In a large codebase, hints act as checked documentation. They make
+      refactors safer, power editor completion and catch whole classes of
+      bugs, such as forgetting that a lookup can return `None`, in CI instead
+      of in production. Libraries such as pydantic and FastAPI also read
+      annotations at runtime to validate data, which is a separate mechanism
+      built on top of them.
+
+      Pitfalls: believing hints are checked at runtime; reaching for `Any`,
+      which silently switches checking off; annotating parameters with
+      concrete types such as `list` where `Iterable` or `Sequence` would
+      accept more callers; ignoring optional results instead of narrowing
+      them; and over-engineering types until they are harder to read than the
+      code.
+    objectives:
+      - Annotate functions with built-in generics, `X | None` unions and `Callable`.
+      - Explain that annotations are not enforced at runtime and what a static type checker adds.
+      - Write generic functions and type aliases with the Python 3.12 type-parameter syntax.
+      - Choose between `Protocol`, `TypedDict`, dataclasses and `Any` for a given interface.
+      - Narrow optional and union types with `None` checks and `isinstance`.
+    prerequisites:
+      - py-oop-dataclasses
+    related: [llm-structured-output]
+
+  - slug: py-testing-pytest
+    name: Testing with pytest
+    category: python
+    difficulty: 2
+    review_interval_days: 3
+    summary: Write focused, reliable pytest tests with plain asserts, fixtures, parametrisation, pytest.raises and patching, free of hidden dependencies on order, time or shared state.
+    description: |
+      pytest discovers `test_*` functions and uses plain `assert` statements,
+      rewriting them to show detailed failure messages. Fixtures provide
+      setup and teardown (with `yield`) that tests request by name,
+      `@pytest.mark.parametrize` runs one test over many inputs,
+      `pytest.raises` asserts that an exception is raised, and `monkeypatch`
+      or `unittest.mock` replace slow or external dependencies.
+
+      A fast, trustworthy suite is what lets a team refactor and deploy with
+      confidence. Tests that fail at random erode that trust quickly: people
+      start re-running CI until it goes green, and real regressions slip
+      through.
+
+      Pitfalls: tests that depend on each other through module-level state or
+      run order; tests that read the real clock, network or random seed;
+      `try/except` blocks that pass even when no exception is raised; patching
+      a name where it is defined instead of where it is looked up; and
+      asserting on implementation details rather than behaviour.
+    objectives:
+      - Write tests with plain `assert` and check expected errors with `pytest.raises`.
+      - Share setup and teardown with fixtures and avoid shared mutable state between tests.
+      - Cover input variations with `@pytest.mark.parametrize`.
+      - Replace external dependencies with `monkeypatch` or `unittest.mock`, patching where the name is looked up.
+      - Recognise and fix flaky tests caused by time, randomness, ordering or shared state.
+    prerequisites:
+      - py-exceptions
+
+  - slug: py-asyncio
+    name: Async programming with asyncio
+    category: python
+    difficulty: 4
+    review_interval_days: 2
+    summary: Write concurrent I/O-bound code with async and await - run coroutines concurrently with TaskGroup and gather, apply timeouts, and never block the event loop.
+    description: |
+      asyncio runs many coroutines on a single thread. Calling an `async def`
+      function returns a coroutine object; `await` suspends the current
+      coroutine until the awaited operation completes, letting the event loop
+      run others in the meantime. Concurrency comes from scheduling several
+      coroutines as tasks, with `asyncio.TaskGroup` (3.11+) or
+      `asyncio.gather`, and bounding it with primitives such as
+      `asyncio.Semaphore`. `asyncio.timeout()` puts a deadline on any block of
+      awaits.
+
+      For I/O-bound services (HTTP clients and servers, websockets, database
+      drivers, crawlers) asyncio lets one process keep thousands of
+      operations in flight with far less overhead than a thread per
+      connection. `TaskGroup` also brings structured concurrency: when one
+      task fails, its siblings are cancelled, so errors do not leave orphaned
+      work behind.
+
+      Pitfalls: awaiting coroutines one after another and expecting them to
+      run concurrently; calling blocking code (`time.sleep`, `requests`,
+      CPU-heavy hashing) inside `async def`, which freezes every other task
+      on the loop; forgetting to `await` a coroutine; dropping the only
+      reference to a task created with `create_task`; and expecting asyncio
+      to speed up CPU-bound work, which needs multiple processes instead.
+    objectives:
+      - Explain the difference between calling a coroutine function, awaiting a coroutine and scheduling it as a task.
+      - Run work concurrently with `asyncio.TaskGroup` or `gather` and limit concurrency with a `Semaphore`.
+      - Apply deadlines with `asyncio.timeout()` and handle cancellation correctly.
+      - Identify code that blocks the event loop and move it to `asyncio.to_thread` or an executor.
+    prerequisites:
+      - py-iterators-generators
+      - py-exceptions
+
+  - slug: py-performance
+    name: Performance & profiling
+    category: python
+    difficulty: 4
+    review_interval_days: 2
+    summary: Measure before optimising - profile with cProfile and timeit, fix accidental quadratic code with the right data structures, and cut repeated work with caching.
+    description: |
+      Performance work in Python starts with measurement: `timeit` for
+      micro-benchmarks, and `cProfile` with `pstats` (or a sampling profiler
+      such as py-spy) to find where a real workload spends its time. The
+      biggest wins almost always come from algorithmic changes, such as
+      replacing list membership tests with a set or avoiding repeated work
+      with a dict or `functools.cache`, rather than from micro-tweaks.
+
+      Slow code costs money and user patience: a quadratic loop that is
+      instant on test data can time out in production once inputs reach
+      millions of rows. Knowing the cost of built-in operations, and the
+      difference between CPU-bound work (limited by the GIL on standard
+      CPython builds, so use processes or native code) and I/O-bound work
+      (where threads or asyncio work well), lets you pick the right fix
+      quickly.
+
+      Pitfalls: optimising without profiling; micro-optimising code that is
+      not on the hot path; hidden O(n) operations inside loops (`x in list`,
+      `list.insert(0, ...)`, `list.pop(0)`); building huge intermediate lists
+      where a generator would stream; and benchmarks that measure the wrong
+      thing, such as setup cost or a warm cache.
+    objectives:
+      - Measure with `timeit` and profile with `cProfile` and `pstats` before changing code.
+      - Spot accidental O(n²) patterns and replace them with linear alternatives using sets, dicts and `deque`.
+      - Cut repeated work with caching (`functools.cache`, `lru_cache`) and precomputed lookups.
+      - Choose between threads, processes and asyncio based on whether work is CPU-bound or I/O-bound.
+    prerequisites:
+      - py-data-structures
+      - py-iterators-generators
+    related: [algo-complexity]
+
+challenges:
+  # ---------------------------------------------------------------------------
+  # py-data-structures
+  # ---------------------------------------------------------------------------
+  - slug: ds-fast-membership-mcq
+    skill: py-data-structures
+    kind: multiple_choice
+    difficulty: 1
+    minutes: 2
+    diagnostic: true
+    title: Which container keeps membership checks fast?
+    objective: Choose the container whose membership test stays fast as the data grows.
+    prompt: |
+      A rate limiter loads one million blocked user IDs at start-up. For every
+      incoming request it runs:
+
+      ```python
+      if request.user_id in blocked_ids:
+          reject(request)
+      ```
+
+      Which type should `blocked_ids` be so that this check stays fast?
+    hints:
+      - Think about how much work `in` has to do for each container as it grows.
+      - One of these containers finds an item through its hash instead of by scanning.
+    explanation: |
+      `x in some_set` hashes `x` and jumps straight to the matching slot of the
+      hash table, so it takes O(1) time on average no matter how many IDs are
+      stored. `in` on a list or tuple compares `x` with each element in turn,
+      which is O(n): with a million IDs, a single request can cost a million
+      comparisons. Neither immutability nor sorting changes how `in` works on
+      a sequence.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: A `set` of IDs
+          correct: true
+          feedback: Right. A set is a hash table, so membership is O(1) on average regardless of its size.
+        - id: b
+          text: A `list` of IDs
+          feedback: "`in` on a list compares the ID with every element until it finds a match, which is O(n) per request."
+          misconception: {code: list-membership-constant, label: Thinks membership tests on a list are as fast as on a set, category: performance}
+        - id: c
+          text: A `tuple` of IDs, because immutable containers are faster to search
+          feedback: Tuples are immutable, but `in` still scans them element by element. Immutability does not make lookups faster.
+          misconception: {code: immutable-means-fast-lookup, label: Assumes immutable containers have faster lookups, category: conceptual}
+        - id: d
+          text: A sorted `list` of IDs, so that `in` can stop early
+          feedback: "`in` does not know that a list is sorted and still scans it linearly. You would need `bisect` for O(log n) lookups, and a set is both simpler and faster."
+          misconception: {code: sorted-list-in-fast, label: Assumes the in operator exploits sorted order, category: performance}
+
+  - slug: ds-group-anagrams-code
+    skill: py-data-structures
+    kind: python_code
+    difficulty: 2
+    minutes: 12
+    tags: [interview]
+    title: Group anagrams with a dictionary
+    objective: Use a dict keyed by a canonical form to group items in a single pass.
+    prompt: |
+      Write `group_anagrams(words)` that groups words which are anagrams of
+      each other (they contain the same letters with the same counts).
+
+      Rules:
+
+      - Comparison is case-insensitive, but return the words exactly as given.
+      - Words inside a group keep their original order, duplicates included.
+      - Groups are ordered by the position of their first word in the input.
+      - Return a list of lists; an empty input gives `[]`.
+
+      ```python
+      >>> group_anagrams(["eat", "tea", "tan", "ate", "nat", "bat"])
+      [['eat', 'tea', 'ate'], ['tan', 'nat'], ['bat']]
+      ```
+
+      Aim for a single pass over `words`.
+    hints:
+      - Two words are anagrams exactly when some canonical version of them is identical. What could that canonical version be?
+      - Sorting a word's lowercased letters gives the same string for all of its anagrams, e.g. `"".join(sorted("Tea".lower()))` is `"aet"`.
+      - Use that string as a key in a `dict` (or a `defaultdict(list)`). Dicts remember insertion order, which gives you the group order for free.
+    explanation: |
+      The trick is to map every word to a canonical key that is identical for
+      all of its anagrams; the sorted, lowercased letters work well. A dict
+      from key to list of words then groups everything in one pass, and
+      because dicts preserve insertion order, the groups come out in order of
+      first appearance. Sorting each word costs O(k log k) for a word of
+      length k, so the whole function is O(n · k log k), far better than
+      comparing every pair of words.
+    solution: |
+      ```python
+      from collections import defaultdict
+
+
+      def group_anagrams(words):
+          groups = defaultdict(list)
+          for word in words:
+              key = "".join(sorted(word.lower()))
+              groups[key].append(word)
+          return list(groups.values())
+      ```
+
+      `defaultdict(list)` creates an empty list the first time a key is seen,
+      so there is no "is this key new?" branch, and `list(groups.values())`
+      returns the groups in insertion order. A `Counter` of the letters also
+      identifies anagrams, but a `Counter` is unhashable and cannot be a key
+      itself; `frozenset(Counter(word.lower()).items())` would work, at the
+      cost of readability.
+    content:
+      starter_code: |
+        def group_anagrams(words):
+            """Group words that are anagrams of each other (case-insensitive)."""
+            groups = []
+            # Build the groups here.
+            return groups
+      reference_solution: |
+        from collections import defaultdict
+
+
+        def group_anagrams(words):
+            groups = defaultdict(list)
+            for word in words:
+                key = "".join(sorted(word.lower()))
+                groups[key].append(word)
+            return list(groups.values())
+    tests:
+      - name: groups the classic example
+        code: |
+          assert group_anagrams(["eat", "tea", "tan", "ate", "nat", "bat"]) == [
+              ["eat", "tea", "ate"],
+              ["tan", "nat"],
+              ["bat"],
+          ]
+      - name: empty input gives an empty list
+        code: |
+          assert group_anagrams([]) == []
+      - name: compares case-insensitively but keeps the original spelling
+        hidden: true
+        code: |
+          assert group_anagrams(["Listen", "silent", "enlist", "google"]) == [
+              ["Listen", "silent", "enlist"],
+              ["google"],
+          ]
+      - name: keeps duplicates in their group
+        hidden: true
+        code: |
+          assert group_anagrams(["ab", "ba", "ab"]) == [["ab", "ba", "ab"]]
+      - name: treats the empty string as a word
+        hidden: true
+        code: |
+          assert group_anagrams(["", "a", ""]) == [["", ""], ["a"]]
+
+  - slug: ds-nested-list-aliasing-short
+    skill: py-data-structures
+    kind: short_answer
+    difficulty: 2
+    minutes: 3
+    title: Predict the output of a multiplied grid
+    objective: Predict how list multiplication repeats references to the same inner list.
+    prompt: |
+      A developer initialises a 3×3 game board like this:
+
+      ```python
+      board = [[0] * 3] * 3
+      board[0][0] = 1
+      print(board)
+      ```
+
+      What exactly does `print(board)` output?
+    hints:
+      - "`*` on a list repeats the references it contains; it does not copy the objects they point to."
+      - How many distinct inner list objects does `board` contain? Try `board[0] is board[1]`.
+    explanation: |
+      `[0] * 3` builds one inner list, and `[...] * 3` creates an outer list
+      holding three references to that same inner list. Assigning to
+      `board[0][0]` therefore changes the single shared row, and every "row"
+      shows the change: `[[1, 0, 0], [1, 0, 0], [1, 0, 0]]`. Build
+      independent rows with a comprehension instead:
+      `[[0] * 3 for _ in range(3)]`. The inner `[0] * 3` is harmless because
+      integers are immutable; assigning a slot rebinds it rather than
+      modifying the shared `0`.
+    solution: |
+      ```python
+      board = [[0] * 3] * 3
+      print(board[0] is board[1])   # True: one row object, three references
+
+      board = [[0] * 3 for _ in range(3)]   # three independent rows
+      board[0][0] = 1
+      print(board)   # [[1, 0, 0], [0, 0, 0], [0, 0, 0]]
+      ```
+    content:
+      placeholder: e.g. [[0, 0, 0], ...]
+      ignore_spaces: true
+      accepted:
+        - "[[1, 0, 0], [1, 0, 0], [1, 0, 0]]"
+        - "[[1,0,0],[1,0,0],[1,0,0]]"
+      wrong:
+        - answers: ["[[1, 0, 0], [0, 0, 0], [0, 0, 0]]", "[[1,0,0],[0,0,0],[0,0,0]]"]
+          feedback: That is what independent rows would give. Here all three rows are the same list object, so the change shows up in each of them.
+          misconception: {code: list-multiplication-copies, label: Thinks multiplying a list copies the objects it contains, category: conceptual}
+        - answers: ["[[1, 1, 1], [1, 1, 1], [1, 1, 1]]", "[[1,1,1],[1,1,1],[1,1,1]]"]
+          feedback: The shared row holds three separate slots. `board[0][0] = 1` rebinds only the first slot of that row, so only the first column changes.
+          misconception: {code: slot-assignment-spreads, label: Thinks assigning one list slot changes every repeated element, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-functions
+  # ---------------------------------------------------------------------------
+  - slug: fn-keyword-only-call-mcq
+    skill: py-functions
+    kind: multiple_choice
+    difficulty: 1
+    minutes: 2
+    diagnostic: true
+    title: Which call breaks this signature?
+    objective: Identify keyword-only parameters and how defaults let callers skip arguments.
+    prompt: |
+      ```python
+      def connect(host, port=5432, *, timeout=10):
+          ...
+      ```
+
+      Which call raises a `TypeError`?
+    hints:
+      - Look at what the bare `*` in the signature does to the parameters after it.
+      - Parameters after `*` can be supplied in only one way.
+    explanation: |
+      A bare `*` in a signature ends the positional parameters: everything
+      after it is keyword-only. `connect("db", 5433, 5)` passes three
+      positional arguments to a function that accepts at most two, so Python
+      raises `TypeError: connect() takes from 1 to 2 positional arguments but
+      3 were given`. Keyword-only parameters are a deliberate API design tool:
+      they force call sites such as `connect("db", timeout=5)` to say what
+      each value means.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`connect("db", 5433, 5)`'
+          correct: true
+          feedback: Correct. `timeout` comes after the `*`, so it can only be passed by keyword, and a third positional argument is rejected.
+        - id: b
+          text: '`connect("db", timeout=5)`'
+          feedback: This call is fine. `port` falls back to its default; keyword arguments let you skip over parameters that have defaults.
+          misconception: {code: cannot-skip-defaults, label: Thinks earlier defaulted parameters must be passed before later ones, category: conceptual}
+        - id: c
+          text: '`connect(host="db", port=1)`'
+          feedback: This call is fine. Ordinary parameters can always be passed by keyword; only parameters before a `/` are positional-only.
+          misconception: {code: positional-params-not-by-name, label: Thinks ordinary parameters cannot be passed by keyword, category: conceptual}
+        - id: d
+          text: '`connect("db")`'
+          feedback: This call is fine. `port` and `timeout` both have defaults, so only `host` is required.
+          misconception: {code: keyword-only-means-required, label: Thinks keyword-only parameters are always mandatory, category: conceptual}
+
+  - slug: fn-mutable-default-debug
+    skill: py-functions
+    kind: debugging
+    difficulty: 2
+    minutes: 6
+    tags: [interview]
+    title: Admin header leaks into public requests
+    objective: Diagnose a mutable default argument shared between calls and fix it with a None sentinel.
+    prompt: |
+      This helper builds outgoing HTTP requests. A security review noticed
+      that public requests sometimes carry the `X-Admin` header. Pick the line
+      that contains the defect and explain what goes wrong and how to fix it.
+    hints:
+      - Trace the two calls. Which dictionary object does each call modify?
+      - When is the expression `{}` in the signature evaluated?
+    explanation: |
+      Default values are evaluated once, when the `def` statement executes,
+      and stored on the function object (`build_request.__defaults__`). A
+      mutable default is therefore shared by every call that relies on it:
+      the admin call adds `X-Admin` to that one dict, and the public call
+      receives the same dict with the header still in it. Use `None` as the
+      default and create a new dict inside the function.
+    solution: |
+      **Model answer.** Line 1 uses a mutable default argument. The `{}` is
+      evaluated only once, when the function is defined, so every call that
+      omits `headers` shares the same dictionary. The admin call adds
+      `X-Admin` to that shared dict and the next public call sees it. Fix it by
+      defaulting to `None` and creating a new dict on each call; copying a
+      caller-supplied dict also stops the function from mutating its
+      argument.
+
+      ```python
+      def build_request(path, headers=None):
+          headers = {} if headers is None else dict(headers)
+          headers["Accept"] = "application/json"
+          if path.startswith("/admin"):
+              headers["X-Admin"] = "1"
+          return {"path": path, "headers": headers}
+      ```
+    content:
+      language: python
+      code: |
+        def build_request(path, headers={}):
+            headers["Accept"] = "application/json"
+            if path.startswith("/admin"):
+                headers["X-Admin"] = "1"
+            return {"path": path, "headers": headers}
+
+
+        admin = build_request("/admin/users")
+        public = build_request("/products")
+        print(public["headers"])
+        # {'Accept': 'application/json', 'X-Admin': '1'}   <- why is X-Admin here?
+      bug_lines: [1]
+      line_weight: 0.4
+      min_words: 12
+      max_words: 200
+      criteria:
+        - id: default-evaluated-once
+          label: Explains that the default dict is created once and shared between calls
+          weight: 2
+          required: true
+          any: ["once", "single time", "definition time", "when the function is defined", "when it is defined", "when the def", "def statement", "mutable default", "function object", "stored on the function", "lives on", "shared", "share", "same dict", "same dictionary", "same object", "single dict", "one dict", "reused", "persist", "leak", "between calls", "across calls", "previous call", "earlier call", "next call", "later call", "subsequent call", "one call to the next", "__defaults__"]
+          missing_feedback: Explain when the default `{}` is created and why every call ends up using the same dictionary.
+          misconception: {code: mutable-default-fresh-per-call, label: Thinks default argument values are re-created on every call, category: conceptual}
+        - id: none-sentinel-fix
+          label: Fixes it with a None default and a fresh dict per call
+          weight: 1
+          any: ["none", "new dict", "fresh dict", "new dictionary", "fresh dictionary", "new empty dict", "inside the function", "in the function body", "in the body", "copy", "dict(headers", 're:\{\s*\*\*\s*headers', "headers or {"]
+          missing_feedback: Show the idiomatic fix, for example `headers=None` and `headers = {} if headers is None else dict(headers)`.
+
+  - slug: fn-merge-config-code
+    skill: py-functions
+    kind: python_code
+    difficulty: 2
+    minutes: 10
+    title: Merge configuration layers with *args and **kwargs
+    objective: Collect a variable number of positional and keyword arguments and merge them without mutating the inputs.
+    prompt: |
+      Write `merge_config(*layers, **overrides)` that merges configuration
+      dictionaries:
+
+      - Apply each dict in `layers` from left to right, then the keyword
+        `overrides`; later values win.
+      - A value of `None` never sets or overrides a key (it means "not
+        configured").
+      - Return a new dict and never mutate the arguments.
+      - With no arguments at all, return `{}`.
+
+      ```python
+      >>> merge_config({"host": "localhost", "port": 5432}, {"port": 6543}, debug=True)
+      {'host': 'localhost', 'port': 6543, 'debug': True}
+      ```
+    hints:
+      - "`layers` arrives as a tuple of dicts and `overrides` as a dict. Could you treat `overrides` as one final layer?"
+      - Loop over each layer's `.items()` and skip `None` values before assigning into a fresh result dict.
+    explanation: |
+      `*layers` collects any number of positional arguments into a tuple and
+      `**overrides` collects keyword arguments into a dict, so the function
+      can treat the overrides as the last layer. Building a fresh `result`
+      and copying keys into it leaves the inputs untouched; starting with
+      `result = layers[0]` and calling `update()` would mutate the caller's
+      dict (and crash when no layers are passed). `{**a, **b}` and `a | b`
+      merge dicts too, but they cannot skip `None` values, so an explicit loop
+      or a filtered comprehension is needed.
+    solution: |
+      ```python
+      def merge_config(*layers, **overrides):
+          result = {}
+          for layer in (*layers, overrides):
+              for key, value in layer.items():
+                  if value is not None:
+                      result[key] = value
+          return result
+      ```
+
+      `(*layers, overrides)` builds one tuple containing every positional
+      layer followed by the keyword overrides, so a single loop applies them
+      in priority order. Assigning into a new `result` dict means no input is
+      ever modified, and the `value is not None` check (not just
+      `if value`) keeps legitimate falsy values such as `False` and `0`.
+    content:
+      starter_code: |
+        def merge_config(*layers, **overrides):
+            """Merge config dicts left to right, then keyword overrides; None values are ignored."""
+            result = {}
+            # Apply each layer, then the overrides.
+            return result
+      reference_solution: |
+        def merge_config(*layers, **overrides):
+            result = {}
+            for layer in (*layers, overrides):
+                for key, value in layer.items():
+                    if value is not None:
+                        result[key] = value
+            return result
+    tests:
+      - name: later layers win
+        code: |
+          assert merge_config({"a": 1, "b": 2}, {"b": 3}) == {"a": 1, "b": 3}
+      - name: keyword overrides beat every layer
+        code: |
+          assert merge_config({"debug": False}, {"debug": False}, debug=True) == {"debug": True}
+      - name: no arguments gives an empty dict
+        code: |
+          assert merge_config() == {}
+      - name: None never sets or overrides a key
+        hidden: true
+        code: |
+          assert merge_config({"host": "db", "retries": 0}, {"host": None, "port": None}, user=None) == {
+              "host": "db",
+              "retries": 0,
+          }
+      - name: does not mutate its inputs
+        hidden: true
+        code: |
+          base = {"a": 1}
+          extra = {"a": 2, "b": 3}
+          result = merge_config(base, extra)
+          assert result == {"a": 2, "b": 3}
+          assert base == {"a": 1} and extra == {"a": 2, "b": 3}
+          assert result is not base and result is not extra
+
+  # ---------------------------------------------------------------------------
+  # py-comprehensions
+  # ---------------------------------------------------------------------------
+  - slug: comp-nested-clause-order-mcq
+    skill: py-comprehensions
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Read a comprehension with two for clauses
+    objective: Predict the result of a nested comprehension by reading its clauses left to right.
+    prompt: |
+      ```python
+      pairs = [(x, y) for x in range(3) for y in range(x)]
+      ```
+
+      What is the value of `pairs`?
+    hints:
+      - Rewrite the comprehension as ordinary nested `for` loops, keeping the clauses in the same order.
+      - "`range(x)` stops before `x`. What does it produce when `x` is 0?"
+    explanation: |
+      Multiple `for` clauses nest from left to right, in the same order you
+      would write the loops:
+
+      ```python
+      pairs = []
+      for x in range(3):
+          for y in range(x):
+              pairs.append((x, y))
+      ```
+
+      For `x = 0`, `range(0)` is empty; `x = 1` adds `(1, 0)`; `x = 2` adds
+      `(2, 0)` and `(2, 1)`. The result is a single flat list. To build nested
+      lists you would put one comprehension inside another's expression:
+      `[[(x, y) for y in range(x)] for x in range(3)]`.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`[(1, 0), (2, 0), (2, 1)]`'
+          correct: true
+          feedback: Correct. The left `for` is the outer loop, and `range(x)` excludes `x` itself, so `x = 0` contributes nothing.
+        - id: b
+          text: '`[(0, 0), (1, 0), (1, 1), (2, 0), (2, 1), (2, 2)]`'
+          feedback: This treats `range(x)` as if it included `x`. `range(x)` produces `0` up to `x - 1`, so `range(0)` is empty.
+          misconception: {code: range-includes-stop, label: Thinks range(n) includes n, category: edge_case}
+        - id: c
+          text: '`NameError`, because `x` is not defined yet when `range(x)` runs'
+          feedback: The clauses run left to right, so `x` is already bound by the outer loop when `range(x)` is evaluated.
+          misconception: {code: nested-clause-order, label: Reads nested comprehension clauses from right to left, category: conceptual}
+        - id: d
+          text: '`[[], [(1, 0)], [(2, 0), (2, 1)]]`'
+          feedback: Several `for` clauses in one comprehension still build one flat list. Nested lists need a comprehension inside the expression part.
+          misconception: {code: multiple-for-builds-nested-lists, label: Thinks extra for clauses create nested lists, category: conceptual}
+
+  - slug: comp-parse-query-code
+    skill: py-comprehensions
+    kind: python_code
+    difficulty: 2
+    minutes: 10
+    tags: [scenario]
+    title: Make a one-line query-string parser robust
+    objective: Write a dict comprehension with a filter and safe unpacking that handles real-world edge cases.
+    prompt: |
+      An internal service receives query strings such as `"page=2&sort=name"`.
+      The current one-line parser crashes or returns wrong data on some real
+      inputs. Fix `parse_query(query)` so that it returns a dict and:
+
+      - splits pairs on `&`, and each pair on the **first** `=` only (values
+        may themselves contain `=`);
+      - maps a key without any `=` (like `"debug"`) to `""`;
+      - skips empty segments, as in `"a=1&&b=2"`;
+      - keeps the last value when a key repeats.
+
+      Try to keep it a single comprehension. No percent-decoding is needed
+      here; in production you would reach for `urllib.parse.parse_qsl`.
+    hints:
+      - Run the current version in your head on `""` and on `"debug"`. What does `.split("=")` return, and what happens when you index `[1]`?
+      - "`str.partition(\"=\")` always returns a 3-tuple `(before, separator, after)` and splits on the first separator only."
+      - Add an `if pair` filter to drop the empty segments.
+    explanation: |
+      `str.split("=")` returns a list of variable length, so indexing `[1]`
+      crashes when there is no `=` and truncates values that contain `=`.
+      `partition` always returns exactly three parts, splitting at the first
+      separator, which makes it safe to unpack inside a comprehension.
+      Filtering with `if pair` removes the empty strings produced by `""` or
+      `&&`. A dict comprehension assigns keys in order, so a repeated key
+      naturally keeps its last value.
+    solution: |
+      ```python
+      def parse_query(query):
+          return {
+              key: value
+              for key, _, value in (pair.partition("=") for pair in query.split("&") if pair)
+          }
+      ```
+
+      The inner generator expression splits on `&`, drops empty segments and
+      partitions each pair once; the outer dict comprehension unpacks the
+      three parts and ignores the separator. `"debug".partition("=")` is
+      `("debug", "", "")`, so a bare key maps to `""`, and
+      `"token=abc==".partition("=")` keeps `"abc=="` intact. For real HTTP
+      traffic, `dict(urllib.parse.parse_qsl(query, keep_blank_values=True))`
+      gives the same results here and also decodes `%20` and `+`.
+    content:
+      starter_code: |
+        def parse_query(query):
+            """Parse 'a=1&b=2' into {'a': '1', 'b': '2'}."""
+            return {pair.split("=")[0]: pair.split("=")[1] for pair in query.split("&")}
+      reference_solution: |
+        def parse_query(query):
+            return {
+                key: value
+                for key, _, value in (pair.partition("=") for pair in query.split("&") if pair)
+            }
+    tests:
+      - name: parses simple pairs
+        code: |
+          assert parse_query("page=2&sort=name") == {"page": "2", "sort": "name"}
+      - name: empty string gives an empty dict
+        code: |
+          assert parse_query("") == {}
+      - name: a key without = maps to an empty string
+        code: |
+          assert parse_query("debug") == {"debug": ""}
+      - name: skips empty segments and keeps blank values
+        hidden: true
+        code: |
+          assert parse_query("a=1&&b=") == {"a": "1", "b": ""}
+      - name: splits on the first = only
+        hidden: true
+        code: |
+          assert parse_query("token=abc==&x=1") == {"token": "abc==", "x": "1"}
+      - name: the last value wins for repeated keys
+        hidden: true
+        code: |
+          assert parse_query("x=1&x=2") == {"x": "2"}
+
+  - slug: comp-dict-key-collision-short
+    skill: py-comprehensions
+    kind: short_answer
+    difficulty: 2
+    minutes: 3
+    title: Predict a dict comprehension with repeated keys
+    objective: Predict how a dict comprehension handles several items that produce the same key.
+    prompt: |
+      ```python
+      words = ["a", "bb", "cc", "d"]
+      by_length = {len(w): w for w in words}
+      ```
+
+      What is the value of `by_length`? Write it as Python would print it.
+    hints:
+      - A dict comprehension behaves like a loop that runs `by_length[len(w)] = w` for each word.
+      - What happens when you assign to a key that already exists in a dict?
+    explanation: |
+      Dict keys are unique. Assigning to an existing key replaces its value
+      but keeps the key's original position. `"a"` and then `"d"` both have
+      length 1, so `1` ends up mapped to `"d"`; `"bb"` and then `"cc"` have
+      length 2, so `2` maps to `"cc"`: `{1: 'd', 2: 'cc'}`. This silent
+      overwrite is easy to miss when building lookup tables from data with
+      duplicate keys. When duplicates are possible, group with
+      `defaultdict(list)` or check that `len(by_length) == len(words)`.
+    content:
+      placeholder: "e.g. {1: 'x'}"
+      ignore_spaces: true
+      accepted:
+        - "{1: 'd', 2: 'cc'}"
+        - '{1: "d", 2: "cc"}'
+        - "{2: 'cc', 1: 'd'}"
+        - '{2: "cc", 1: "d"}'
+        - "{1: d, 2: cc}"
+      wrong:
+        - answers: ["{1: 'a', 2: 'bb'}", '{1: "a", 2: "bb"}', "{1: a, 2: bb}"]
+          feedback: The comprehension assigns keys in order, exactly like a loop doing `by_length[len(w)] = w`, so later words overwrite earlier ones with the same length.
+          misconception: {code: dict-comp-first-wins, label: Thinks a dict comprehension keeps the first value for a repeated key, category: logic}
+        - answers: ["{1: ['a', 'd'], 2: ['bb', 'cc']}", '{1: ["a", "d"], 2: ["bb", "cc"]}']
+          feedback: A dict comprehension never groups values; each key holds exactly one value. Grouping needs `defaultdict(list)` and an explicit loop.
+          misconception: {code: dict-comp-groups-values, label: Thinks a dict comprehension groups values that share a key, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-closures-scope
+  # ---------------------------------------------------------------------------
+  - slug: scope-unboundlocal-mcq
+    skill: py-closures-scope
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Incrementing a module-level counter
+    objective: Predict how an assignment inside a function makes a name local for the whole function body.
+    prompt: |
+      ```python
+      count = 0
+
+      def increment():
+          count += 1
+          return count
+
+      increment()
+      ```
+
+      What happens when the last line runs?
+    hints:
+      - "`count += 1` both reads and assigns `count`. What does an assignment inside a function do to a name?"
+      - Python decides which names are local when it compiles the function, not line by line as it runs.
+    explanation: |
+      Because `increment` assigns to `count`, the compiler treats `count` as a
+      local variable for the entire function body. `count += 1` then has to
+      read that local before anything has been assigned to it, so Python
+      raises `UnboundLocalError: cannot access local variable 'count' where it
+      is not associated with a value`. Declaring `global count` (or, for a
+      variable of an enclosing function, `nonlocal count`) makes the
+      assignment rebind the outer variable instead; better still, keep
+      mutable state in an object or pass it as an argument.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: It raises `UnboundLocalError`
+          correct: true
+          feedback: Correct. The assignment makes `count` local throughout `increment`, and `count += 1` reads that local before it has a value.
+        - id: b
+          text: It returns 1 and the module-level `count` becomes 1
+          feedback: An assignment inside a function creates or rebinds a local name unless you declare `global count`. Without that, the module-level variable is never touched here.
+          misconception: {code: assignment-updates-global, label: Thinks assigning to a global name inside a function updates it without a declaration, category: conceptual}
+        - id: c
+          text: It returns 1, but the module-level `count` stays 0
+          feedback: Python does not copy globals into locals. Once `count` is local, reading it before assignment fails instead of falling back to the global value.
+          misconception: {code: local-copy-of-global, label: Thinks a local variable starts as a copy of the global with the same name, category: conceptual}
+        - id: d
+          text: It raises `SyntaxError` before the module runs, because `count` is not declared
+          feedback: The code is valid syntax, and Python has no variable declarations. The error happens at run time, when `increment()` is called.
+          misconception: {code: variables-need-declaration, label: Thinks Python requires variables to be declared before use, category: syntax}
+
+  - slug: scope-late-binding-debug
+    skill: py-closures-scope
+    kind: debugging
+    difficulty: 3
+    minutes: 6
+    tags: [interview]
+    secondary_skills: [py-functions]
+    title: Every alert check uses the disk limit
+    objective: Diagnose late binding in closures created in a loop and bind the current value instead.
+    prompt: |
+      `make_checks` builds one threshold check per metric for an alerting job,
+      but every check behaves like the disk check. Pick the line that
+      contains the defect and explain both the cause and a fix.
+    hints:
+      - All three checks behave identically. What do the three lambdas share?
+      - When does a lambda read `limit`, when it is created or when it is called? What value does the loop variable hold by then?
+    explanation: |
+      Closures capture variables, not values. Each lambda refers to the same
+      `limit` variable of `make_checks` and looks it up only when it is
+      called. By then the loop has finished and `limit` is `90`, so every
+      check compares against 90, and 85 passes all of them. Binding the
+      current value at creation time fixes it: a default argument
+      (`lambda value, limit=limit: value <= limit`) is evaluated when the
+      lambda is created, and `functools.partial` or a small factory function
+      gives each closure its own variable.
+    solution: |
+      **Model answer.** The defect is on line 5. The lambda does not store the
+      value of `limit`; it closes over the variable and looks it up when the
+      lambda is called (late binding). By the time any check runs, the loop
+      has finished and `limit` holds its final value, 90, so every check
+      compares against 90. Fix: bind the current value when each lambda is
+      created, for example with a default argument.
+
+      ```python
+      def make_checks(limits):
+          checks = {}
+          for metric, limit in limits.items():
+              checks[metric] = lambda value, limit=limit: value <= limit
+          return checks
+      ```
+
+      Alternatives: `functools.partial(operator.ge, limit)`, or a helper
+      `def make_check(limit): return lambda value: value <= limit`, which
+      creates a fresh variable on every call.
+    content:
+      language: python
+      code: |
+        def make_checks(limits):
+            """Return {metric: check} where check(value) is True if value is within the limit."""
+            checks = {}
+            for metric, limit in limits.items():
+                checks[metric] = lambda value: value <= limit
+            return checks
+
+
+        checks = make_checks({"cpu": 80, "memory": 95, "disk": 90})
+        print({metric: check(85) for metric, check in checks.items()})
+        # expected {'cpu': False, 'memory': True, 'disk': True}
+        # actual   {'cpu': True, 'memory': True, 'disk': True}
+      bug_lines: [5]
+      line_weight: 0.4
+      min_words: 12
+      max_words: 200
+      criteria:
+        - id: late-binding
+          label: Explains that each lambda looks up limit when it is called, so all see its final value
+          weight: 2
+          required: true
+          any: ["late binding", "late bound", "binds late", "bind late", "bound late", "looked up when", "looked up at call", "looks up limit", "looks up the variable", "looks it up", "resolved at", "resolved when", "at call time", "when called", "when it is called", "when it's called", "when they are called", "when they're called", "when the lambda is called", "when the lambda runs", "when the lambda executes", "when it runs", "when they run", "at the time the lambda", "last value", "final value", "last limit", "last item", "last iteration", "final iteration", "after the loop", "loop has finished", "loop has ended", "same variable", "same limit", 're:\bsame\W+limit\b', "captures the variable", "variable, not the value", "not the value", "not its value", 're:\b(all|every|each)\b[^.]*\b90\b']
+          missing_feedback: Explain *when* the lambda reads `limit`, and which value it finds at that moment.
+          misconception: {code: closure-captures-value, label: Thinks a closure captures a variable's value at creation time, category: conceptual}
+        - id: bind-current-value
+          label: Binds the current value, for example with a default argument or functools.partial
+          weight: 1
+          any: ["default argument", "default parameter", "default value", "default arg", "limit=limit", 're:\blimit\s*=\s*limit\b', "partial", "factory", "helper function", 're:\bmake_check\b', "early binding", "bind the current", "bind each", "capture the current", "freeze"]
+          missing_feedback: "Show how to bind the current `limit` for each lambda, for example `lambda value, limit=limit: value <= limit`."
+
+  - slug: scope-closure-counter-explain
+    skill: py-closures-scope
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 7
+    title: Explain how a counter closure works
+    objective: Explain what makes a closure, why its captured variable outlives the outer call, and why nonlocal is needed to rebind it.
+    prompt: |
+      ```python
+      def make_counter():
+          count = 0
+
+          def increment():
+              nonlocal count
+              count += 1
+              return count
+
+          return increment
+
+
+      tick = make_counter()
+      tick()  # 1
+      tick()  # 2
+      ```
+
+      Explain in your own words:
+
+      1. what makes `increment` a closure;
+      2. why `count` still exists after `make_counter()` has returned;
+      3. why the `nonlocal count` line is needed, and what would happen
+         without it.
+    hints:
+      - Which variables does `increment` use that it did not define itself?
+      - "`count += 1` is an assignment. Think about what an assignment does to a name's scope by default."
+      - Without `nonlocal`, the program fails on the first `tick()`. Which error would you see?
+    explanation: |
+      A closure is a function together with the variables it uses from the
+      scope it was defined in. `increment` refers to `count`, a local variable
+      of `make_counter`, so Python stores that variable in a cell that the
+      inner function keeps a reference to (visible as `tick.__closure__`).
+      That is why `count` lives on after `make_counter` returns and keeps its
+      value between calls. Reading an enclosing variable needs no declaration,
+      but rebinding it does: `count += 1` is an assignment, which by default
+      makes `count` local to `increment` and raises `UnboundLocalError`.
+      `nonlocal count` tells Python to rebind the enclosing variable instead.
+      Mutating a captured object, such as `items.append(x)`, needs no
+      `nonlocal` because the name itself is not rebound.
+    solution: |
+      **Model answer.** `increment` is a closure because it is a nested
+      function that uses `count`, a variable from the enclosing scope of
+      `make_counter`. Python stores that variable in a cell that the inner
+      function keeps a reference to (`tick.__closure__`), so `count` stays
+      alive after `make_counter()` has returned and persists between calls to
+      `tick()`. `count += 1` is an assignment, and any assignment inside a
+      function makes the name local by default. `nonlocal count` tells Python
+      to rebind the variable in the enclosing scope instead. Without it,
+      `count` would be treated as a local variable of `increment`, and
+      `count += 1` would raise `UnboundLocalError`, because it reads the local
+      before anything has been assigned to it.
+    content:
+      min_words: 40
+      max_words: 300
+      placeholder: Explain the closure, the variable's lifetime and the role of nonlocal...
+      criteria:
+        - id: captures-enclosing
+          label: Explains that a closure keeps access to variables from the enclosing function's scope
+          weight: 2
+          required: true
+          any: ["enclosing", "outer function", "outer scope", "parent function", "surrounding", "captur", "remember", "closes over", "closed over", "close over", "free variable", "cell"]
+          missing_feedback: Say what a closure keeps hold of, namely variables from the function it was defined in.
+          misconception: {code: closure-is-just-nested-function, label: Thinks any nested function is a closure regardless of captured variables, category: conceptual}
+        - id: outlives-call
+          label: Explains that the captured variable outlives the call to make_counter
+          weight: 1
+          any: ["after make_counter", "after the outer", "has returned", "already returned", "has finished", "finished running", "finished executing", 're:\bmake_counter\W+(has\s+)?(returned|returns|finishes|finished|ends|ended|exits|exited)\b', "outliv", "kept alive", "keeps it alive", "stays alive", "stay alive", "persist", "surviv", "still exist", "still accessible", "lives on", "doesn't disappear", "does not disappear", "not destroyed", "isn't destroyed", "keeps its value", "keep its value", "retain", "between calls", "across calls", "not garbage", "isn't garbage", "is not garbage", "__closure__"]
+          missing_feedback: Explain why `count` is not destroyed when `make_counter` returns.
+        - id: nonlocal-rebinds
+          label: Explains that nonlocal lets the inner function rebind the enclosing variable
+          weight: 1
+          any: ["rebind", "reassign", "assign to", "assigns to", "assignment", "modif", "write to", "update the", "updates the", "change the", "changes the"]
+          missing_feedback: Explain what `nonlocal` allows `increment` to do to `count`.
+          misconception: {code: nonlocal-needed-for-reading, label: Thinks nonlocal is needed just to read an enclosing variable, category: conceptual}
+        - id: unbound-without-nonlocal
+          label: Explains that without nonlocal, count becomes local and count += 1 raises UnboundLocalError
+          weight: 1
+          any: ["unboundlocalerror", "unbound", "treated as local", "treats it as local", "treat it as local", "becomes local", "become local", "local variable", "new local", "make it local", "makes it local", "makes count local", "referenced before assignment", "cannot access local", "before it is assigned", "before assignment"]
+          missing_feedback: Describe what goes wrong without `nonlocal`, and which error Python raises.
+          misconception: {code: assignment-updates-enclosing, label: Thinks assigning to an enclosing variable works without nonlocal, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-iterators-generators
+  # ---------------------------------------------------------------------------
+  - slug: gen-exhausted-map-mcq
+    skill: py-iterators-generators
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Using a map object twice
+    objective: Recognise that iterators such as map objects are exhausted after a single pass.
+    prompt: |
+      ```python
+      numbers = map(int, ["1", "2", "3"])
+      total = sum(numbers)
+      count = len(list(numbers))
+      print(total, count)
+      ```
+
+      What does this print?
+    hints:
+      - "`map` does not return a list. What kind of object is it?"
+      - What is left in an iterator after something has looped over all of it?
+    explanation: |
+      `map` returns an iterator that produces each converted value once.
+      `sum(numbers)` consumes all three values, so `list(numbers)` finds the
+      iterator already exhausted and builds an empty list, and the output is
+      `6 0`. Lists are iterables that hand out a fresh iterator every time you
+      loop over them, but `map`, `filter`, `zip`, generators and file objects
+      are single-pass. If you need the values twice, materialise them once:
+      `numbers = list(map(int, ...))`.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`6 0`'
+          correct: true
+          feedback: Correct. `sum()` consumed the iterator, so there is nothing left for `list()`.
+        - id: b
+          text: '`6 3`'
+          feedback: A `map` object is an iterator, and iterators do not restart. After `sum()` has consumed it, `list()` gets nothing.
+          misconception: {code: iterator-reusable, label: Thinks an iterator can be iterated again from the start, category: conceptual}
+        - id: c
+          text: '`0 0`'
+          feedback: Lazy does not mean "never computed". `sum()` iterates the map, which converts each string on demand, giving 6.
+          misconception: {code: lazy-means-never-computed, label: Thinks lazy iterators produce nothing unless converted to a list, category: conceptual}
+        - id: d
+          text: '`TypeError`, because `sum()` needs a list'
+          feedback: "`sum()` accepts any iterable of numbers, including iterators such as `map` objects and generators."
+          misconception: {code: builtins-need-lists, label: Thinks built-ins such as sum need a list rather than any iterable, category: conceptual}
+
+  - slug: gen-sliding-windows-code
+    skill: py-iterators-generators
+    kind: python_code
+    difficulty: 3
+    minutes: 15
+    title: Stream sliding windows over an endless iterator
+    objective: Write a generator that pulls items lazily from any iterable, including infinite ones, using a bounded deque.
+    prompt: |
+      Monitoring code computes moving averages over a stream of metrics that
+      may never end. Write a generator `sliding_windows(iterable, n)` that
+      yields tuples of `n` consecutive items:
+
+      ```python
+      >>> list(sliding_windows([1, 2, 3, 4], 2))
+      [(1, 2), (2, 3), (3, 4)]
+      ```
+
+      Requirements:
+
+      - Work with any iterable, including infinite iterators, and pull items
+        lazily: producing the first window must read only `n` items.
+      - Yield nothing if the input has fewer than `n` items.
+      - Raise `ValueError` if `n < 1`.
+
+      (`itertools.pairwise` only covers `n = 2`, and Python 3.12's
+      `itertools.batched` produces non-overlapping chunks, so neither solves
+      this directly.)
+    hints:
+      - You only ever need the last `n` items you have seen. Which `collections` type can hold exactly that for you?
+      - "`deque(maxlen=n)` discards the oldest item automatically when you append. Fill it first with `islice(iterator, n)`."
+      - Call `iter()` once on the input, so that the initial fill and the following loop share the same iterator.
+    explanation: |
+      A generator function runs only as far as the consumer asks, so the
+      window can be produced lazily, one item at a time. Calling `iter()` once
+      and sharing that iterator between the initial `islice` fill and the
+      main loop makes sure no item is read twice or skipped, and
+      `deque(maxlen=n)` drops the oldest item on each append, so every step
+      costs O(n) for the tuple copy and memory stays bounded. Calling
+      `list()` on the input instead would never finish for an infinite
+      stream.
+    solution: |
+      ```python
+      from collections import deque
+      from itertools import islice
+
+
+      def sliding_windows(iterable, n):
+          if n < 1:
+              raise ValueError("n must be at least 1")
+          iterator = iter(iterable)
+          window = deque(islice(iterator, n), maxlen=n)
+          if len(window) < n:
+              return
+          yield tuple(window)
+          for item in iterator:
+              window.append(item)
+              yield tuple(window)
+      ```
+
+      Because this is a generator function, even the `ValueError` is raised
+      lazily, on the first `next()` call. If you want invalid arguments to
+      fail at call time, validate in a plain function and return an inner
+      generator.
+    content:
+      starter_code: |
+        from collections import deque
+        from itertools import islice
+
+
+        def sliding_windows(iterable, n):
+            """Yield tuples of `n` consecutive items from `iterable`, lazily."""
+            raise NotImplementedError
+      reference_solution: |
+        from collections import deque
+        from itertools import islice
+
+
+        def sliding_windows(iterable, n):
+            if n < 1:
+                raise ValueError("n must be at least 1")
+            iterator = iter(iterable)
+            window = deque(islice(iterator, n), maxlen=n)
+            if len(window) < n:
+                return
+            yield tuple(window)
+            for item in iterator:
+                window.append(item)
+                yield tuple(window)
+    tests:
+      - name: yields overlapping windows
+        code: |
+          assert list(sliding_windows([1, 2, 3, 4], 2)) == [(1, 2), (2, 3), (3, 4)]
+      - name: a window as long as the input
+        code: |
+          assert list(sliding_windows("abc", 3)) == [("a", "b", "c")]
+      - name: fewer items than n yields nothing
+        code: |
+          assert list(sliding_windows([1, 2], 3)) == []
+      - name: works on an infinite iterator
+        hidden: true
+        code: |
+          from itertools import count, islice
+          assert list(islice(sliding_windows(count(), 3), 2)) == [(0, 1, 2), (1, 2, 3)]
+      - name: reads only n items for the first window
+        hidden: true
+        code: |
+          pulled = []
+
+          def source():
+              for i in range(100):
+                  pulled.append(i)
+                  yield i
+
+          windows = sliding_windows(source(), 3)
+          assert next(windows) == (0, 1, 2)
+          assert len(pulled) == 3, f"read {len(pulled)} items to build the first window"
+      - name: rejects n below 1
+        hidden: true
+        code: |
+          try:
+              list(sliding_windows([1, 2, 3], 0))
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("expected ValueError for n=0")
+
+  - slug: gen-single-pass-explain
+    skill: py-iterators-generators
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 6
+    title: Why does normalise return nothing for a generator?
+    objective: Explain the difference between iterables and single-pass iterators and how to make a two-pass function safe.
+    prompt: |
+      ```python
+      def normalise(values):
+          total = sum(values)
+          return [v / total for v in values]
+
+
+      normalise([1, 2, 3])               # [0.1666..., 0.3333..., 0.5]
+      normalise(x for x in [1, 2, 3])    # ?
+      ```
+
+      Explain what the second call returns and why. Cover the difference
+      between an iterable such as a list and an iterator such as a generator,
+      and how you would make `normalise` work for both.
+    hints:
+      - How many times does `normalise` loop over `values`?
+      - What happens when you loop over a generator for the second time?
+    explanation: |
+      The second call returns `[]`. A generator is an iterator: it produces
+      each value once and is then exhausted. `sum(values)` consumes all three
+      numbers, so the comprehension that follows finds nothing to iterate
+      over. A list is an iterable rather than an iterator: each loop calls
+      `iter()` on it and gets a fresh iterator that starts from the
+      beginning. Functions that need two passes should materialise the input
+      once (`values = list(values)`) or be typed to accept a `Sequence`; the
+      silent empty result is what makes this bug dangerous.
+    solution: |
+      **Model answer.** The second call returns an empty list. A generator is
+      an iterator: it produces each value once and is then exhausted.
+      `sum(values)` consumes all three numbers to compute the total (6), so
+      when the list comprehension iterates over `values` again there is
+      nothing left and it builds `[]`. A list is an iterable rather than an
+      iterator: every `for` loop calls `iter()` on it and gets a fresh
+      iterator starting from the beginning, which is why the first call
+      works. To support both, materialise the input once at the top of the
+      function with `values = list(values)` and then iterate over that list
+      twice, or declare the parameter as a `Sequence` so callers know a
+      generator is not accepted.
+    content:
+      min_words: 35
+      max_words: 300
+      placeholder: Explain what happens to the generator inside normalise...
+      criteria:
+        - id: generator-exhausted
+          label: Explains that sum() consumes the generator, leaving nothing for the second pass
+          weight: 2
+          required: true
+          any: ["exhaust", "consum", "used up", "single pass", "one pass", "single use", "only once", "iterated once", "iterate once", "nothing left", "no values left", "no items left", "already iterated", "stopiteration", "drained"]
+          missing_feedback: Explain what `sum(values)` leaves behind in the generator for the comprehension to iterate over.
+          misconception: {code: iterator-reusable, label: Thinks an iterator can be iterated again from the start, category: conceptual}
+        - id: returns-empty-list
+          label: States that the second call returns an empty list
+          weight: 1
+          any: ["empty list", "empty result", "returns empty", "returns an empty", "an empty", 're:\[\s*\]', "nothing is returned", "no elements", "zero elements"]
+          missing_feedback: Say exactly what the second call returns.
+        - id: iterable-vs-iterator
+          label: Distinguishes iterables that hand out fresh iterators from single-pass iterators
+          weight: 1
+          any: ["fresh iterator", "new iterator", "a new one", "each time", "every time", "returns itself", "iter(", "__iter__", "restart", "start over", "from the beginning", "from the start", "rewind", "reset", "re-iterat", "reiterat", "multiple times", "more than once", "again"]
+          missing_feedback: Explain why looping over a list twice works but looping over a generator twice does not.
+        - id: materialise-fix
+          label: Materialises the input once (for example list(values)) or otherwise avoids two passes
+          weight: 1
+          any: ["list(", "tuple(", 're:\blist\s*\(', 're:\btuple\s*\(', "materiali", "convert", "copy it into", "store the values", "store them", "sequence", "tee", "single loop", "one loop"]
+          missing_feedback: Suggest how to make `normalise` work for generators too.
+          misconception: {code: two-pass-over-iterator, label: Writes functions that loop over an arbitrary iterable twice, category: edge_case}
+
+  # ---------------------------------------------------------------------------
+  # py-decorators
+  # ---------------------------------------------------------------------------
+  - slug: dec-definition-time-mcq
+    skill: py-decorators
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: When does a decorator run?
+    objective: Recognise that a decorator is applied once, when the decorated function is defined.
+    prompt: |
+      ```python
+      def register(func):
+          print("registering", func.__name__)
+          return func
+
+
+      @register
+      def handler():
+          print("handling")
+
+
+      print("start")
+      handler()
+      ```
+
+      What does running this script print?
+    hints:
+      - Rewrite `@register` as the plain assignment it stands for.
+      - That assignment runs straight after the `def` statement. When is that, relative to `print("start")`?
+    explanation: |
+      `@register` is equivalent to `handler = register(handler)`, executed
+      immediately after the `def` statement, which here means while the module
+      is being executed (for a library, at import time). So
+      `registering handler` prints first, then `start`, and the call to
+      `handler()` runs the original function, which `register` returned
+      unchanged. A decorator may return any object; returning the original
+      function after recording it is the common registration pattern used by
+      Flask's `app.route` and many plugin systems.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`registering handler`, then `start`, then `handling`'
+          correct: true
+          feedback: Correct. Decoration happens once, at definition time, before any of the code below it runs.
+        - id: b
+          text: '`start`, then `registering handler`, then `handling`'
+          feedback: The decorator is not deferred until the first call. `@register` runs as soon as the `def` statement has executed.
+          misconception: {code: decorator-runs-at-call, label: Thinks a decorator runs when the decorated function is first called, category: conceptual}
+        - id: c
+          text: '`registering handler`, `start`, `registering handler`, `handling`'
+          feedback: The decorator body runs only once. Calling `handler()` calls whatever `register` returned, which is the original function.
+          misconception: {code: decorator-runs-each-call, label: Thinks the decorator body runs again on every call, category: conceptual}
+        - id: d
+          text: It raises `TypeError`, because a decorator must return a new wrapper function
+          feedback: A decorator can return any object, including the original function. Wrappers are common, but they are not required.
+          misconception: {code: decorator-must-return-wrapper, label: Thinks a decorator must return a new wrapper function, category: conceptual}
+
+  - slug: dec-retry-decorator-code
+    skill: py-decorators
+    kind: python_code
+    difficulty: 3
+    minutes: 15
+    tags: [scenario]
+    secondary_skills: [py-exceptions]
+    title: Write a retry decorator factory
+    objective: Build a parameterised decorator that forwards arguments, re-raises correctly and preserves metadata with functools.wraps.
+    prompt: |
+      Write a decorator factory `retry(times, exceptions=(Exception,))` for
+      flaky network calls:
+
+      ```python
+      @retry(times=3, exceptions=(ConnectionError, TimeoutError))
+      def fetch_rates(currency):
+          ...
+      ```
+
+      - The decorated function is attempted up to `times` times in total.
+      - Only exceptions that are instances of `exceptions` trigger another
+        attempt; any other exception propagates immediately.
+      - If every attempt fails, re-raise the last exception unchanged.
+      - Return the result as soon as an attempt succeeds, and forward all
+        positional and keyword arguments.
+      - Preserve the wrapped function's `__name__` and `__doc__`.
+      - Raise `ValueError` straight away, when `retry(...)` itself is called,
+        if `times < 1`.
+
+      Do not sleep between attempts; a production version would add
+      exponential back-off with jitter.
+    hints:
+      - "`@retry(times=3)` first calls `retry(times=3)`, and whatever that returns is then applied to the function. How many nested functions does that imply?"
+      - Inside the wrapper, loop over the attempts and put the call in `try` / `except exceptions:`. On the last attempt, re-raise with a bare `raise`.
+      - Decorate the wrapper with `@functools.wraps(func)` to copy `__name__`, `__doc__` and friends.
+    explanation: |
+      A decorator that takes arguments has three layers: `retry(times)` runs
+      first and returns `decorator`, `decorator(func)` runs once at definition
+      time and returns `wrapper`, and `wrapper(*args, **kwargs)` runs on every
+      call. Validating `times` in the outermost layer makes bad configuration
+      fail immediately. `except exceptions:` accepts a tuple of classes, and a
+      bare `raise` re-raises the current exception with its original
+      traceback. `functools.wraps` copies the metadata (and sets
+      `__wrapped__`), so logs, debuggers and `help()` still see the real
+      function.
+    solution: |
+      ```python
+      import functools
+
+
+      def retry(times, exceptions=(Exception,)):
+          if times < 1:
+              raise ValueError("times must be at least 1")
+
+          def decorator(func):
+              @functools.wraps(func)
+              def wrapper(*args, **kwargs):
+                  for attempt in range(1, times + 1):
+                      try:
+                          return func(*args, **kwargs)
+                      except exceptions:
+                          if attempt == times:
+                              raise
+
+              return wrapper
+
+          return decorator
+      ```
+
+      Exceptions outside `exceptions` are not caught at all, so they escape
+      on the first attempt. In production, retry only idempotent operations,
+      add back-off between attempts and log each failure.
+    content:
+      starter_code: |
+        import functools
+
+
+        def retry(times, exceptions=(Exception,)):
+            """Retry the decorated function up to `times` attempts on the given exceptions."""
+
+            def decorator(func):
+                def wrapper(*args, **kwargs):
+                    return func(*args, **kwargs)
+
+                return wrapper
+
+            return decorator
+      reference_solution: |
+        import functools
+
+
+        def retry(times, exceptions=(Exception,)):
+            if times < 1:
+                raise ValueError("times must be at least 1")
+
+            def decorator(func):
+                @functools.wraps(func)
+                def wrapper(*args, **kwargs):
+                    for attempt in range(1, times + 1):
+                        try:
+                            return func(*args, **kwargs)
+                        except exceptions:
+                            if attempt == times:
+                                raise
+
+                return wrapper
+
+            return decorator
+    tests:
+      - name: succeeds after transient failures
+        code: |
+          calls = []
+
+          @retry(times=3, exceptions=(ValueError,))
+          def flaky():
+              calls.append(1)
+              if len(calls) < 3:
+                  raise ValueError("not yet")
+              return "ok"
+
+          assert flaky() == "ok"
+          assert len(calls) == 3
+      - name: re-raises the last error after the final attempt
+        code: |
+          attempts = []
+
+          @retry(times=2, exceptions=(ValueError,))
+          def always_fails():
+              attempts.append(1)
+              raise ValueError("boom")
+
+          try:
+              always_fails()
+          except ValueError as exc:
+              assert str(exc) == "boom"
+          else:
+              raise AssertionError("expected ValueError")
+          assert len(attempts) == 2, f"made {len(attempts)} attempts"
+      - name: preserves metadata and forwards arguments
+        code: |
+          @retry(times=2)
+          def fetch(url, *, timeout=5):
+              """Fetch a URL."""
+              return (url, timeout)
+
+          assert fetch.__name__ == "fetch"
+          assert fetch.__doc__ == "Fetch a URL."
+          assert fetch("x", timeout=1) == ("x", 1)
+      - name: does not retry other exception types
+        hidden: true
+        code: |
+          attempts = []
+
+          @retry(times=5, exceptions=(ValueError,))
+          def wrong_type():
+              attempts.append(1)
+              raise KeyError("missing")
+
+          try:
+              wrong_type()
+          except KeyError:
+              pass
+          else:
+              raise AssertionError("expected KeyError")
+          assert len(attempts) == 1, f"made {len(attempts)} attempts"
+      - name: rejects times below 1 immediately
+        hidden: true
+        code: |
+          try:
+              retry(times=0)
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("expected ValueError from retry(times=0)")
+
+  - slug: dec-cache-decorator-review
+    skill: py-decorators
+    kind: code_review
+    difficulty: 3
+    minutes: 10
+    tags: [scenario]
+    title: Review a home-made caching decorator
+    objective: Review a caching decorator for incorrect cache keys, shared state, unbounded growth and lost metadata.
+    prompt: |
+      A teammate added this caching decorator to speed up two slow lookups
+      in a web service. Review it before it ships: identify the problems and
+      explain how you would fix each one.
+    hints:
+      - Call `get_permissions(42)` and then `get_permissions(42, include_inherited=True)`. What does the second call return?
+      - How many cache dictionaries exist, and what happens after `get_user(42)` has been cached?
+      - Think about the cache's lifetime, and about what `get_permissions.__name__` returns now.
+    explanation: |
+      Caching decorators are easy to get subtly wrong. The key must capture
+      *everything* that affects the result (all positional and keyword
+      arguments, and which function is being called), the cache needs a size
+      limit and an invalidation story, and the wrapper should preserve the
+      function's identity with `functools.wraps`. For pure functions,
+      `functools.lru_cache(maxsize=...)` or `functools.cache` already gets the
+      key and metadata right; data that changes, such as permissions, needs
+      a TTL or explicit invalidation.
+    solution: |
+      **Model answer.**
+
+      1. **Keyword arguments are ignored.** The key is only `args`, and
+         `func(*args)` does not even pass `**kwargs` on, so
+         `get_permissions(42, include_inherited=True)` silently runs with the
+         default and returns whatever was cached for `(42,)`. Build the key
+         from `args` and `tuple(sorted(kwargs.items()))`, and call
+         `func(*args, **kwargs)`.
+      2. **One cache is shared by every decorated function.** `_cache` lives
+         at module level and the key does not include the function, so
+         `get_user(42)` and `get_permissions(42)` collide and one returns the
+         other's result. Create the dict inside `cached` so each function
+         gets its own cache.
+      3. **Unbounded and never invalidated.** Memory grows forever, and
+         revoked permissions stay cached until the process restarts, which is
+         a security problem. Use `functools.lru_cache(maxsize=...)` or a TTL
+         cache, and invalidate entries when permissions change.
+      4. **No `functools.wraps`.** The wrapper hides the original `__name__`
+         and docstring, which hurts logging, debugging and introspection.
+
+      Smaller points: use `logging` instead of `print`, and
+      `time.perf_counter()` rather than `time.time()` for durations.
+    content:
+      language: python
+      code: |
+        import time
+
+        _cache = {}
+
+
+        def cached(func):
+            def wrapper(*args, **kwargs):
+                key = args
+                if key in _cache:
+                    return _cache[key]
+                start = time.time()
+                result = func(*args)
+                print(f"{func.__name__} took {time.time() - start:.2f}s")
+                _cache[key] = result
+                return result
+            return wrapper
+
+
+        @cached
+        def get_user(user_id):
+            """Load a user record from the database."""
+            ...
+
+
+        @cached
+        def get_permissions(user_id, *, include_inherited=False):
+            """Load the permission set for a user."""
+            ...
+      min_words: 40
+      max_words: 400
+      placeholder: List each problem you find and how you would fix it...
+      criteria:
+        - id: kwargs-dropped
+          label: Spots that keyword arguments are ignored in both the cache key and the call
+          weight: 2
+          required: true
+          any: ["kwargs", "keyword argument", "keyword-only", "keyword arg", "include_inherited", "func(*args)", "named argument"]
+          missing_feedback: Look at what happens to `include_inherited=True`, both in the key and in the call to `func`.
+          misconception: {code: cache-key-incomplete, label: Builds cache keys that ignore some of the inputs, category: logic}
+        - id: shared-cache
+          label: Spots that one module-level cache is shared by every decorated function, so keys collide
+          weight: 2
+          any: ["shared", "global cache", "single cache", "one cache", "same cache", "module level", "module-level", "all functions", "all decorated", "every function", "every decorated", "across functions", "different functions", "between functions", "other function", "collide", "collision", "clash", "function name", "include the function", "include func", "per function", "per-function", "get_user(42)", 're:get_user\b[^.]*\bget_permissions', 're:get_permissions\b[^.]*\bget_user']
+          missing_feedback: Consider what `get_permissions(42)` returns after `get_user(42)` has been cached.
+          misconception: {code: shared-decorator-state, label: Overlooks module-level state shared by every decorated function, category: logic}
+        - id: unbounded-stale
+          label: Notes the cache is unbounded and never invalidated (memory growth, stale or revoked permissions)
+          weight: 1
+          any: ["unbounded", "grows forever", "grow forever", "grows without", "without limit", "no limit", "no size limit", "memory leak", "leak", "never evict", "evict", "maxsize", "lru", "ttl", "expir", "stale", "invalidat", "revoked", "outdated", "never refresh", "never cleared", "never clear"]
+          missing_feedback: Think about how big this cache gets after a week in production, and what happens when a user's permissions are revoked.
+          misconception: {code: cache-without-eviction, label: Caches without size limits or invalidation, category: performance}
+        - id: missing-wraps
+          label: Notes the missing functools.wraps, which loses the function's name and docstring
+          weight: 1
+          any: ["functools.wraps", "wraps", "__name__", "__doc__", "__wrapped__", "metadata", "docstring", "introspection", "help("]
+          missing_feedback: Check what `get_permissions.__name__` and `get_permissions.__doc__` return after decoration.
+
+  # ---------------------------------------------------------------------------
+  # py-exceptions
+  # ---------------------------------------------------------------------------
+  - slug: exc-try-else-finally-mcq
+    skill: py-exceptions
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Order of try, else and finally
+    objective: Predict the execution order of try, except, else and finally when a block returns.
+    prompt: |
+      ```python
+      def load(raw):
+          try:
+              value = int(raw)
+          except ValueError:
+              print("bad input")
+              return None
+          else:
+              print("parsed")
+              return value
+          finally:
+              print("cleanup")
+
+
+      result = load("42")
+      ```
+
+      What does `load("42")` print?
+    hints:
+      - Does `int("42")` raise? That decides between `except` and `else`.
+      - "`finally` is the clause that runs whatever happens, even when an earlier clause returns."
+    explanation: |
+      `int("42")` succeeds, so the `except` clause is skipped and `else` runs:
+      it prints `parsed` and evaluates `return value`. Before the function
+      actually returns, `finally` runs and prints `cleanup`; then `42` is
+      returned. `finally` runs whether the block completes, returns, raises or
+      breaks out of a loop. Putting the success path in `else` keeps the `try`
+      block narrow, so an unexpected error in the success code is not caught
+      by `except ValueError` by accident.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`parsed`, then `cleanup`'
+          correct: true
+          feedback: Correct. No exception occurs, so `else` runs; its `return` is prepared, and `finally` runs before the function returns 42.
+        - id: b
+          text: '`parsed` only; `finally` is skipped because `else` already returned'
+          feedback: A `return` does not skip `finally`. Python runs the `finally` clause on the way out of the `try` statement, however it is left.
+          misconception: {code: return-skips-finally, label: Thinks a return statement skips the finally clause, category: conceptual}
+        - id: c
+          text: '`cleanup`, then `parsed`'
+          feedback: "`finally` runs last, after the `try` body and then `except` or `else` have finished (or returned)."
+          misconception: {code: finally-runs-first, label: Thinks finally runs before the else clause, category: conceptual}
+        - id: d
+          text: '`cleanup` only; `else` runs only after an exception was caught'
+          feedback: It is the other way round. `else` runs only when the `try` body raised *no* exception.
+          misconception: {code: else-means-error, label: Confuses the else clause of try with an exception handler, category: conceptual}
+
+  - slug: exc-except-order-debug
+    skill: py-exceptions
+    kind: debugging
+    difficulty: 2
+    minutes: 6
+    title: A missing key reported as invalid JSON
+    objective: Diagnose an except clause that shadows a more specific handler and fix it with specific, chained exceptions.
+    prompt: |
+      An on-call engineer reports that a config file containing
+      `{"host": "db"}` produced the error *config is not valid JSON*, although
+      the JSON is perfectly valid. Pick the line that contains the defect and
+      explain the fix.
+    hints:
+      - Which exception does `config["port"]` raise for this input?
+      - Python checks `except` clauses from top to bottom. Which one matches that exception first?
+    explanation: |
+      Python tries `except` clauses in order and uses the first one that
+      matches. `KeyError` is a subclass of `Exception`, so the broad
+      `except Exception` handles the missing key and reports it as invalid
+      JSON, and the `except KeyError` clause can never run. Catch the specific
+      exceptions you expect (`json.JSONDecodeError` for parse errors,
+      `KeyError` for the missing key, `TypeError`/`ValueError` for a bad port
+      value), put specific handlers before broad ones, and keep the original
+      error attached with `raise ... from exc`.
+    solution: |
+      **Model answer.** The defect is the `except Exception:` on line 12.
+      `except` clauses are tried in order and the first match wins; `KeyError`
+      is a subclass of `Exception`, so the broad handler catches the missing
+      `port` key and reports it as invalid JSON, and the `except KeyError`
+      clause is unreachable. Catch `json.JSONDecodeError` for parse failures
+      instead, keep specific handlers before any broad one, and chain the
+      cause with `raise ConfigError(...) from exc`.
+
+      ```python
+      def load_port(text):
+          try:
+              config = json.loads(text)
+          except json.JSONDecodeError as exc:
+              raise ConfigError("config is not valid JSON") from exc
+          try:
+              port = int(config["port"])
+          except KeyError as exc:
+              raise ConfigError("config is missing 'port'") from exc
+          except (TypeError, ValueError) as exc:
+              raise ConfigError("port must be an integer") from exc
+          if not 1 <= port <= 65535:
+              raise ConfigError(f"port {port} is out of range")
+          return port
+      ```
+    content:
+      language: python
+      code: |
+        import json
+
+
+        class ConfigError(Exception):
+            pass
+
+
+        def load_port(text):
+            try:
+                config = json.loads(text)
+                port = int(config["port"])
+            except Exception:
+                raise ConfigError("config is not valid JSON")
+            except KeyError:
+                raise ConfigError("config is missing 'port'")
+            if not 1 <= port <= 65535:
+                raise ConfigError(f"port {port} is out of range")
+            return port
+      bug_lines: [12, 14]
+      line_weight: 0.4
+      min_words: 12
+      max_words: 200
+      criteria:
+        - id: first-match-wins
+          label: Explains that except clauses are tried in order and the broad Exception handler catches the KeyError first
+          weight: 2
+          required: true
+          any: ["first match", "first matching", "first one that matches", "first handler", "first except", "first clause", "in order", "order", "top to bottom", "top down", "comes before", "listed before", "unreachable", "never reached", "never runs", "never executed", "never be reached", "never gets", "dead code", "shadow", "swallow", "catches everything", "catches all", "catch everything", "catches keyerror", "catches the keyerror", "keyerror is a subclass", "subclass of exception", "inherits from exception", "inherit from exception", "too broad", "broad", "generic"]
+          missing_feedback: Explain how Python picks the `except` clause that handles an exception, and why `except KeyError` never runs.
+          misconception: {code: except-best-match, label: Thinks Python picks the most specific except clause rather than the first match, category: conceptual}
+        - id: specific-handlers
+          label: Catches json.JSONDecodeError specifically or puts the specific handlers first
+          weight: 1
+          any: ["jsondecodeerror", "decodeerror", "decode error", "specific", "narrow", "reorder", "swap", "move", "put the keyerror", "put keyerror", "keyerror first", "before except exception", "before the broad", 're:keyerror\b[^.]*\b(first|before|above)']
+          missing_feedback: Show the fix, for example catching `json.JSONDecodeError` for invalid JSON and putting specific handlers before any broad one.
+        - id: chain-cause
+          label: Keeps the original error attached with raise ... from
+          weight: 1
+          any: ['re:\bfrom\s+(e|ex|exc|err|error)\b', "raise ... from", "raise from", "chain", "__cause__", "original exception", "original error"]
+          missing_feedback: Consider keeping the original exception attached with `raise ConfigError(...) from exc`.
+
+  - slug: exc-checkout-review
+    skill: py-exceptions
+    kind: code_review
+    difficulty: 3
+    minutes: 10
+    tags: [scenario]
+    title: Review error handling in a checkout function
+    objective: Review a payment function for an over-broad handler, an over-wide try block, useless logging and a missing exception cause.
+    prompt: |
+      The payment gateway client raises `GatewayError` (with subclasses such
+      as `CardDeclined`) when a charge fails. Review `checkout`: identify the
+      problems with its error handling and explain how you would fix each
+      one.
+    hints:
+      - Which exceptions does a bare `except:` catch, besides `GatewayError`?
+      - Suppose `gateway.charge` succeeds but `order.save()` fails. What does the customer experience, and what does the log say?
+      - Imagine debugging a production incident from this log line alone.
+    explanation: |
+      Error handling should catch the exceptions you expect, around the code
+      that raises them, and leave enough evidence to debug what happened. A
+      bare `except:` also catches `KeyboardInterrupt`, `SystemExit`,
+      `asyncio.CancelledError` and our own bugs; a `try` around the charge
+      *and* the bookkeeping turns "charged but not recorded" into a
+      misleading "payment failed"; a log line without traceback or order id
+      is useless during an incident; and `raise ... from exc` records the
+      real cause explicitly, so callers can tell a declined card from an
+      outage.
+    solution: |
+      **Model answer.**
+
+      1. **Bare `except:`.** It catches everything, including
+         `KeyboardInterrupt`, `SystemExit` and asyncio cancellation, plus
+         programming errors such as an `AttributeError` in our own code, and
+         reports them all as payment failures. Catch `GatewayError`
+         specifically.
+      2. **The `try` block is too wide.** If `charge` succeeds but
+         `mark_paid()` or `save()` fails, the customer has been charged while
+         we report "Payment failed" and the order stays unpaid; a retry would
+         charge them twice. Wrap only the gateway call and handle persistence
+         failures separately (record the receipt, reconcile, use an
+         idempotency key).
+      3. **The log line has no details.** `logger.error("Payment failed")`
+         records no traceback and no order id. Use
+         `logger.exception("Payment failed for order %s", order.id)`.
+      4. **The cause is not chained explicitly.** Raise
+         `PaymentError(...) from exc`, so the original gateway error (for
+         example `CardDeclined`) is attached as `__cause__` and callers can
+         tell a decline from an outage.
+
+      ```python
+      def checkout(gateway, order):
+          try:
+              receipt = gateway.charge(order.customer_id, order.total_cents)
+          except GatewayError as exc:
+              logger.exception("Payment failed for order %s", order.id)
+              raise PaymentError(f"Payment failed for order {order.id}") from exc
+          order.mark_paid(receipt.id)
+          order.save()
+          return receipt
+      ```
+    content:
+      language: python
+      code: |
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+
+        class PaymentError(Exception):
+            """Raised when an order could not be paid."""
+
+
+        def checkout(gateway, order):
+            try:
+                receipt = gateway.charge(order.customer_id, order.total_cents)
+                order.mark_paid(receipt.id)
+                order.save()
+            except:
+                logger.error("Payment failed")
+                raise PaymentError("Payment failed")
+            return receipt
+      min_words: 40
+      max_words: 400
+      placeholder: List each problem you find and how you would fix it...
+      criteria:
+        - id: bare-except
+          label: Flags the bare except, which catches everything, including KeyboardInterrupt, SystemExit and programming errors
+          weight: 2
+          required: true
+          any: ["bare except", "except:", "baseexception", "keyboardinterrupt", "systemexit", "cancellederror", "catches everything", "catches all", "catch everything", "catch all", "too broad", "overly broad", "broad", "specific exception", "catch gatewayerror", "except gatewayerror", "only gatewayerror", "programming error", "attributeerror", "hides bugs", "masks bugs", "hide bugs", "mask bugs"]
+          missing_feedback: Look at which exceptions the bare `except:` catches besides gateway failures.
+          misconception: {code: broad-except-is-safe, label: Treats catching every exception as defensive and safe, category: conceptual}
+        - id: try-too-wide
+          label: Notes the try block also covers mark_paid and save, so a failure after a successful charge is reported as a failed payment
+          weight: 2
+          any: ["mark_paid", "save()", "order.save", "after the charge", "after charging", "after a successful charge", "charge succeeded", "charge succeeds", "already charged", "was charged", "been charged", "charged but", "charged twice", "double charg", "inconsistent", "too much code", "too wide", "too large", "narrow the try", "smaller try", "only the charge", "only wrap", "only around"]
+          missing_feedback: Consider what happens when the charge succeeds but saving the order fails.
+          misconception: {code: try-block-too-wide, label: Wraps more code than the operation that can fail in a try block, category: logic}
+        - id: log-context
+          label: Points out that the log line has no traceback or context (use logger.exception and include the order id)
+          weight: 1
+          any: ["logger.exception", "exc_info", "traceback", "stack trace", "stacktrace", "log the exception", "log the error", "order id", "order.id", "which order", "no context", "no details", "without details", "useless log", "context"]
+          missing_feedback: Imagine debugging an incident from this log line. What information is missing?
+        - id: chain-cause
+          label: Chains the original error explicitly with raise PaymentError(...) from exc
+          weight: 1
+          any: ['re:\bfrom\s+(e|ex|exc|err|error)\b', "raise ... from", "raise from", "chain", "__cause__", "cause", "original exception", "original error", "underlying", "distinguish", "tell a decline", "carddeclined", "card declined"]
+          missing_feedback: How would a caller find out *why* the payment failed, for example a declined card versus an outage?
+
+  # ---------------------------------------------------------------------------
+  # py-context-managers
+  # ---------------------------------------------------------------------------
+  - slug: cm-exit-suppresses-mcq
+    skill: py-context-managers
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 2
+    diagnostic: true
+    title: What does a truthy __exit__ return value do?
+    objective: Predict how the return value of __exit__ affects an exception raised inside a with block.
+    prompt: |
+      ```python
+      class Quiet:
+          def __enter__(self):
+              return self
+
+          def __exit__(self, exc_type, exc, tb):
+              print("cleanup")
+              return True
+
+
+      with Quiet():
+          raise ValueError("boom")
+      print("after")
+      ```
+
+      What happens when this runs?
+    hints:
+      - Is `__exit__` called when the block raises?
+      - "`__exit__` receives the exception. What could its return value tell Python about it?"
+    explanation: |
+      `__exit__` always runs when the `with` block is left, and it receives the
+      exception type, value and traceback if the block raised. A truthy return
+      value tells Python the exception has been handled, so it is suppressed
+      and execution continues after the `with` statement: the output is
+      `cleanup` and then `after`. This is how `contextlib.suppress` works, and
+      why accidentally returning a truthy value from `__exit__` is a nasty bug.
+      Return `None` or `False` to let exceptions propagate.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: It prints `cleanup`, then `after`; the `ValueError` is suppressed
+          correct: true
+          feedback: Correct. `__exit__` returned `True`, which tells Python to swallow the exception and carry on after the block.
+        - id: b
+          text: It prints `cleanup`, then shows a `ValueError` traceback; `after` is never printed
+          feedback: That is what happens when `__exit__` returns `None` or `False`. A truthy return value suppresses the exception.
+          misconception: {code: exit-return-ignored, label: Does not know a truthy __exit__ return value suppresses the exception, category: conceptual}
+        - id: c
+          text: It shows only a `ValueError` traceback, because `__exit__` is skipped when the block raises
+          feedback: Running `__exit__` even when the block raises is the whole point of a context manager. It is called with the exception details.
+          misconception: {code: exit-skipped-on-error, label: Thinks __exit__ is skipped when the with block raises, category: conceptual}
+        - id: d
+          text: It prints `after`, then `cleanup` when the object is garbage-collected
+          feedback: "`__exit__` runs deterministically when the `with` block ends, not whenever the object happens to be garbage-collected."
+          misconception: {code: cleanup-at-gc, label: Thinks with-statement cleanup happens at garbage collection, category: conceptual}
+
+  - slug: cm-temporary-attr-code
+    skill: py-context-managers
+    kind: python_code
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    secondary_skills: [py-iterators-generators]
+    title: Fix a context manager that patches an attribute
+    objective: Write a generator-based context manager that restores state even when the block raises, using try/finally and a sentinel.
+    prompt: |
+      Tests and maintenance scripts often need to change an attribute
+      temporarily, such as a client's `timeout`, and put it back afterwards:
+
+      ```python
+      with temporary_attr(client, "timeout", 0.1):
+          run_smoke_test(client)
+      ```
+
+      The starter version works in the happy path but has bugs. Fix
+      `temporary_attr(obj, name, value)` so that:
+
+      - inside the `with` block, `getattr(obj, name) == value`;
+      - afterwards the original value is restored, **even if the block
+        raised**, and the exception still propagates;
+      - if `obj` had no such attribute before, it is removed again
+        afterwards;
+      - an original value of `None` is restored like any other value.
+    hints:
+      - In a `@contextmanager` generator, an exception raised inside the `with` block is re-raised at the `yield`. What happens to the code after `yield` then?
+      - Wrap the `yield` in `try` / `finally` so the restore always runs, and do not catch the exception.
+      - "`getattr(obj, name, None)` cannot tell \"missing\" apart from \"set to None\". Use a unique sentinel such as `_MISSING = object()`."
+    explanation: |
+      `@contextmanager` runs the generator up to `yield` on entry. On exit it
+      resumes the generator, normally with `next()`, or, if the block raised,
+      by throwing the exception in at the `yield`. Without `try/finally`, the
+      restore code after `yield` is skipped exactly when you need it most. A
+      private sentinel object distinguishes "attribute absent" from
+      "attribute is `None`", so the original state is restored precisely.
+      `unittest.mock.patch.object` implements the same pattern.
+    solution: |
+      ```python
+      from contextlib import contextmanager
+
+      _MISSING = object()
+
+
+      @contextmanager
+      def temporary_attr(obj, name, value):
+          original = getattr(obj, name, _MISSING)
+          setattr(obj, name, value)
+          try:
+              yield obj
+          finally:
+              if original is _MISSING:
+                  delattr(obj, name)
+              else:
+                  setattr(obj, name, original)
+      ```
+
+      The `finally` clause runs both on normal exit and when an exception is
+      thrown in at the `yield`; since nothing catches the exception, it still
+      propagates to the caller. Comparing with `is _MISSING` (instead of
+      `is None`) keeps attributes that were legitimately `None`.
+    content:
+      starter_code: |
+        from contextlib import contextmanager
+
+
+        @contextmanager
+        def temporary_attr(obj, name, value):
+            """Temporarily set obj.<name> = value, restoring the original state on exit."""
+            original = getattr(obj, name, None)
+            setattr(obj, name, value)
+            yield
+            setattr(obj, name, original)
+      reference_solution: |
+        from contextlib import contextmanager
+
+        _MISSING = object()
+
+
+        @contextmanager
+        def temporary_attr(obj, name, value):
+            original = getattr(obj, name, _MISSING)
+            setattr(obj, name, value)
+            try:
+                yield obj
+            finally:
+                if original is _MISSING:
+                    delattr(obj, name)
+                else:
+                    setattr(obj, name, original)
+    tests:
+      - name: sets the value inside the block and restores it after
+        code: |
+          from types import SimpleNamespace
+
+          settings = SimpleNamespace(debug=False)
+          with temporary_attr(settings, "debug", True):
+              assert settings.debug is True
+          assert settings.debug is False
+      - name: removes an attribute that did not exist before
+        code: |
+          from types import SimpleNamespace
+
+          obj = SimpleNamespace()
+          with temporary_attr(obj, "token", "abc"):
+              assert obj.token == "abc"
+          assert not hasattr(obj, "token")
+      - name: restores after an exception and lets it propagate
+        hidden: true
+        code: |
+          from types import SimpleNamespace
+
+          obj = SimpleNamespace(level=1)
+          try:
+              with temporary_attr(obj, "level", 99):
+                  raise RuntimeError("boom")
+          except RuntimeError:
+              pass
+          else:
+              raise AssertionError("the exception was swallowed")
+          assert obj.level == 1
+      - name: nested uses unwind in order
+        hidden: true
+        code: |
+          from types import SimpleNamespace
+
+          obj = SimpleNamespace(x=1)
+          with temporary_attr(obj, "x", 2):
+              with temporary_attr(obj, "x", 3):
+                  assert obj.x == 3
+              assert obj.x == 2
+          assert obj.x == 1
+      - name: restores an original value of None
+        hidden: true
+        code: |
+          from types import SimpleNamespace
+
+          obj = SimpleNamespace(x=None)
+          with temporary_attr(obj, "x", 5):
+              assert obj.x == 5
+          assert hasattr(obj, "x") and obj.x is None
+
+  - slug: cm-with-guarantee-explain
+    skill: py-context-managers
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 8
+    title: Explain what the with statement guarantees
+    objective: Explain the with statement's cleanup guarantee, the __enter__/__exit__ protocol and why generator-based context managers need try/finally.
+    prompt: |
+      Compare these two ways of writing a file:
+
+      ```python
+      # Version A
+      f = open("report.csv", "w")
+      write_rows(f, rows)
+      f.close()
+
+      # Version B
+      with open("report.csv", "w") as f:
+          write_rows(f, rows)
+      ```
+
+      and this home-made context manager:
+
+      ```python
+      from contextlib import contextmanager
+
+
+      @contextmanager
+      def acquired(lock):
+          lock.acquire()
+          try:
+              yield
+          finally:
+              lock.release()
+      ```
+
+      Explain what the `with` statement guarantees that Version A does not,
+      which methods Python calls and when, and why `acquired` needs
+      `try/finally` around its `yield`.
+    hints:
+      - What happens in Version A if `write_rows` raises halfway through?
+      - Which two special methods make an object usable in a `with` statement?
+      - Where does an exception from the body of the `with` block reappear inside the generator?
+    explanation: |
+      `with` guarantees that cleanup runs however the block is left: normally,
+      through `return` or `break`, or by an exception. Python calls
+      `__enter__` at the start (binding its result to the `as` target) and
+      `__exit__` at the end, passing in any exception. `@contextmanager` builds
+      those two methods from a generator: the code before `yield` is the
+      setup, the `with` body runs while the generator is paused at the
+      `yield`, and an exception from the body is thrown back in at the
+      `yield`. That is why the cleanup must sit in a `finally` clause:
+      otherwise an exception skips it and, here, leaves the lock held
+      forever.
+    solution: |
+      **Model answer.** In Version A, if `write_rows` raises, `f.close()`
+      never runs: the file is left open, and buffered data is not flushed
+      until the garbage collector happens to close it. The `with` statement
+      guarantees cleanup. Python calls the object's `__enter__` method when
+      the block starts (its return value is bound to `f`) and always calls
+      `__exit__` when the block ends, whether it finishes normally, returns
+      early or raises an exception; for a file, `__exit__` closes it.
+      `@contextmanager` builds `__enter__` and `__exit__` from a generator:
+      the code before `yield` runs on entry, the body of the `with` block runs
+      while the generator is paused at the `yield`, and on exit the generator
+      is resumed. If the block raised, the exception is re-raised inside the
+      generator at the `yield`. Without `try/finally` that exception would
+      skip `lock.release()` and the lock would stay locked forever,
+      deadlocking every other thread that needs it. The `finally` clause makes
+      the release run either way while still letting the exception
+      propagate.
+    content:
+      min_words: 50
+      max_words: 350
+      placeholder: Explain the guarantee, the protocol and the role of try/finally...
+      criteria:
+        - id: cleanup-guaranteed
+          label: Explains that cleanup runs even when the block raises, whereas Version A leaks the file on an exception
+          weight: 2
+          required: true
+          any: ["even if", "even when", "regardless", "no matter", "guarantee", "always", "on exception", "on error", "if an exception", "if write_rows raises", "if write_rows fails", "exception is raised", "exception occurs", "error occurs", "never closed", "never be closed", "not closed", "left open", "stays open", "leak"]
+          missing_feedback: Explain what happens to the file in Version A when `write_rows` raises, and what `with` does differently.
+          misconception: {code: with-is-just-syntax, label: Thinks with is only shorter syntax with no extra guarantee, category: conceptual}
+        - id: enter-exit-protocol
+          label: Names the __enter__ / __exit__ protocol and when each method runs
+          weight: 1
+          any: ["__enter__", "__exit__", "enter method", "exit method", "dunder enter", "dunder exit", 're:\benter\b[^.]{0,30}\bexit\b']
+          missing_feedback: Name the two methods Python calls on a context manager, and when it calls each.
+        - id: exception-at-yield
+          label: Explains that the with body runs at the yield and an exception from it is re-raised at the yield
+          weight: 1
+          any: ["re-raised at", "reraised at", "raised at the yield", "raised at yield", "at the yield", "at the point of the yield", "from the yield", "thrown into", "throws the exception", "throw(", "throw it", "inside the generator", "into the generator", 're:\byield\b[^.]*\b(raise|exception|error)', 're:\b(raise|exception|error)\w*\b[^.]*\byield\b']
+          missing_feedback: Describe where an exception from the `with` body shows up inside the generator.
+        - id: finally-needed
+          label: Explains that without try/finally the release would be skipped when the block raises
+          weight: 1
+          any: ["try/finally", "try finally", "try...finally", "finally block", "finally clause", "finally:", 're:\bfinally\b[^.]*\b(run|runs|execute|executes|always|release|even)', "skipped", "never released", "never be released", "not released", "stay locked", "stays locked", "remains locked", "held forever", "deadlock"]
+          missing_feedback: Explain what would happen to the lock if the `with` body raised and there were no `try/finally`.
+          misconception: {code: contextmanager-auto-cleanup, label: Thinks contextmanager runs the code after yield even when the block raises, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-oop-dataclasses
+  # ---------------------------------------------------------------------------
+  - slug: oop-dataclass-mutable-default-mcq
+    skill: py-oop-dataclasses
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: A dataclass with a list default
+    objective: Recognise that dataclasses reject mutable defaults and require default_factory.
+    prompt: |
+      ```python
+      from dataclasses import dataclass
+
+
+      @dataclass
+      class Cart:
+          owner: str
+          items: list[str] = []
+      ```
+
+      What happens when this module is imported?
+    hints:
+      - Remember the mutable default argument trap for functions. Dataclasses know about it too.
+      - The `@dataclass` decorator runs when the class statement executes, not when you create an instance.
+    explanation: |
+      `@dataclass` inspects the fields when the class is created and refuses
+      unhashable defaults such as lists, dicts and sets, raising
+      `ValueError: mutable default <class 'list'> for field items is not
+      allowed: use default_factory`. A plain `[]` default would otherwise be
+      shared by every instance, exactly like a mutable default argument. The
+      fix is `items: list[str] = field(default_factory=list)`, which calls
+      `list()` to create a new list for each instance.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "A `ValueError` is raised when the class is defined: mutable defaults are rejected in favour of `field(default_factory=list)`"
+          correct: true
+          feedback: Correct. The check happens as soon as `@dataclass` processes the class, so the module fails to import.
+        - id: b
+          text: It works, but every `Cart` shares the same `items` list
+          feedback: That is the bug dataclasses protect you from. Instead of silently sharing the list, `@dataclass` refuses the default.
+          misconception: {code: dataclass-shares-mutable-default, label: Expects dataclasses to share mutable defaults like function defaults, category: conceptual}
+        - id: c
+          text: It works, and each `Cart` gets its own fresh empty list
+          feedback: Dataclasses do not copy default values. That behaviour needs `field(default_factory=list)`; a bare `[]` is rejected.
+          misconception: {code: dataclass-copies-default, label: Thinks dataclasses copy mutable default values per instance, category: conceptual}
+        - id: d
+          text: The import works, and a `TypeError` is raised only when you call `Cart("ada")`
+          feedback: The field check happens when the class is created, at import time, not when an instance is built.
+          misconception: {code: dataclass-validates-at-call, label: Thinks dataclass field checks happen at instantiation, category: conceptual}
+
+  - slug: oop-unhashable-dataclass-debug
+    skill: py-oop-dataclasses
+    kind: debugging
+    difficulty: 2
+    minutes: 6
+    tags: [scenario]
+    secondary_skills: [py-data-structures]
+    title: Dataclass instances refuse to go into a set
+    objective: Diagnose why a default dataclass is unhashable and fix it with frozen=True.
+    prompt: |
+      Calling `unique_locations(rows)` raises
+      `TypeError: unhashable type: 'Location'`, and the traceback points at
+      the `if location not in seen` line. Pick the line that contains the
+      actual defect and explain the fix.
+    hints:
+      - The traceback shows where the error surfaced, not necessarily where the mistake is.
+      - Which methods does `@dataclass` generate by default, and what does it do to `__hash__` as a result?
+    explanation: |
+      A plain `@dataclass` generates `__eq__` (because `eq=True` is the
+      default) and, since the class is not frozen, sets `__hash__` to `None`.
+      Objects that compare by value but can still be mutated must not be
+      hashable, because their hash could change while they sit in a set or
+      dict. `@dataclass(frozen=True)` makes instances immutable and generates
+      a field-based `__hash__`, so equal locations deduplicate correctly.
+      `unsafe_hash=True` also works but lets you mutate hashed objects, which
+      is rarely what you want.
+    solution: |
+      **Model answer.** The defect is the decorator on line 4, even though the
+      error surfaces on line 16. A plain `@dataclass` generates `__eq__`
+      (`eq=True` is the default) and, because the class is not frozen, sets
+      `__hash__` to `None`: mutable objects that compare by value must not be
+      hashable, or their hash could change while they sit in a set. So
+      `location not in seen` raises `TypeError`. Fix it with
+      `@dataclass(frozen=True)`, which makes instances immutable and generates
+      a `__hash__` from the fields, so equal locations deduplicate correctly.
+
+      ```python
+      @dataclass(frozen=True)
+      class Location:
+          city: str
+          country: str
+      ```
+    content:
+      language: python
+      code: |
+        from dataclasses import dataclass
+
+
+        @dataclass
+        class Location:
+            city: str
+            country: str
+
+
+        def unique_locations(rows):
+            """Return the distinct locations in `rows`, preserving first-seen order."""
+            seen = set()
+            result = []
+            for row in rows:
+                location = Location(row["city"], row["country"])
+                if location not in seen:
+                    seen.add(location)
+                    result.append(location)
+            return result
+      bug_lines: [4]
+      line_weight: 0.4
+      min_words: 12
+      max_words: 200
+      criteria:
+        - id: eq-disables-hash
+          label: Explains that a default @dataclass (eq=True, not frozen) sets __hash__ to None
+          weight: 2
+          required: true
+          any: ["__hash__", "hash to none", "hash = none", "hash is none", "hash method", "no hash", "not hashable", "isn't hashable", "is not hashable", "__eq__", "eq=true", "eq is true", "generates eq", "defines eq", "equality", "mutable", "not frozen", "isn't frozen"]
+          missing_feedback: Explain why a default `@dataclass` instance cannot be hashed even though ordinary objects can.
+          misconception: {code: dataclass-hashable-by-default, label: Expects a default dataclass to be hashable, category: conceptual}
+        - id: frozen-fix
+          label: Fixes it with frozen=True (or unsafe_hash=True, or a tuple key)
+          weight: 1
+          any: ["frozen", "unsafe_hash", "namedtuple", "tuple", "define a hash", "implement __hash__", "add __hash__", "add a __hash__"]
+          missing_feedback: Show how to make `Location` hashable, for example `@dataclass(frozen=True)`.
+
+  - slug: oop-dataclass-order-short
+    skill: py-oop-dataclasses
+    kind: short_answer
+    difficulty: 3
+    minutes: 3
+    title: Sorting dataclasses with order=True
+    objective: Predict how order=True and compare=False determine the sort order of dataclass instances.
+    prompt: |
+      ```python
+      from dataclasses import dataclass, field
+
+
+      @dataclass(order=True)
+      class Job:
+          priority: int
+          name: str = field(compare=False)
+
+
+      jobs = [Job(2, "backup"), Job(1, "email"), Job(1, "alert")]
+      print([job.name for job in sorted(jobs)])
+      ```
+
+      What does this print?
+    hints:
+      - "`order=True` generates `<`, `<=`, `>` and `>=`. Which fields take part in those comparisons here?"
+      - Two jobs that compare equal keep their relative order. Which property of Python's sort guarantees that?
+    explanation: |
+      With `order=True`, `@dataclass` generates comparison methods that
+      compare instances as tuples of their fields in definition order,
+      leaving out fields declared with `compare=False`. Jobs are therefore
+      compared by `(priority,)` alone. `Job(1, "email")` and `Job(1, "alert")`
+      compare equal, and because Python's sort is stable they keep their
+      input order, giving `['email', 'alert', 'backup']`. This is the pattern
+      the `heapq` documentation recommends for priority-queue entries whose
+      payload is not comparable.
+    content:
+      placeholder: "e.g. ['a', 'b', 'c']"
+      ignore_spaces: true
+      accepted:
+        - "['email', 'alert', 'backup']"
+        - '["email", "alert", "backup"]'
+        - "[email, alert, backup]"
+        - "email, alert, backup"
+      wrong:
+        - answers: ["['alert', 'email', 'backup']", '["alert", "email", "backup"]', "[alert, email, backup]", "alert, email, backup"]
+          feedback: "`name` has `compare=False`, so it plays no part in the ordering. The two priority-1 jobs compare equal, and the stable sort keeps them in input order."
+          misconception: {code: compare-false-ignored, label: Thinks fields with compare=False still take part in ordering, category: conceptual}
+        - answers: ["['backup', 'email', 'alert']", '["backup", "email", "alert"]', "[backup, email, alert]", "backup, email, alert"]
+          feedback: "`sorted()` does reorder the jobs: `order=True` generates comparison methods that compare by `priority` first, so priority 1 comes before priority 2."
+          misconception: {code: dataclass-order-ignored, label: Does not know order=True generates comparison methods, category: conceptual}
+        - answers: ["TypeError"]
+          feedback: "`order=True` is exactly what makes instances sortable: it generates `__lt__` and the other comparison methods."
+          misconception: {code: dataclass-order-ignored, label: Does not know order=True generates comparison methods, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-typing
+  # ---------------------------------------------------------------------------
+  - slug: typing-runtime-hints-mcq
+    skill: py-typing
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Are type hints enforced at runtime?
+    objective: Recognise that the interpreter does not enforce type annotations.
+    prompt: |
+      ```python
+      def double(n: int) -> int:
+          return n * 2
+
+
+      print(double("ab"))
+      ```
+
+      What happens when you run this file with plain `python`, without any
+      type checker involved?
+    hints:
+      - What does `"ab" * 2` evaluate to?
+      - Who reads annotations? The interpreter, a separate tool, or both?
+    explanation: |
+      CPython stores annotations (in `double.__annotations__`) but never checks
+      them, so `double("ab")` evaluates `"ab" * 2` and prints `abab`. A static
+      checker such as mypy or pyright would flag the call before the code
+      runs, reporting that a `str` was passed where an `int` was expected.
+      Runtime validation, as in pydantic or FastAPI, is something libraries
+      build on top of annotations; it is not a language feature.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: It prints `abab`
+          correct: true
+          feedback: Correct. Annotations are not enforced at runtime, and multiplying a string by 2 repeats it.
+        - id: b
+          text: It raises `TypeError`, because `"ab"` is not an `int`
+          feedback: The interpreter does not check annotations. Only a static type checker, run as a separate step, would report this call.
+          misconception: {code: hints-enforced-at-runtime, label: Thinks the interpreter enforces type hints at runtime, category: conceptual}
+        - id: c
+          text: "Python refuses to run the file: annotations are type-checked when the module is compiled"
+          feedback: Compiling a module only checks syntax. Type errors are found by separate tools such as mypy or pyright.
+          misconception: {code: hints-checked-at-compile, label: Thinks type errors are detected when Python compiles a module, category: conceptual}
+        - id: d
+          text: It converts `"ab"` with `int()` and raises `ValueError`
+          feedback: Plain annotations never convert values. Coercion is something libraries such as pydantic do explicitly.
+          misconception: {code: hints-coerce-values, label: Thinks annotations convert values the way pydantic does, category: conceptual}
+
+  - slug: typing-protocol-vs-abc-explain
+    skill: py-typing
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 10
+    tags: [interview]
+    secondary_skills: [py-oop-dataclasses]
+    title: Protocols versus abstract base classes
+    objective: Explain structural typing with Protocol, contrast it with nominal ABCs, and choose between them.
+    prompt: |
+      ```python
+      from collections.abc import Iterable
+      from typing import Protocol
+
+
+      class SupportsClose(Protocol):
+          def close(self) -> None: ...
+
+
+      def shutdown(resources: Iterable[SupportsClose]) -> None:
+          for resource in resources:
+              resource.close()
+      ```
+
+      `shutdown` should accept file objects, connections from a third-party
+      database driver and your own classes. Explain:
+
+      - how a type checker decides whether an object can be passed to
+        `shutdown`;
+      - how that differs from declaring `class Closeable(abc.ABC)` with an
+        `@abstractmethod` named `close`;
+      - what each approach does at runtime;
+      - when you would choose each.
+    hints:
+      - Does `io.StringIO` inherit from `SupportsClose`? Does it need to?
+      - What happens when you instantiate an ABC subclass that forgot to implement an abstract method?
+      - Think about classes you cannot edit, such as those in third-party libraries.
+    explanation: |
+      `Protocol` gives structural typing ("static duck typing"): a type
+      matches if it has the required members with compatible signatures,
+      whatever it inherits from, and the check is done by the type checker.
+      An ABC is nominal: only classes that inherit from it, or are registered
+      with it, count, and Python enforces it at runtime by refusing to
+      instantiate subclasses with unimplemented abstract methods. Protocols
+      are ideal for describing what a function needs from types you do not
+      own; ABCs suit class hierarchies where you want to share implementation
+      or require an explicit opt-in. `@runtime_checkable` lets `isinstance`
+      work with a protocol, but it only checks that the members exist, not
+      their signatures.
+    solution: |
+      **Model answer.** A protocol is structural: a type checker such as mypy
+      or pyright accepts any object whose type has a compatible
+      `close(self) -> None` method, without that class inheriting from, or
+      even knowing about, `SupportsClose`. So `io.StringIO`, a third-party
+      connection class and your own classes all qualify as long as they have
+      the right method shape. An `abc.ABC` is nominal: only classes that
+      explicitly inherit from `Closeable` (or are registered with
+      `Closeable.register`) count, so you could not pass a driver's
+      connection class you do not control without wrapping it. At runtime,
+      a subclass of the ABC that does not implement every `@abstractmethod`
+      raises `TypeError` when you try to instantiate it, and `isinstance`
+      works. A protocol does nothing at runtime unless you decorate it with
+      `@runtime_checkable`, and even then `isinstance` only checks that a
+      `close` attribute exists, not its signature. Choose a protocol to
+      describe what you need from types you don't own, which is the typical
+      case for function parameters; choose an ABC when you want to share
+      implementation through concrete helper methods or force implementers
+      to opt in explicitly.
+    content:
+      min_words: 60
+      max_words: 400
+      placeholder: Explain structural versus nominal typing, runtime behaviour and when to use each...
+      criteria:
+        - id: structural-typing
+          label: Explains that Protocol is structural, so any object with a matching close() method qualifies without inheriting
+          weight: 2
+          required: true
+          any: ["structural", "duck typing", "duck typed", "shape", "matching method", "matching signature", "compatible method", "compatible signature", "has a close", "has close", "has the method", "has the right method", "has the required method", "provides close", "implements close", "defines close", "without inherit", "no inheritance", "not inherit", "doesn't need to inherit", "does not need to inherit", "don't need to inherit", "without subclassing", "doesn't subclass", "no need to subclass", "implicitly"]
+          missing_feedback: Explain what makes an object acceptable to `shutdown` as far as the type checker is concerned. Does it need to inherit from `SupportsClose`?
+          misconception: {code: protocol-requires-inheritance, label: Thinks classes must inherit from a Protocol to satisfy it, category: conceptual}
+        - id: nominal-abc
+          label: Explains that an ABC is nominal, so classes must inherit from it or be registered
+          weight: 1
+          any: ["nominal", "explicitly inherit", "explicit inherit", "explicit subclass", "must inherit", "must subclass", "have to inherit", "have to subclass", "needs to inherit", "need to inherit", "inherit from closeable", "subclass closeable", "subclass of closeable", "register"]
+          missing_feedback: Explain what a class has to do to count as a `Closeable` when you use an ABC.
+        - id: static-checking
+          label: Notes that protocol conformance is checked statically by a type checker
+          weight: 1
+          any: ["static", "type checker", "mypy", "pyright", "type check", "before runtime", "before the code runs", "at check time"]
+          missing_feedback: Say which tool verifies that an argument satisfies `SupportsClose`, and when.
+        - id: runtime-behaviour
+          label: Describes runtime behaviour (ABCs refuse to instantiate incomplete subclasses; protocols are not checked unless runtime_checkable)
+          weight: 1
+          any: ["runtime_checkable", "instantiat", "typeerror", "can't create", "cannot create", "isinstance", "nothing at runtime", "no runtime", "not enforced", "not checked at runtime", "ignored at runtime"]
+          missing_feedback: Describe what each approach actually does when the program runs.
+          misconception: {code: hints-enforced-at-runtime, label: Thinks the interpreter enforces type hints at runtime, category: conceptual}
+        - id: when-to-choose
+          label: Gives a sensible rule for choosing (protocol for types you don't control, ABC for shared behaviour or explicit opt-in)
+          weight: 1
+          any: ["third party", "can't modify", "cannot modify", "can't change", "cannot change", "don't control", "do not control", "don't own", "do not own", "external", "library", "share implementation", "shared implementation", "default implementation", "share code", "share behaviour", "share behavior", "mixin", "concrete method", "concrete helper", "reuse", "template method", "opt in"]
+          missing_feedback: Give a rule of thumb for when each approach is the better choice.
+
+  - slug: typing-generic-return-short
+    skill: py-typing
+    kind: short_answer
+    difficulty: 3
+    minutes: 3
+    title: What type does a generic function return?
+    objective: Predict how a type checker solves a type variable at a call site.
+    prompt: |
+      ```python
+      from collections.abc import Sequence
+      from typing import reveal_type
+
+
+      def first[T](items: Sequence[T]) -> T | None:
+          return items[0] if items else None
+
+
+      name = first(["ada", "grace"])
+      reveal_type(name)
+      ```
+
+      Which type does a checker such as mypy or pyright reveal for `name`?
+      Answer with a type expression.
+    hints:
+      - "`[\"ada\", \"grace\"]` is inferred as `list[str]`. What does that make `T`?"
+      - Substitute `T` into the declared return type; do not drop any part of it.
+    explanation: |
+      At each call the checker solves the type variable from the arguments:
+      `list[str]` matches `Sequence[T]` with `T = str`. Substituting into the
+      declared return type `T | None` gives `str | None` (depending on its
+      version, mypy spells it `builtins.str | None` or
+      `Union[builtins.str, None]`).
+      The `None` matters: the checker will insist that you narrow `name`, for
+      example with `if name is not None:`, before using it as a string.
+      The `def first[T]` syntax is Python 3.12's PEP 695 shorthand for
+      declaring `T = TypeVar("T")`.
+    content:
+      placeholder: e.g. list[int]
+      ignore_spaces: true
+      accepted:
+        - "str | None"
+        - "None | str"
+        - "Optional[str]"
+        - "Union[str, None]"
+        - "builtins.str | None"
+        - "Union[builtins.str, None]"
+      partial:
+        - answers: ["str"]
+          score: 0.5
+          feedback: "Close: `T` is solved as `str`, but the declared return type is `T | None`, so the checker keeps the `None` as well."
+      wrong:
+        - answers: ["T | None", "T", "Optional[T]"]
+          feedback: The checker solves the type variable at each call site. Here the argument is a `list[str]`, so `T` is bound to `str`.
+          misconception: {code: typevar-not-solved, label: Thinks type variables stay unsolved at call sites, category: conceptual}
+        - answers: ["list[str] | None", "list[str]", "Sequence[str] | None", "Sequence[str]"]
+          feedback: "`T` stands for the element type, not the whole sequence: matching `list[str]` against `Sequence[T]` gives `T = str`."
+          misconception: {code: typevar-binds-container, label: Binds a type variable to the container instead of its element type, category: logic}
+        - answers: ["Any", "object"]
+          feedback: Nothing here is untyped. The list literal is inferred as `list[str]`, so `T` is solved precisely.
+          misconception: {code: generics-return-any, label: Thinks generic functions lose type information and return Any, category: conceptual}
+
+  # ---------------------------------------------------------------------------
+  # py-testing-pytest
+  # ---------------------------------------------------------------------------
+  - slug: pytest-raises-block-mcq
+    skill: py-testing-pytest
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: What is wrong with this pytest.raises block?
+    objective: Recognise that code after the raising line inside pytest.raises never runs.
+    prompt: |
+      ```python
+      import pytest
+
+      from bank import Account, InsufficientFunds
+
+
+      def test_withdraw_rejects_overdraft():
+          account = Account(balance=10)
+          with pytest.raises(InsufficientFunds):
+              account.withdraw(50)
+              assert account.balance == 10
+      ```
+
+      Assume `withdraw` raises `InsufficientFunds` correctly. What is wrong
+      with this test?
+    hints:
+      - What happens to the remaining lines of a block when an exception is raised inside it?
+      - "`pytest.raises` catches the exception at the end of the `with` block."
+    explanation: |
+      When `account.withdraw(50)` raises, control leaves the `with` block
+      immediately and `pytest.raises` catches the exception at its end. The
+      `assert` on the next line is dead code, so the test would still pass if
+      `withdraw` had deducted the money before raising. Put only the call
+      that should raise inside the block and check state afterwards:
+
+      ```python
+      with pytest.raises(InsufficientFunds):
+          account.withdraw(50)
+      assert account.balance == 10
+      ```
+
+      `pytest.raises(..., match=r"...")` can also check the message.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "The balance assertion never runs: the `with` block is left as soon as `withdraw` raises"
+          correct: true
+          feedback: Correct. The exception ends the block, so the assertion is dead code. Move it after the `with` block.
+        - id: b
+          text: Nothing. It checks both the exception and that the balance is unchanged
+          feedback: Code after the raising line inside the block never executes, so the balance is never checked.
+          misconception: {code: raises-block-continues, label: Thinks code after the raising line inside pytest.raises still runs, category: conceptual}
+        - id: c
+          text: "`pytest.raises` only matches the exact class, so a subclass of `InsufficientFunds` would make it fail"
+          feedback: "`pytest.raises` works like `except`: it also matches subclasses of the given exception type."
+          misconception: {code: raises-exact-type-only, label: Thinks pytest.raises does not match subclasses, category: conceptual}
+        - id: d
+          text: "`pytest.raises` also swallows the `AssertionError` from the `assert`, so the test can never fail"
+          feedback: "`pytest.raises(InsufficientFunds)` only catches that type. A failing `assert` inside the block would propagate and fail the test, and no exception at all fails it with \"DID NOT RAISE\"."
+          misconception: {code: raises-swallows-asserts, label: Thinks pytest.raises swallows failing assertions, category: conceptual}
+
+  - slug: pytest-flaky-suite-review
+    skill: py-testing-pytest
+    kind: code_review
+    difficulty: 3
+    minutes: 10
+    tags: [scenario]
+    title: Review an intermittently failing test module
+    objective: Review tests for order dependence through shared state, reliance on the real clock and a check that can never fail.
+    prompt: |
+      This test module for the billing code passes locally but fails
+      intermittently in CI. `make_invoice` sets `due_date` to 30 days after
+      `date.today()`, and `apply_discount` should raise `ValueError` for a
+      negative percentage. Review the tests: identify the problems and explain
+      how you would fix each one.
+    hints:
+      - What happens if you run `pytest -k discount`, or the tests run in a random order?
+      - The test and `make_invoice` each call `date.today()`. Can they ever disagree?
+      - What would the last test do if `apply_discount` accepted -5 without complaint?
+    explanation: |
+      Reliable tests are independent, deterministic and able to fail. Sharing
+      objects through module-level state couples tests to execution order;
+      fixtures give each test fresh data. Reading the real clock in both the
+      code and the test makes the result depend on when the suite runs; freeze
+      or inject the clock instead. And a `try/except ... pass` test passes
+      whether or not the exception happens, so it checks nothing:
+      `pytest.raises` fails the test when the expected exception is missing.
+    solution: |
+      **Model answer.**
+
+      1. **Order dependence through shared state.** `test_discount` depends on
+         `test_create_invoice` having run first and appended to the
+         module-level `INVOICES` list. Run it alone (`pytest -k discount`), in
+         random order or in parallel with xdist and it fails with an
+         `IndexError`; it also mutates an object another test created. Build
+         the invoice in a fixture so each test gets its own.
+      2. **The real clock.** The due-date assertion calls `date.today()`
+         separately from `make_invoice`; if the test runs across midnight the
+         two dates differ and the test fails. Freeze the clock (freezegun,
+         time-machine) or inject a `today` parameter.
+      3. **A test that cannot fail.** `test_discount_rejects_negative_percent`
+         passes even if `apply_discount` accepts -5, because nothing fails
+         when no exception is raised. Use `with pytest.raises(ValueError):`.
+
+      ```python
+      @pytest.fixture
+      def invoice():
+          return make_invoice(customer="acme", amount=100)
+
+
+      def test_discount(invoice):
+          apply_discount(invoice, percent=10)
+          assert invoice.amount == 90
+
+
+      def test_discount_rejects_negative_percent(invoice):
+          with pytest.raises(ValueError):
+              apply_discount(invoice, percent=-5)
+      ```
+    content:
+      language: python
+      code: |
+        import datetime
+
+        from billing import apply_discount, make_invoice
+
+        INVOICES = []
+
+
+        def test_create_invoice():
+            invoice = make_invoice(customer="acme", amount=100)
+            INVOICES.append(invoice)
+            assert invoice.due_date == datetime.date.today() + datetime.timedelta(days=30)
+
+
+        def test_discount():
+            invoice = INVOICES[0]
+            apply_discount(invoice, percent=10)
+            assert invoice.amount == 90
+
+
+        def test_discount_rejects_negative_percent():
+            try:
+                apply_discount(make_invoice(customer="acme", amount=100), percent=-5)
+            except ValueError:
+                pass
+      min_words: 40
+      max_words: 400
+      placeholder: List each problem you find and how you would fix it...
+      criteria:
+        - id: order-dependence
+          label: Spots that test_discount depends on test_create_invoice through the module-level INVOICES list
+          weight: 2
+          required: true
+          any: ["order", "depend", "shared state", "shared mutable", "global", "module level", "module-level", "invoices list", "invoices[0]", "isolat", "fixture", "independent", "run alone", "on its own", "by itself", "in isolation", "xdist", "parallel", "random order", "randomly", "indexerror"]
+          missing_feedback: What happens to `test_discount` if it runs on its own or before `test_create_invoice`?
+          misconception: {code: tests-share-state, label: Lets tests depend on each other through shared state or run order, category: logic}
+        - id: real-clock
+          label: Spots that comparing with date.today() is flaky around midnight and suggests controlling the clock
+          weight: 1
+          any: ["midnight", "today", "date.today", "current date", "system date", "real date", "wall clock", "clock", "freeze", "freezegun", "time machine", "inject", "monkeypatch", "fixed date", "day boundary", "date changes", "date could change", "date rolls", "rolls over", "roll over", "different day", "next day", "timezone", "time zone"]
+          missing_feedback: Consider what happens when the test runs at 23:59:59.999.
+          misconception: {code: tests-read-real-clock, label: Writes tests that depend on the current date or time, category: edge_case}
+        - id: cannot-fail
+          label: Spots that the try/except test passes even when no ValueError is raised
+          weight: 2
+          any: ["pytest.raises", "raises(", "passes even", "pass even", "never fails", "never fail", "always pass", "doesn't fail", "does not fail", "won't fail", "wouldn't fail", "would not fail", "no exception", "isn't raised", "is not raised", "not raised", "doesn't raise", "does not raise", "silently pass", "pytest.fail", "nothing asserts", "false positive", "false pass"]
+          missing_feedback: What would the last test do if `apply_discount` accepted -5 without raising?
+          misconception: {code: try-except-pass-test, label: Uses try/except pass to test for exceptions, category: logic}
+
+  - slug: pytest-patch-target-debug
+    skill: py-testing-pytest
+    kind: debugging
+    difficulty: 3
+    minutes: 7
+    tags: [interview]
+    title: The patched SMTP class still hits the network
+    objective: Diagnose a mock patch applied where a name is defined rather than where it is looked up.
+    prompt: |
+      In CI this test errors with `socket.gaierror` while trying to resolve
+      `mail.internal`: it is talking to the network even though `SMTP` is
+      patched. Pick the line that contains the defect and explain the fix.
+    hints:
+      - "`from smtplib import SMTP` creates a name in which module's namespace?"
+      - When `send_welcome` runs, where does Python look up the name `SMTP`?
+    explanation: |
+      `from smtplib import SMTP` binds a second reference to the class in the
+      `notifications` module's namespace at import time. `mock.patch` replaces
+      an attribute on one object, here `smtplib.SMTP`, but `send_welcome`
+      looks up `SMTP` in `notifications`, which still points at the real
+      class. The rule is "patch where the name is looked up, not where it is
+      defined": `mock.patch("notifications.SMTP")`, or
+      `monkeypatch.setattr(notifications, "SMTP", FakeSMTP)` with pytest's
+      fixture. Had the module used `import smtplib` and `smtplib.SMTP(...)`,
+      patching `smtplib.SMTP` would have worked.
+    solution: |
+      **Model answer.** The defect is the patch target on line 17.
+      `from smtplib import SMTP` copies a reference to the class into the
+      `notifications` module's namespace at import time.
+      `mock.patch("smtplib.SMTP")` replaces the attribute on the `smtplib`
+      module, but `send_welcome` looks the name up in `notifications`, which
+      still points at the real class, so the real `SMTP` tries to connect to
+      `mail.internal`. Patch the name where it is looked up:
+
+      ```python
+      def test_send_welcome():
+          with mock.patch("notifications.SMTP") as fake_smtp:
+              notifications.send_welcome("ada@example.com")
+          fake_smtp.return_value.__enter__.return_value.sendmail.assert_called_once()
+      ```
+
+      `mock.patch.object(notifications, "SMTP")` is equivalent and survives
+      renames better.
+    content:
+      language: python
+      code: |
+        # notifications.py
+        from smtplib import SMTP
+
+
+        def send_welcome(email):
+            with SMTP("mail.internal") as smtp:
+                smtp.sendmail("noreply@example.com", [email], "Welcome!")
+
+
+        # test_notifications.py
+        from unittest import mock
+
+        import notifications
+
+
+        def test_send_welcome():
+            with mock.patch("smtplib.SMTP") as fake_smtp:
+                notifications.send_welcome("ada@example.com")
+            fake_smtp.return_value.__enter__.return_value.sendmail.assert_called_once()
+      bug_lines: [17]
+      line_weight: 0.4
+      min_words: 12
+      max_words: 200
+      criteria:
+        - id: looked-up-in-notifications
+          label: Explains that from-import binds SMTP in the notifications namespace, so patching smtplib.SMTP does not affect it
+          weight: 2
+          required: true
+          any: ["where it is looked up", "where it's looked up", "where it is used", "where it's used", "looked up", "imported into", "own reference", "own name", "own copy", "already bound", "bound at import", "binds the name", "bound the name", "at import time", "import time", "already imported", "local name", "namespace", "module's global", "notifications module", "copies a reference", "copy of the reference"]
+          missing_feedback: Explain which module's `SMTP` name `send_welcome` actually uses, and why patching `smtplib.SMTP` does not change it.
+          misconception: {code: patch-where-defined, label: Patches a name where it is defined instead of where it is looked up, category: conceptual}
+        - id: correct-target
+          label: Patches notifications.SMTP instead
+          weight: 1
+          any: ["notifications.smtp", 're:patch\.object\(\s*notifications', "patch.object", 're:monkeypatch\.setattr\(\s*notifications', "patch it in notifications", "patch notifications"]
+          missing_feedback: Give the corrected patch target.
+
+  # ---------------------------------------------------------------------------
+  # py-asyncio
+  # ---------------------------------------------------------------------------
+  - slug: async-sequential-await-mcq
+    skill: py-asyncio
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: How long do three awaited sleeps take?
+    objective: Recognise that awaiting coroutines one after another runs them sequentially.
+    prompt: |
+      ```python
+      import asyncio
+      import time
+
+
+      async def fetch(i):
+          await asyncio.sleep(1)
+          return i
+
+
+      async def main():
+          start = time.perf_counter()
+          results = [await fetch(i) for i in range(3)]
+          print(results, round(time.perf_counter() - start))
+
+
+      asyncio.run(main())
+      ```
+
+      What does this print?
+    hints:
+      - Work out when each `fetch(i)` starts relative to the one before it.
+      - "`await` suspends `main` until the awaited coroutine has finished, and no tasks are created here. Can the sleeps overlap?"
+    explanation: |
+      Each `await fetch(i)` suspends `main` until that coroutine finishes, and
+      nothing else has been scheduled, so the three one-second sleeps happen
+      one after another and the output is `[0, 1, 2] 3`. Awaiting a coroutine
+      directly does not create a task. To overlap the waits, schedule them
+      together, with `await asyncio.gather(*(fetch(i) for i in range(3)))` or
+      an `asyncio.TaskGroup`, and the total drops to about one second. asyncio
+      is single-threaded: its concurrency comes from overlapping waits, not
+      from using more CPU cores.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: '`[0, 1, 2] 3`'
+          correct: true
+          feedback: Correct. Each `await` waits for one coroutine to finish before the next one starts, so the sleeps add up.
+        - id: b
+          text: '`[0, 1, 2] 1`'
+          feedback: That needs the coroutines to run concurrently, for example via `asyncio.gather` or a `TaskGroup`. Awaiting them one by one runs them in sequence.
+          misconception: {code: sequential-await-is-concurrent, label: Thinks awaiting coroutines one after another runs them concurrently, category: conceptual}
+        - id: c
+          text: "`SyntaxError`: `await` is not allowed inside a list comprehension"
+          feedback: Inside an `async def`, comprehensions may contain `await`. The code runs; it is just sequential.
+          misconception: {code: await-in-comprehension-illegal, label: Thinks await cannot be used in comprehensions inside async functions, category: syntax}
+        - id: d
+          text: It depends on the number of CPU cores
+          feedback: The event loop runs coroutines on a single thread. Core count is irrelevant; what matters is whether waits overlap.
+          misconception: {code: asyncio-uses-cores, label: Thinks asyncio runs coroutines in parallel across CPU cores, category: conceptual}
+
+  - slug: async-blocking-call-debug
+    skill: py-asyncio
+    kind: debugging
+    difficulty: 4
+    minutes: 8
+    tags: [scenario]
+    title: Sign-ups freeze the whole API
+    objective: Diagnose CPU-bound synchronous work that blocks the event loop and move it off the loop.
+    prompt: |
+      This handler runs in a busy async web API. Whenever someone signs up,
+      every other request, even the `/health` check, stalls until the sign-up
+      has been processed. Pick the line that contains the defect and explain
+      the fix.
+    hints:
+      - Which line does a lot of work without ever reaching an `await`?
+      - Does putting code inside an `async def` make it non-blocking?
+    explanation: |
+      An event loop can switch between coroutines only at an `await`.
+      `hashlib.pbkdf2_hmac` with 600,000 iterations is a synchronous,
+      CPU-bound call that takes from a fraction of a second to a few seconds,
+      and while it runs the loop's thread is busy, so no other request makes
+      progress. `async def` does not change that. Move such work off the loop
+      with `await asyncio.to_thread(...)`, which is effective here because
+      CPython's OpenSSL-backed `hashlib` releases the GIL while hashing, or
+      with `loop.run_in_executor` and a `ProcessPoolExecutor` for pure-Python
+      CPU work.
+    solution: |
+      **Model answer.** The defect is line 8. `hashlib.pbkdf2_hmac` with
+      600,000 iterations is a synchronous, CPU-bound call. Putting it inside an
+      `async def` does not make it asynchronous: there is no `await` while it
+      runs, so it blocks the event loop thread and no other coroutine,
+      including the health check, can run until it returns. Offload it to a
+      worker thread:
+
+      ```python
+      async def hash_password(password: str) -> bytes:
+          salt = os.urandom(16)
+          digest = await asyncio.to_thread(
+              hashlib.pbkdf2_hmac, "sha256", password.encode(), salt, 600_000
+          )
+          return salt + digest
+      ```
+
+      `hashlib` releases the GIL during the computation, so a thread works
+      well; for pure-Python CPU work use a `ProcessPoolExecutor` via
+      `loop.run_in_executor`.
+    content:
+      language: python
+      code: |
+        import asyncio
+        import hashlib
+        import os
+
+
+        async def hash_password(password: str) -> bytes:
+            salt = os.urandom(16)
+            digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 600_000)
+            return salt + digest
+
+
+        async def handle_signup(request):
+            payload = await request.json()
+            hashed = await hash_password(payload["password"])
+            await save_user(payload["email"], hashed)
+            return {"status": "created"}
+      bug_lines: [8]
+      line_weight: 0.4
+      min_words: 15
+      max_words: 220
+      criteria:
+        - id: blocks-event-loop
+          label: Explains that the synchronous, CPU-heavy pbkdf2 call blocks the event loop
+          weight: 2
+          required: true
+          any: ["block", "cpu bound", "cpu heavy", "cpu intensive", "synchronous", "not awaitable", "isn't awaitable", "doesn't yield", "does not yield", "never yields", "no await", "without await", "doesn't await", "single thread", "one thread", "freez", "stall", "hog"]
+          missing_feedback: Explain what the event loop can and cannot do while `pbkdf2_hmac` is running.
+          misconception: {code: async-def-is-non-blocking, label: Thinks code inside async def cannot block the event loop, category: conceptual}
+        - id: starves-other-tasks
+          label: Explains that while it runs, no other coroutine or request can make progress
+          weight: 1
+          any: ["other request", "other task", "other coroutine", "everything else", "all requests", "all other", "every other", "other handlers", "health", "concurren", "can't run", "cannot run", "can't switch", "cannot switch", "until it finishes", "until it returns"]
+          missing_feedback: Connect the blocking call to the symptom. Why do *other* requests stall?
+        - id: offload-work
+          label: Moves the work off the loop with asyncio.to_thread or an executor
+          weight: 1
+          any: ["to_thread", "run_in_executor", "executor", "thread pool", "threadpool", "process pool", "processpool", "separate thread", "another thread", "background thread", "worker thread", "different thread", "separate process", "another process"]
+          missing_feedback: Show how to run the hashing without blocking the loop, for example with `asyncio.to_thread`.
+
+  - slug: async-gather-vs-taskgroup-explain
+    skill: py-asyncio
+    kind: concept_explanation
+    difficulty: 4
+    minutes: 12
+    tags: [scenario]
+    secondary_skills: [py-exceptions]
+    title: Failure handling with gather and TaskGroup
+    objective: Explain how gather and TaskGroup propagate failures and cancel work, and how to add optional calls and an overall timeout.
+    prompt: |
+      ```python
+      async def load_dashboard(user_id):
+          profile, orders, recs = await asyncio.gather(
+              fetch_profile(user_id),
+              fetch_orders(user_id),
+              fetch_recommendations(user_id),
+          )
+          return {"profile": profile, "orders": orders, "recs": recs}
+      ```
+
+      `fetch_orders` raises an exception after 50 ms, while the other two
+      calls take 2 s. Explain:
+
+      1. what happens to the caller, and to the other two calls, with this
+         `gather`;
+      2. how the behaviour changes if you rewrite it with `asyncio.TaskGroup`,
+         and how the error then reaches the caller;
+      3. how you would let the dashboard render without recommendations when
+         only `fetch_recommendations` fails;
+      4. how you would cap the whole operation at 3 seconds.
+    hints:
+      - With `gather`, does the first failure stop the other awaitables?
+      - "`TaskGroup` implements structured concurrency. What does it do with the remaining tasks when one fails, and what kind of exception does it raise?"
+      - Python 3.11 added a context manager for deadlines in the `asyncio` module.
+    explanation: |
+      With the default `return_exceptions=False`, `gather` propagates the
+      first exception to the awaiting caller immediately but does not cancel
+      the other awaitables; they keep running in the background and their
+      results are discarded. `asyncio.TaskGroup` cancels the remaining tasks
+      as soon as one fails, waits for them to finish, and then raises an
+      `ExceptionGroup` that you handle with `except*`. Optional work should
+      catch its own errors (a wrapper returning a fallback), or, with
+      `gather`, use `return_exceptions=True` and inspect the results.
+      `async with asyncio.timeout(3):` cancels everything inside the block and
+      raises `TimeoutError` when the deadline passes.
+    solution: |
+      **Model answer.** With `gather` (default `return_exceptions=False`), the
+      exception from `fetch_orders` propagates to `load_dashboard` as soon as
+      it happens, after about 50 ms, so the caller gets the error quickly.
+      But `gather` does not cancel the other awaitables: `fetch_profile` and
+      `fetch_recommendations` keep running in the background for the full
+      2 s, holding connections, and their results are thrown away.
+
+      With `async with asyncio.TaskGroup() as tg:` and `tg.create_task(...)`
+      for each call, the first failure makes the group cancel the remaining
+      tasks and wait for them to finish. The error then reaches the caller
+      wrapped in an `ExceptionGroup`, which you handle with `except*` (for
+      example `except* OrdersError`). Nothing is left running when
+      `load_dashboard` exits; this is structured concurrency.
+
+      To make recommendations optional, catch the error inside a small
+      wrapper coroutine so it never fails the group, for example
+      `try: return await fetch_recommendations(uid)` with
+      `except RecsError: return []`; with `gather` you could instead pass
+      `return_exceptions=True` and replace an exception result with a
+      fallback. To cap everything at 3 seconds, wrap the block in
+      `async with asyncio.timeout(3):`, which cancels the outstanding work and
+      raises `TimeoutError`, or use `asyncio.wait_for`.
+    content:
+      min_words: 80
+      max_words: 450
+      placeholder: Explain failure propagation, cancellation, optional work and timeouts...
+      criteria:
+        - id: gather-leaves-running
+          label: Explains that gather propagates the first exception but does not cancel the other awaitables
+          weight: 1
+          any: ["not cancel", "aren't cancelled", "aren't canceled", "isn't cancel", "won't be cancel", "keep running", "keeps running", "keep going", "keeps going", "carry on", "carries on", "continue running", "continues running", "continue to run", "continues to run", "run to completion", "runs to completion", "finish anyway", "complete anyway", "still running", "still run", "left running", "orphan", "in the background"]
+          missing_feedback: Say what happens to `fetch_profile` and `fetch_recommendations` after `fetch_orders` fails under `gather`.
+          misconception: {code: gather-cancels-on-error, label: Thinks gather cancels the other awaitables when one fails, category: conceptual}
+        - id: taskgroup-cancels
+          label: Explains that a TaskGroup cancels the remaining tasks when one fails and waits for them
+          weight: 2
+          required: true
+          any: ["cancels the", "cancels all", "cancels any", "cancels every", "cancels remaining", "cancels its", "cancels sibling", "cancel the other", "cancel the remaining", "cancel the rest", "cancels the rest", "cancel all", "cancel every", "remaining tasks are cancel", "other tasks are cancel", "others are cancel", "rest are cancel", "get cancelled", "gets cancelled", "get canceled", "gets canceled", "structured concurrency"]
+          missing_feedback: Explain what a `TaskGroup` does with the other tasks when one of them fails.
+          misconception: {code: taskgroup-same-as-gather, label: Thinks TaskGroup behaves exactly like gather on failure, category: conceptual}
+        - id: exception-group
+          label: Mentions that TaskGroup raises an ExceptionGroup, handled with except*
+          weight: 1
+          any: ["exceptiongroup", "exception group", "except*", "except *", "baseexceptiongroup"]
+          missing_feedback: Describe how the failure reaches the caller when you use a `TaskGroup`.
+        - id: optional-work
+          label: Makes recommendations optional with a wrapper that catches the error or return_exceptions=True
+          weight: 1
+          any: ["return_exceptions", "return exceptions", "wrap", "try/except", "try except", "catch the exception inside", "catch it inside", "catch the error inside", "handle the exception inside", "inside fetch_recommendations", "own try", "default value", "a default", "fallback", "fall back", "empty list", "none if", "on failure", "suppress", "ignore the error", "ignore the exception", "swallow"]
+          missing_feedback: How could a failing `fetch_recommendations` avoid taking the whole dashboard down?
+        - id: overall-timeout
+          label: Caps the operation with asyncio.timeout() or wait_for
+          weight: 1
+          any: ["asyncio.timeout", "timeout", "wait_for", "deadline"]
+          missing_feedback: Name the asyncio tool you would use to cap the whole operation at 3 seconds.
+
+  # ---------------------------------------------------------------------------
+  # py-performance
+  # ---------------------------------------------------------------------------
+  - slug: perf-set-membership-mcq
+    skill: py-performance
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    secondary_skills: [py-data-structures]
+    title: Make a slow intersection scale
+    objective: Identify the change that turns a quadratic membership loop into a linear one.
+    prompt: |
+      ```python
+      def common_ids(a: list[int], b: list[int]) -> list[int]:
+          """Return the IDs in `a` that also appear in `b`, in `a`'s order."""
+          return [x for x in a if x in b]
+      ```
+
+      Both lists hold about 100,000 IDs and the function takes minutes. Which
+      change makes it scale linearly while returning the same result?
+    hints:
+      - What does `x in b` cost when `b` is a list, and how many times does it run?
+      - Look for work that is repeated on every iteration but could be done once.
+    explanation: |
+      `x in b` on a list scans up to all m elements, and it runs for each of
+      the n elements of `a`: O(n · m), up to ten billion comparisons here.
+      Building `set(b)` once costs O(m), after which each lookup is O(1) on
+      average, so the whole function is O(n + m) and keeps `a`'s order and
+      duplicates. Writing `set(b)` *inside* the condition rebuilds it on every
+      iteration, which keeps the quadratic cost. Loop syntax and sorting do
+      not change the complexity of `in` on a list.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Build `b_set = set(b)` once before the comprehension and test `x in b_set`
+          correct: true
+          feedback: Correct. One O(m) set construction plus O(1) average lookups gives O(n + m) overall, with the same result.
+        - id: b
+          text: Write the condition as `if x in set(b)`
+          feedback: The condition runs once per element of `a`, so `set(b)` is rebuilt 100,000 times. That is still O(n · m), and slower than before.
+          misconception: {code: rebuilds-structure-in-loop, label: Rebuilds an expensive structure inside a loop, category: performance}
+        - id: c
+          text: Sort `b` first so that `in` can stop early
+          feedback: "`in` does not know a list is sorted and still scans it linearly. Sorted data needs `bisect`, and a set is simpler still."
+          misconception: {code: in-uses-sorted-order, label: Assumes the in operator exploits sorted order, category: performance}
+        - id: d
+          text: Replace the comprehension with an explicit `for` loop and `append`
+          feedback: A loop does the same work as the comprehension (usually slightly slower). The O(n · m) cost comes from `x in b`, not from the syntax.
+          misconception: {code: syntax-changes-complexity, label: Thinks loop syntax changes asymptotic complexity, category: performance}
+
+  - slug: perf-unique-by-code
+    skill: py-performance
+    kind: python_code
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    secondary_skills: [py-data-structures]
+    title: Speed up an order-preserving deduplication
+    objective: Replace a quadratic list-based membership check with a set while preserving first-seen order.
+    prompt: |
+      `unique_by` is used in an import pipeline to drop duplicate records. It
+      is correct, but a profile shows it dominating the run time on large
+      files. Rewrite it so that it runs in linear time on average, with the
+      same behaviour:
+
+      - Return the items with duplicates removed, keeping the **first**
+        occurrence of each and preserving order.
+      - `key`, if given, is a function computing the value used to detect
+        duplicates; otherwise items are compared directly.
+      - Accept any iterable, including generators. You may assume keys are
+        hashable.
+
+      ```python
+      >>> unique_by([3, 1, 3, 2, 1])
+      [3, 1, 2]
+      >>> unique_by(["Ada", "ada", "Bob"], key=str.lower)
+      ['Ada', 'Bob']
+      ```
+
+      One hidden test counts equality comparisons to check that your solution
+      scales.
+    hints:
+      - What does `marker not in seen` cost when `seen` is a list holding k items?
+      - Which built-in container answers "have I seen this before?" in O(1) on average?
+      - Keep the `result` list for the output order, but track the keys you have seen in a `set`.
+    explanation: |
+      Checking `marker not in seen` against a list compares the marker with
+      every element seen so far, so n items cost about n²/2 comparisons. A
+      set finds an item by its hash and only calls `__eq__` when the hashes
+      match, so each check is O(1) on average and the whole function is O(n).
+      Keeping a separate `result` list preserves first-seen order. Counting
+      operations, as the hidden test does with `__eq__` calls, is a
+      deterministic way to test complexity without flaky timing assertions.
+    solution: |
+      ```python
+      def unique_by(items, key=None):
+          seen = set()
+          result = []
+          for item in items:
+              marker = item if key is None else key(item)
+              if marker not in seen:
+                  seen.add(marker)
+                  result.append(item)
+          return result
+      ```
+
+      The only change from the original is `seen = set()` and `seen.add`, yet
+      it turns O(n²) into O(n). When there is no key function and the items
+      themselves are hashable, `list(dict.fromkeys(items))` is an idiomatic
+      one-liner with the same behaviour, since dicts keep the first-inserted
+      key and preserve insertion order.
+    content:
+      starter_code: |
+        def unique_by(items, key=None):
+            """Return items with duplicates (by key) removed, keeping first occurrences in order."""
+            seen = []
+            result = []
+            for item in items:
+                marker = item if key is None else key(item)
+                if marker not in seen:
+                    seen.append(marker)
+                    result.append(item)
+            return result
+      reference_solution: |
+        def unique_by(items, key=None):
+            seen = set()
+            result = []
+            for item in items:
+                marker = item if key is None else key(item)
+                if marker not in seen:
+                    seen.add(marker)
+                    result.append(item)
+            return result
+    tests:
+      - name: removes duplicates and keeps first-seen order
+        code: |
+          assert unique_by([3, 1, 3, 2, 1]) == [3, 1, 2]
+      - name: uses the key function to detect duplicates
+        code: |
+          assert unique_by(["Ada", "ada", "Bob", "ADA", "bob"], key=str.lower) == ["Ada", "Bob"]
+      - name: empty input gives an empty list
+        code: |
+          assert unique_by([]) == []
+      - name: accepts a generator
+        hidden: true
+        code: |
+          assert unique_by(x % 3 for x in range(10)) == [0, 1, 2]
+      - name: scales linearly (counts equality checks)
+        hidden: true
+        code: |
+          class Probe:
+              eq_calls = 0
+
+              def __init__(self, value):
+                  self.value = value
+
+              def __hash__(self):
+                  return hash(self.value)
+
+              def __eq__(self, other):
+                  Probe.eq_calls += 1
+                  return isinstance(other, Probe) and self.value == other.value
+
+
+          items = [Probe(i % 300) for i in range(600)]
+          result = unique_by(items)
+          assert [p.value for p in result] == list(range(300))
+          assert all(kept is original for kept, original in zip(result, items))
+          assert Probe.eq_calls <= 2 * len(items), (
+              f"{Probe.eq_calls} equality checks for {len(items)} items; is membership O(1)?"
+          )
+
+  - slug: perf-list-insert-front-short
+    skill: py-performance
+    kind: short_answer
+    difficulty: 3
+    minutes: 3
+    tags: [interview]
+    title: The hidden cost of inserting at the front
+    objective: Determine the time complexity of repeatedly inserting at the front of a list.
+    prompt: |
+      ```python
+      def newest_first(events):
+          """Return the events with the most recent first (input is oldest first)."""
+          result = []
+          for event in events:
+              result.insert(0, event)
+          return result
+      ```
+
+      What is the time complexity of `newest_first` for `n` events? Answer in
+      Big-O notation.
+    hints:
+      - A Python list is a dynamic array. What has to happen to the existing elements when you insert at index 0?
+      - The i-th insert moves i elements. Add that up over all n inserts.
+    explanation: |
+      A Python list stores its elements in one contiguous array. `append` is
+      amortised O(1), but `insert(0, x)` must shift every existing element
+      one slot to the right. The i-th insert moves i elements, so n inserts
+      cost 0 + 1 + … + (n − 1) ≈ n²/2 moves: O(n²). The shifting is a fast
+      memory move, which is why this goes unnoticed on small inputs and then
+      dominates on large ones. `events[::-1]` or `list(reversed(events))` is
+      O(n), and `collections.deque.appendleft` is O(1) per call.
+    content:
+      placeholder: e.g. O(log n)
+      ignore_spaces: true
+      accepted: ["O(n^2)", "O(n²)", "O(n**2)", "O(n*n)", "O(n * n)", "quadratic", "quadratic time", "n^2", "n²"]
+      patterns: ['o\(\s*n\s*(\^|\*\*)\s*2\s*\)', 'o\(\s*n\s*\*\s*n\s*\)']
+      wrong:
+        - answers: ["O(n)", "linear", "linear time", "n"]
+          feedback: Each `insert(0, ...)` shifts every element already in the list, so the i-th insert costs O(i). Summed over n inserts, that is about n²/2 moves.
+          misconception: {code: list-insert-front-constant, label: Assumes inserting at the front of a list is O(1), category: performance}
+        - answers: ["O(1)", "constant", "constant time"]
+          feedback: Even a single `insert(0, ...)` is O(n) for a list of n elements, and the function performs n of them.
+          misconception: {code: list-insert-front-constant, label: Assumes inserting at the front of a list is O(1), category: performance}
+        - answers: ["O(n log n)", "O(nlogn)", "n log n"]
+          feedback: Nothing is sorted or halved here. The cost comes from shifting the existing elements on every insert, which adds up to O(n²).

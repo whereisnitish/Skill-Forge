@@ -1,0 +1,25 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}History{% endblock %}
+{% block content %}
+<header class="border-b border-line pb-7">
+  <p class="eyebrow">Progress</p>
+  <h1 class="page-title mt-2">Learning history</h1>
+  <p class="mt-2 text-muted">Every attempt is kept exactly as you submitted it.</p>
+</header>
+<form method="get" class="card mt-7 grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-6" hx-get="{% url 'learning:history' %}" hx-target="#history-results" hx-trigger="change, submit, keyup changed delay:400ms from:#id_q" hx-push-url="true" role="search" aria-label="Filter history">
+  <div class="field lg:col-span-2"><label class="label" for="id_q">Search</label>{{ form.q.as_widget|safe }}</div>
+  <div class="field"><label class="label" for="id_skill">Skill</label>{{ form.skill }}</div>
+  <div class="field"><label class="label" for="id_kind">Format</label>{{ form.kind }}</div>
+  <div class="field"><label class="label" for="id_result">Result</label>{{ form.result }}</div>
+  <div class="field"><label class="label" for="id_start">From</label>{{ form.start }}</div>
+  <div class="field"><label class="label" for="id_end">To</label>{{ form.end }}{% if form.end.errors %}<p class="field-error">{{ form.end.errors|join:" " }}</p>{% endif %}</div>
+  <div class="flex flex-wrap items-end gap-4 sm:col-span-2 lg:col-span-5">
+    <label class="flex min-h-10 items-center gap-2 text-sm">{{ form.reviews }} Reviews only</label>
+    <label class="flex min-h-10 items-center gap-2 text-sm">{{ form.hints }} Used hints</label>
+    <noscript><button type="submit" class="btn btn-secondary btn-sm">Apply filters</button></noscript>
+    <a href="{% url 'learning:history' %}" class="btn btn-ghost btn-sm">Clear filters</a>
+  </div>
+</form>
+<div id="history-results" class="mt-6" aria-live="polite">{% include "learning/partials/_history_results.html" %}</div>
+{% endblock %}

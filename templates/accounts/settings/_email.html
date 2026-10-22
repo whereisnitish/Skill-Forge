@@ -1,0 +1,14 @@
+{% load ui %}
+<section id="email" class="card card-pad scroll-mt-24" aria-labelledby="email-heading">
+  <h2 id="email-heading" class="section-title">Email address</h2>
+  <p class="mt-2 flex flex-wrap items-center gap-2 text-sm"><span class="font-medium">{{ user.email }}</span>{% if user.is_email_verified %}<span class="badge badge-success">{% icon "badge-check" "size-3" %} Verified</span>{% else %}<span class="badge badge-warning">Not verified</span>{% endif %}</p>
+  {% if not user.is_email_verified %}
+  <form method="post" action="{% url 'accounts:resend_verification' %}" class="mt-2">{% csrf_token %}<input type="hidden" name="next" value="{% url 'accounts_settings:index' %}#email"><button type="submit" class="link text-sm">Resend verification email</button></form>
+  {% endif %}
+  <form method="post" action="{% url 'accounts_settings:email' %}" hx-post="{% url 'accounts_settings:email' %}" hx-target="#email" hx-swap="outerHTML" class="mt-5 space-y-5" novalidate>
+    {% csrf_token %}
+    <div class="grid gap-5 sm:grid-cols-2">{% form_field email_form.email %}{% form_field email_form.current_password %}</div>
+    <p class="text-xs text-faint">Changing your email requires verifying the new address.</p>
+    <div class="flex items-center gap-4"><button type="submit" class="btn btn-secondary btn-sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>Change email</button>{% if saved %}<p class="text-sm text-success" role="status">Email updated — check your inbox to verify it.</p>{% elif saved is False %}{% include "accounts/settings/_saved.html" %}{% endif %}</div>
+  </form>
+</section>

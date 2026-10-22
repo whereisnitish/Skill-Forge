@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block body %}
+<div class="flex min-h-dvh">
+  {# Desktop sidebar #}
+  <aside class="app-sidebar surface-royal sticky top-0 hidden h-dvh flex-none flex-col px-3 pb-4 pt-5 lg:flex" aria-label="Sidebar">
+    <div class="flex items-center justify-between gap-2 px-1.5">
+      <a href="{% url 'learning:today' %}" class="rounded-lg" aria-label="SkillForge — Today"><span class="nav-label">{% include "components/logo.html" %}</span><span class="hidden [html.sidebar-collapsed_&]:inline">{% include "components/logo.html" with compact=True %}</span></a>
+    </div>
+    <div class="mt-7 flex-1 overflow-y-auto scrollbar-thin">{% include "layouts/_app_nav.html" %}</div>
+    <div class="space-y-1 border-t border-line pt-3">
+      <div class="app-nav"><a class="nav-link {% nav_state 'accounts_settings:index' %}" href="{% url 'accounts_settings:index' %}" {% aria_current 'accounts_settings:index' %} title="Settings">{% icon "settings" "size-[1.1rem] flex-none" %}<span class="nav-label">Settings</span></a></div>
+      <a href="{% url 'accounts_settings:index' %}" class="flex items-center gap-3 rounded-lg px-2 py-2 transition-colors hover:bg-surface-2" title="{{ user.friendly_name }} — profile">
+        <span class="grid size-9 flex-none place-items-center rounded-full bg-accent-fill text-xs font-bold text-[var(--sf-btn-fg)] ring-2 ring-gold/30">{{ user.friendly_name|initials }}</span>
+        <span class="nav-label min-w-0">
+          <span class="block truncate text-sm font-semibold text-fg">{{ user.friendly_name }}</span>
+          <span class="block truncate text-xs text-faint">{{ user.email }}</span>
+        </span>
+      </a>
+      <button type="button" class="nav-link w-full" data-sidebar-toggle aria-expanded="true" title="Collapse sidebar">{% icon "panel-left-close" "size-[1.1rem] flex-none sidebar-collapse-icon transition-transform" %}<span class="nav-label">Collapse</span></button>
+    </div>
+  </aside>
+
+  {# Mobile drawer #}
+  <div class="drawer-backdrop fixed inset-0 z-50 lg:hidden" data-drawer-backdrop="app-drawer" data-drawer-close="app-drawer" data-open="false"></div>
+  <aside id="app-drawer" class="drawer surface-royal fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] flex-col px-3 pb-4 pt-5 shadow-2xl lg:hidden" data-open="false" inert aria-label="Menu">
+    <div class="mb-6 flex items-center justify-between px-1.5">
+      {% include "components/logo.html" %}
+      <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-close="app-drawer" aria-label="Close menu">{% icon "x" "size-5" %}</button>
+    </div>
+    <div class="flex-1 overflow-y-auto">{% include "layouts/_app_nav.html" %}</div>
+    <div class="space-y-3 border-t border-line pt-3">
+      <div class="app-nav"><a class="nav-link {% nav_state 'accounts_settings:index' %}" href="{% url 'accounts_settings:index' %}">{% icon "settings" "size-[1.1rem]" %} Settings</a></div>
+      <div class="flex items-center gap-3 px-2">
+        <span class="grid size-9 flex-none place-items-center rounded-full bg-accent-fill text-xs font-bold text-[var(--sf-btn-fg)] ring-2 ring-gold/30">{{ user.friendly_name|initials }}</span>
+        <span class="min-w-0"><span class="block truncate text-sm font-semibold">{{ user.friendly_name }}</span><span class="block truncate text-xs text-faint">{{ user.email }}</span></span>
+      </div>
+      {% include "components/theme_switch.html" %}
+    </div>
+  </aside>
+
+  <div class="flex min-w-0 flex-1 flex-col">
+    <header class="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-canvas px-4 sm:px-6 lg:px-8">
+      <button type="button" class="btn btn-ghost btn-sm btn-icon lg:hidden" data-drawer-open="app-drawer" aria-controls="app-drawer" aria-expanded="false" aria-label="Open menu">{% icon "menu" "size-5" %}</button>
+      <a href="{% url 'learning:today' %}" class="lg:hidden" aria-label="SkillForge">{% include "components/logo.html" with compact=True %}</a>
+      <form action="{% url 'catalog:skills' %}" method="get" role="search" class="relative hidden max-w-sm flex-1 md:block">
+        <label for="global-search" class="sr-only">Search skills</label>
+        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint">{% icon "search" "size-4" %}</span>
+        <input id="global-search" name="q" type="search" class="input h-10 min-h-0 pl-9 text-sm" placeholder="Search skills…" autocomplete="off">
+      </form>
+      <div class="ml-auto flex items-center gap-1.5">
+        <div class="hidden sm:block">{% include "components/theme_switch.html" %}</div>
+        <a href="{% url 'notifications:index' %}" class="btn btn-ghost btn-sm btn-icon relative" aria-label="Notifications{% if unread_notifications %} ({{ unread_notifications }} unread){% endif %}">
+          {% icon "bell" "size-5" %}
+          {% if unread_notifications %}<span class="absolute -right-0.5 -top-0.5 grid min-w-[1.1rem] place-items-center rounded-full bg-accent-fill px-1 text-[0.65rem] font-bold text-[var(--sf-btn-fg)] ring-2 ring-canvas">{{ unread_notifications }}</span>{% endif %}
+        </a>
+        <div class="relative" data-menu>
+          <button type="button" class="flex items-center gap-2 rounded-lg p-1 pr-2 transition-colors hover:bg-surface-2" data-menu-button aria-expanded="false" aria-controls="user-menu" aria-haspopup="true">
+            <span class="grid size-8 place-items-center rounded-full bg-accent-fill text-xs font-bold text-[var(--sf-btn-fg)] ring-2 ring-gold/30">{{ user.friendly_name|initials }}</span>
+            <span class="sr-only max-w-[9rem] truncate text-sm font-medium sm:not-sr-only lg:sr-only">{{ user.friendly_name }}</span>
+            {% icon "chevron-down" "size-4 text-faint" %}
+          </button>
+          <div id="user-menu" class="card popover absolute right-0 top-12 z-40 w-64 p-1.5 animate-pop" hidden>
+            <div class="border-b border-line px-3 pb-2.5 pt-2">
+              <p class="truncate text-sm font-semibold">{{ user.friendly_name }}</p>
+              <p class="truncate text-xs text-faint">{{ user.email }}</p>
+            </div>
+            <div class="py-1">
+              <a class="nav-link" href="{% url 'accounts_settings:index' %}">{% icon "user-round" "size-4" %} Profile &amp; settings</a>
+              <a class="nav-link" href="{% url 'billing:index' %}">{% icon "credit-card" "size-4" %} Plan &amp; billing</a>
+              <a class="nav-link" href="{% url 'marketing:contact' %}">{% icon "life-buoy" "size-4" %} Help &amp; support</a>
+            </div>
+            <form method="post" action="{% url 'accounts:logout' %}" class="border-t border-line pt-1">{% csrf_token %}<button type="submit" class="nav-link w-full">{% icon "log-out" "size-4" %} Log out</button></form>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    {% if user.is_authenticated and not user.is_email_verified %}
+    <div class="border-b border-line bg-sand-soft px-4 py-2.5 text-sm sm:px-6 lg:px-8">
+      <form method="post" action="{% url 'accounts:resend_verification' %}" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <span class="flex items-center gap-2 text-fg">{% icon "mail" "size-4 text-gold-text" %} Please verify your email address to receive reminders.</span>
+        <button type="submit" class="link">Resend verification email</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <main id="main" tabindex="-1" class="flex-1 outline-none">
+      <div class="mx-auto w-full max-w-7xl px-4 py-7 sm:px-6 lg:px-10 lg:py-10">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+</div>
+{% endblock %}

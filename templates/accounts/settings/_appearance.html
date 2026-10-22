@@ -1,0 +1,11 @@
+{% load ui %}
+<section id="appearance" class="card card-pad scroll-mt-24" aria-labelledby="appearance-heading">
+  <h2 id="appearance-heading" class="section-title">Appearance &amp; accessibility</h2>
+  <form method="post" action="{% url 'accounts_settings:appearance' %}" hx-post="{% url 'accounts_settings:appearance' %}" hx-target="#appearance" hx-swap="outerHTML" class="mt-5 space-y-6" novalidate>
+    {% csrf_token %}
+    {% form_field appearance_form.theme variant="inline" %}
+    {% form_field appearance_form.text_scale variant="inline" %}
+    {% form_field appearance_form.reduce_motion %}
+    <div class="flex items-center gap-4"><button type="submit" class="btn btn-primary btn-sm"><span class="spinner htmx-indicator" aria-hidden="true"></span>Save appearance</button>{% include "accounts/settings/_saved.html" %}</div>
+  </form>
+</section>

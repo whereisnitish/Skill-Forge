@@ -1,0 +1,27 @@
+{% extends "emails/base.html" %}
+{% block preheader %}Confirm your address to finish setting up SkillForge — it takes one click.{% endblock %}
+{% block eyebrow %}Welcome to SkillForge{% endblock %}
+{% block heading %}Confirm your email address{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }},</p>
+<p class="body" style="margin:0 0 14px;font-size:15px;line-height:24px;color:#4a3d33;">Thanks for joining SkillForge. Please confirm that <strong class="fg" style="color:#382b24;">{{ user.email }}</strong> is your address. It lets us send only the reminders and progress updates you switch on, and helps you get back into your account if you ever forget your password.</p>
+{% include "emails/_button.html" with url=verify_url label="Confirm email address" %}
+<p class="muted" style="margin:14px 0 0;font-size:13px;line-height:20px;color:#6a5d4f;">This link expires in 3 days.</p>
+
+<hr class="rule" style="border:0;border-top:1px solid #ddd1be;margin:28px 0 22px;">
+<p class="fg" style="margin:0 0 14px;font-size:15px;line-height:22px;font-weight:700;color:#382b24;">What happens next</p>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  {% for title, detail in next_steps %}
+  <tr>
+    <td valign="top" width="34" style="padding:0 12px 14px 0;">
+      <div style="width:26px;height:26px;border-radius:13px;background-color:#e8ddc9;color:#173d32;font-size:13px;font-weight:700;line-height:26px;text-align:center;">{{ forloop.counter }}</div>
+    </td>
+    <td valign="top" style="padding:0 0 14px;">
+      <p class="fg" style="margin:0;font-size:14px;line-height:20px;font-weight:600;color:#382b24;">{{ title }}</p>
+      <p class="muted" style="margin:2px 0 0;font-size:13px;line-height:19px;color:#6a5d4f;">{{ detail }}</p>
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
+{% block footer_reason %}You're receiving this because this address was used to create a SkillForge account. If that wasn't you, you can safely ignore this email.{% endblock %}

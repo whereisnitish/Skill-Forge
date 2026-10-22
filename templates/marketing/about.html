@@ -1,0 +1,24 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}About{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="About" heading="Craftsmanship is practised, not watched." lede="SkillForge exists because most developer learning is random: a tutorial here, a video there, and no idea whether any of it stuck." %}
+<div class="mx-auto max-w-3xl space-y-12 px-4 py-16 sm:px-6 lg:px-8">
+  <section class="prose-sf">
+    <h2>What we believe</h2>
+    <p>Skills grow through deliberate practice: working at the edge of your ability, getting specific feedback, and coming back before you forget. That loop is simple to describe and hard to run on your own. SkillForge runs it for you.</p>
+    <p>We think learning tools should be honest. That means showing how confident an estimate is, explaining why a challenge was chosen, and never pretending an answer was evaluated when it wasn't.</p>
+  </section>
+  <section class="grid gap-4 sm:grid-cols-2">
+    <div class="card card-pad"><h3 class="card-title">Evidence over vibes</h3><p class="mt-2 text-sm text-muted">Progress is measured from evaluated attempts, never from time spent or streaks alone.</p></div>
+    <div class="card card-pad"><h3 class="card-title">Explain every decision</h3><p class="mt-2 text-sm text-muted">Recommendations carry a stored reason you can read.</p></div>
+    <div class="card card-pad"><h3 class="card-title">Deterministic where it matters</h3><p class="mt-2 text-sm text-muted">Scores come from tests and rubrics. AI explains; it doesn't grade.</p></div>
+    <div class="card card-pad"><h3 class="card-title">Your data is yours</h3><p class="mt-2 text-sm text-muted">Private by default, deletable at any time from Settings.</p></div>
+  </section>
+  <section class="card card-pad">
+    <h2 class="section-title">Where we are</h2>
+    <p class="mt-2 text-sm text-muted">SkillForge is an early-stage product. The curriculum focuses on software engineering today, with communication skills as a first step beyond it. We'd love to hear what would make it more useful to you.</p>
+    <a href="{% url 'marketing:contact' %}" class="btn btn-secondary btn-sm mt-4">Get in touch</a>
+  </section>
+</div>
+{% endblock %}

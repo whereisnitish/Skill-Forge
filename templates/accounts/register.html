@@ -1,0 +1,27 @@
+{% extends "layouts/auth.html" %}
+{% load ui %}
+{% block title %}Create your account{% endblock %}
+{% block content %}
+<h1 class="page-title">Create your account</h1>
+<p class="mt-2 text-sm text-muted">Already have one? <a href="{% url 'accounts:login' %}" class="link">Log in</a></p>
+{% if plan and plan != "free" %}
+<p class="mt-5 flex gap-2 rounded-xl border border-line bg-surface-2 p-3 text-sm text-muted">{% icon "info" "size-4 mt-0.5 text-info" %} You picked the <strong class="text-fg">{{ plan|title }}</strong> plan. Create your account first; you can upgrade from Billing once you're in.</p>
+{% endif %}
+<form method="post" class="mt-8 space-y-5" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="plan" value="{{ plan }}">
+  {% if form.non_field_errors %}<div class="rounded-xl border border-danger/40 bg-danger-soft p-3 text-sm text-danger" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  {% form_field form.display_name %}
+  {% form_field form.email %}
+  {% form_field form.password %}
+  <input type="hidden" name="timezone" value="{{ form.timezone.value|default_if_none:'' }}" data-detect-timezone>
+  <div class="field">
+    <label class="flex items-start gap-3 text-sm" for="{{ form.accept_terms.id_for_label }}">
+      <input type="checkbox" name="accept_terms" id="{{ form.accept_terms.id_for_label }}" class="checkbox mt-0.5" {% if form.accept_terms.value %}checked{% endif %} {% if form.accept_terms.errors %}aria-invalid="true" aria-describedby="terms_error"{% endif %}>
+      <span class="text-muted">I agree to the <a class="link" href="{% url 'marketing:terms' %}" target="_blank" rel="noopener">Terms of Service</a> and <a class="link" href="{% url 'marketing:privacy' %}" target="_blank" rel="noopener">Privacy Policy</a>.</span>
+    </label>
+    {% if form.accept_terms.errors %}<p id="terms_error" class="field-error">{{ form.accept_terms.errors|join:" " }}</p>{% endif %}
+  </div>
+  <button type="submit" class="btn btn-primary btn-lg w-full"><span class="spinner" aria-hidden="true"></span>Create account</button>
+</form>
+{% endblock %}

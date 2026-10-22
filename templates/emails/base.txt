@@ -1,0 +1,11 @@
+{% autoescape off %}SkillForge
+==========
+
+{% block content %}{% endblock %}
+
+--
+{% block footer_reason %}You're receiving this email because of your SkillForge account.{% endblock %}
+{% block footer_links %}Account settings: {{ settings_url }}
+Help: {{ help_url }}{% endblock %}
+Questions? {{ SUPPORT_EMAIL }}
+{% endautoescape %}

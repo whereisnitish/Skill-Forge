@@ -1,0 +1,30 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}Contact & support{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="Contact" heading="How can we help?" lede="Questions about your account, billing, the Teams plan or privacy — send us a message." %}
+<div class="mx-auto grid max-w-5xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_1.4fr] lg:px-8">
+  <aside class="space-y-4">
+    <div class="card card-pad">
+      <h2 class="section-title">Email</h2>
+      <p class="mt-2 text-sm text-muted">You can also write to <a class="link" href="mailto:{{ SUPPORT_EMAIL }}">{{ SUPPORT_EMAIL }}</a>.</p>
+    </div>
+    <div class="card card-pad">
+      <h2 class="section-title">Privacy requests</h2>
+      <p class="mt-2 text-sm text-muted">You can delete your account and all learning data yourself from <a class="link" href="{% url 'accounts_settings:index' %}#danger">Settings</a>. For other requests, choose “Privacy request”.</p>
+    </div>
+  </aside>
+  <form method="post" class="card card-pad space-y-5" novalidate>
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="rounded-xl border border-danger/40 bg-danger-soft p-3 text-sm text-danger" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+    <div class="grid gap-5 sm:grid-cols-2">
+      {% form_field form.name %}
+      {% form_field form.email %}
+    </div>
+    {% form_field form.topic %}
+    {% form_field form.message %}
+    {{ form.website }}
+    <button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span>Send message</button>
+  </form>
+</div>
+{% endblock %}

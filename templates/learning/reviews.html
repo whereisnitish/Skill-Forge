@@ -1,0 +1,45 @@
+{% extends "layouts/app.html" %}
+{% load ui humanize %}
+{% block title %}Reviews{% endblock %}
+{% block content %}
+<header class="border-b border-line pb-7">
+  <p class="eyebrow">Practice</p>
+  <h1 class="page-title mt-2">Reviews</h1>
+  <p class="mt-2 max-w-2xl text-muted">Spaced reviews bring a skill back just before you'd forget it. Succeed and the gap grows; miss and it comes back sooner.</p>
+</header>
+
+<section class="mt-8" aria-labelledby="due-heading">
+  <h2 id="due-heading" class="section-title">Due today <span class="font-sans text-base text-faint">({{ due|length }})</span></h2>
+  <div class="mt-3 grid gap-3 md:grid-cols-2">
+    {% for item in due %}
+    <div class="card card-pad flex items-center justify-between gap-4">
+      <div class="flex min-w-0 items-center gap-3.5">
+        <span class="icon-chip size-10">{% icon "rotate-ccw" "size-[1.1rem]" %}</span>
+        <div class="min-w-0">
+        <p class="truncate font-semibold">{{ item.skill_name }}</p>
+        <p class="mt-0.5 text-sm {% if item.overdue %}text-warning{% else %}text-accent-text{% endif %}">{% if item.overdue %}Due {{ item.due_at|naturaltime }}{% else %}Due later today{% endif %}</p>
+        </div>
+      </div>
+      <form method="post" action="{% url 'learning:start_review' item.skill_slug %}">{% csrf_token %}<button type="submit" class="btn btn-primary btn-sm">Review {% icon "arrow-right" "size-4" %}</button></form>
+    </div>
+    {% empty %}
+    <div class="md:col-span-2">{% include "components/empty_state.html" with icon="circle-check" title="Nothing due right now" body="Reviews are scheduled automatically after you practise. Check back tomorrow." %}</div>
+    {% endfor %}
+  </div>
+</section>
+
+{% if upcoming or later %}
+<section class="mt-10" aria-labelledby="upcoming-heading">
+  <h2 id="upcoming-heading" class="section-title">Coming up</h2>
+  <div class="card mt-3 overflow-x-auto">
+    <table class="table min-w-[32rem]">
+      <thead><tr><th scope="col">Skill</th><th scope="col">Due</th><th scope="col">Interval</th><th scope="col">Last result</th></tr></thead>
+      <tbody>
+        {% for item in upcoming %}<tr><td class="font-medium">{{ item.skill_name }}</td><td>{{ item.due_at|naturalday:"j M" }}</td><td class="text-muted">—</td><td class="text-muted">—</td></tr>{% endfor %}
+        {% for row in later %}<tr><td class="font-medium"><a class="hover:underline" href="{% url 'learning:mastery_detail' row.skill.slug %}">{{ row.skill.name }}</a></td><td>{{ row.due_at|naturalday:"j M" }}</td><td class="text-muted">{{ row.interval_days|floatformat:"-1" }} d</td><td class="text-muted">{{ row.last_score|percent }}</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+{% endblock %}

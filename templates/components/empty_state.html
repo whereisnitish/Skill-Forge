@@ -1,0 +1,7 @@
+{% load ui %}
+<div class="flex flex-col items-center justify-center gap-3 rounded-[var(--radius-card)] border border-dashed border-line-strong bg-surface/50 px-6 py-12 text-center">
+  <span class="icon-chip size-12 rounded-xl">{% icon icon|default:"sparkles" "size-6" %}</span>
+  <h3 class="section-title">{{ title }}</h3>
+  {% if body %}<p class="max-w-md text-sm text-muted">{{ body }}</p>{% endif %}
+  {% if action_url %}<a href="{{ action_url }}" class="btn btn-primary btn-sm mt-1">{{ action_label }}</a>{% endif %}
+</div>

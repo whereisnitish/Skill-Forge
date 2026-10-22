@@ -1,0 +1,9 @@
+{# Bulletproof button: renders in Outlook, Gmail and Apple Mail. Args: url, label, align ("left" | "center") #}
+<table role="presentation" align="{{ align|default:'left' }}" cellpadding="0" cellspacing="0" border="0" style="margin:26px {% if align == 'center' %}auto{% else %}0{% endif %} 6px;">
+  <tr>
+    <td class="btn" align="center" bgcolor="#173d32" style="border-radius:10px;background-color:#173d32;">
+      <a href="{{ url }}" target="_blank" style="display:inline-block;padding:14px 26px;font-size:15px;line-height:20px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">{{ label }}</a>
+    </td>
+  </tr>
+</table>
+<p class="muted" style="clear:both;margin:10px 0 0;font-size:12px;line-height:18px;color:#6a5d4f;{% if align == 'center' %}text-align:center;{% endif %}">Button not working? Paste this link into your browser:<br><a href="{{ url }}" style="color:#173d32;word-break:break-all;">{{ url }}</a></p>

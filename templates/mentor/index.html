@@ -1,0 +1,60 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Mentor{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-4 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between">
+  <div>
+    <p class="eyebrow">Practice</p>
+    <h1 class="page-title mt-2">Mentor</h1>
+    <p class="mt-2 text-muted">Explanations and next steps based on your own evidence.</p>
+  </div>
+  {% if status.live %}<span class="badge badge-accent">{% icon "sparkles" "size-3.5" %} AI mentor enabled</span>{% else %}<span class="badge badge-neutral">{% icon "book-open" "size-3.5" %} Curated guidance mode</span>{% endif %}
+</header>
+{% if not status.live %}
+<p class="panel-note mt-6 flex gap-3 p-4 text-sm text-muted">{% icon "info" "size-5 flex-none text-gold-text" %}<span>The AI mentor isn't configured for this deployment. Responses are assembled deterministically from curated explanations and your recorded mistakes, and are labelled “Curated guidance”.</span></p>
+{% endif %}
+
+<div class="mt-7 grid gap-6 lg:grid-cols-2">
+  <section class="card card-pad" aria-labelledby="ask-concept">
+    <h2 id="ask-concept" class="section-title">Explain a concept</h2>
+    <form class="mt-4 space-y-4" hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-answer" method="post" action="{% url 'mentor:ask' %}">
+      {% csrf_token %}<input type="hidden" name="kind" value="explain_concept">
+      <div class="field"><label for="mentor-skill" class="label">Skill</label>
+        <select id="mentor-skill" name="skill" class="select" required>{% regroup skills by category as grouped %}{% for group in grouped %}<optgroup label="{{ group.grouper.name }}">{% for skill in group.list %}<option value="{{ skill.slug }}">{{ skill.name }}</option>{% endfor %}</optgroup>{% endfor %}</select>
+      </div>
+      <div class="field"><label for="mentor-question" class="label">Your question <span class="font-normal text-faint">(optional)</span></label>
+        <textarea id="mentor-question" name="question" class="textarea" rows="3" maxlength="500" placeholder="e.g. When should I prefer a generator over a list?"></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary"><span class="spinner htmx-indicator" aria-hidden="true"></span>Ask the mentor</button>
+    </form>
+    <div id="mentor-answer" class="mt-5" aria-live="polite"></div>
+  </section>
+  <section class="card card-pad" aria-labelledby="ask-summary">
+    <h2 id="ask-summary" class="section-title">Your recurring mistakes</h2>
+    <p class="mt-1 text-sm text-muted">A summary of misconceptions that showed up more than once in the last 30 days.</p>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <form hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-summary" method="post" action="{% url 'mentor:ask' %}">{% csrf_token %}<input type="hidden" name="kind" value="mistake_summary"><button type="submit" class="btn btn-secondary"><span class="spinner htmx-indicator" aria-hidden="true"></span>Summarise my mistakes</button></form>
+      <form hx-post="{% url 'mentor:ask' %}" hx-target="#mentor-summary" method="post" action="{% url 'mentor:ask' %}">{% csrf_token %}<input type="hidden" name="kind" value="next_steps"><button type="submit" class="btn btn-ghost"><span class="spinner htmx-indicator" aria-hidden="true"></span>Suggest what to practise</button></form>
+    </div>
+    <div id="mentor-summary" class="mt-5" aria-live="polite"></div>
+  </section>
+</div>
+
+<section class="mt-10" aria-labelledby="mentor-history">
+  <h2 id="mentor-history" class="section-title">Previous requests</h2>
+  <div class="mt-4 space-y-3">
+    {% for item in page %}
+    <details class="card group p-0">
+      <summary class="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 rounded-[var(--radius-card)] p-4 text-sm transition-colors hover:bg-surface-2/60">
+        <span class="font-medium">{{ item.get_kind_display }}{% if item.skill %} · {{ item.skill.name }}{% endif %}</span>
+        <span class="text-xs text-faint">{{ item.created_at|date:"j M, H:i" }} · {% if item.source == "live" %}AI{% elif item.source %}Curated{% else %}{{ item.get_status_display }}{% endif %}</span>
+      </summary>
+      <div class="px-4 pb-4">{% include "mentor/_response.html" %}</div>
+    </details>
+    {% empty %}
+    {% include "components/empty_state.html" with icon="bot" title="No mentor requests yet" body="Ask from any feedback page, or use the forms above." %}
+    {% endfor %}
+  </div>
+  {% include "components/pagination.html" %}
+</section>
+{% endblock %}

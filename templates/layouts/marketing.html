@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% load ui %}
+{% block body %}
+<header class="sticky top-0 z-40 border-b border-line bg-canvas">
+  <div class="mx-auto flex h-[4.25rem] max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+    <a href="{% url 'marketing:home' %}" class="rounded-lg" aria-label="SkillForge home">{% include "components/logo.html" %}</a>
+    <nav class="hidden items-center gap-1 lg:flex" aria-label="Main">
+      <a class="nav-link {% nav_state 'marketing:features' %}" href="{% url 'marketing:features' %}" {% aria_current 'marketing:features' %}>Features</a>
+      <a class="nav-link {% nav_state 'marketing:how_it_works' %}" href="{% url 'marketing:how_it_works' %}" {% aria_current 'marketing:how_it_works' %}>How it works</a>
+      <a class="nav-link {% nav_state 'marketing:tracks' %}" href="{% url 'marketing:tracks' %}" {% aria_current 'marketing:tracks' %}>Learning tracks</a>
+      <a class="nav-link {% nav_state 'marketing:pricing' %}" href="{% url 'marketing:pricing' %}" {% aria_current 'marketing:pricing' %}>Pricing</a>
+      <a class="nav-link {% nav_state 'marketing:faq' %}" href="{% url 'marketing:faq' %}" {% aria_current 'marketing:faq' %}>FAQ</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <div class="hidden sm:block">{% include "components/theme_switch.html" %}</div>
+      {% if user.is_authenticated %}
+        <a href="{% url 'learning:today' %}" class="btn btn-primary btn-sm">Open app {% icon "arrow-right" "size-4" %}</a>
+      {% else %}
+        <a href="{% url 'accounts:login' %}" class="btn btn-ghost btn-sm hidden sm:inline-flex">Log in</a>
+        <a href="{% url 'accounts:register' %}" class="btn btn-primary btn-sm">Start learning</a>
+      {% endif %}
+      <button type="button" class="btn btn-ghost btn-sm btn-icon lg:hidden" data-drawer-open="marketing-drawer" aria-controls="marketing-drawer" aria-expanded="false" aria-label="Open menu">{% icon "menu" "size-5" %}</button>
+    </div>
+  </div>
+</header>
+
+<div class="drawer-backdrop fixed inset-0 z-50 lg:hidden" data-drawer-backdrop="marketing-drawer" data-drawer-close="marketing-drawer" data-open="false"></div>
+<aside id="marketing-drawer" class="drawer surface-royal fixed inset-y-0 left-0 z-50 flex w-[min(20rem,85vw)] flex-col gap-0.5 px-3 pb-4 pt-5 shadow-2xl lg:hidden" data-open="false" inert aria-label="Menu">
+  <div class="mb-6 flex items-center justify-between px-1.5">
+    {% include "components/logo.html" %}
+    <button type="button" class="btn btn-ghost btn-sm btn-icon" data-drawer-close="marketing-drawer" aria-label="Close menu">{% icon "x" "size-5" %}</button>
+  </div>
+  <a class="nav-link" href="{% url 'marketing:features' %}">{% icon "sparkles" "size-4" %} Features</a>
+  <a class="nav-link" href="{% url 'marketing:how_it_works' %}">{% icon "workflow" "size-4" %} How it works</a>
+  <a class="nav-link" href="{% url 'marketing:tracks' %}">{% icon "route" "size-4" %} Learning tracks</a>
+  <a class="nav-link" href="{% url 'marketing:pricing' %}">{% icon "tag" "size-4" %} Pricing</a>
+  <a class="nav-link" href="{% url 'marketing:faq' %}">{% icon "circle-help" "size-4" %} FAQ</a>
+  <a class="nav-link" href="{% url 'marketing:about' %}">{% icon "info" "size-4" %} About</a>
+  <a class="nav-link" href="{% url 'marketing:contact' %}">{% icon "mail" "size-4" %} Contact</a>
+  <div class="mt-auto space-y-3 border-t border-line pt-4">
+    {% include "components/theme_switch.html" %}
+    {% if not user.is_authenticated %}<a href="{% url 'accounts:login' %}" class="btn btn-secondary w-full">Log in</a>{% endif %}
+  </div>
+</aside>
+
+<main id="main" tabindex="-1" class="outline-none">
+  {% block content %}{% endblock %}
+</main>
+
+<footer class="surface-royal-deep">
+  <div class="mx-auto grid max-w-7xl gap-10 px-4 pb-12 pt-16 sm:px-6 md:grid-cols-[1.5fr_repeat(4,1fr)] lg:px-8">
+    <div class="space-y-4">
+      {% include "components/logo.html" %}
+      <p class="max-w-xs font-display text-xl leading-snug text-fg">Learn less randomly. Practise more intelligently.</p>
+      <p class="max-w-xs text-sm text-muted">An early-stage product. Built with care, honest about what it does.</p>
+    </div>
+    <nav aria-label="Product" class="space-y-3 text-sm">
+      <h2 class="font-sans text-sm font-semibold text-gold-text">Product</h2>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:features' %}">Features</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:how_it_works' %}">How it works</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:tracks' %}">Learning tracks</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:pricing' %}">Pricing</a>
+    </nav>
+    <nav aria-label="Company" class="space-y-3 text-sm">
+      <h2 class="font-sans text-sm font-semibold text-gold-text">Company</h2>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:about' %}">About</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:contact' %}">Contact &amp; support</a>
+    </nav>
+    <nav aria-label="Resources" class="space-y-3 text-sm">
+      <h2 class="font-sans text-sm font-semibold text-gold-text">Resources</h2>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:faq' %}">FAQ</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'accounts:register' %}">Create an account</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'accounts:login' %}">Log in</a>
+    </nav>
+    <nav aria-label="Legal" class="space-y-3 text-sm">
+      <h2 class="font-sans text-sm font-semibold text-gold-text">Legal</h2>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:privacy' %}">Privacy policy</a>
+      <a class="block text-muted transition-colors hover:text-fg" href="{% url 'marketing:terms' %}">Terms of service</a>
+    </nav>
+  </div>
+  <div class="border-t border-line">
+    <div class="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-6 text-xs text-faint sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+      <p>© {% now "Y" %} SkillForge. All rights reserved.</p>
+      <p>Legal pages are drafts pending professional review.</p>
+    </div>
+  </div>
+</footer>
+{% endblock %}

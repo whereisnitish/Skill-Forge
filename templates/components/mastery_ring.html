@@ -1,0 +1,7 @@
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 {{ size }} {{ size }}" role="img" aria-label="{{ label|default:'Estimated mastery' }}: {{ percent }}%" class="flex-none">
+  <circle class="ring-track" cx="{{ center }}" cy="{{ center }}" r="{{ radius }}" fill="none" stroke-width="{{ stroke }}" />
+  <circle class="ring-value" cx="{{ center }}" cy="{{ center }}" r="{{ radius }}" fill="none" stroke-width="{{ stroke }}"
+    stroke-dasharray="{{ circumference }}" stroke-dashoffset="{{ offset }}" style="--ring-circumference: {{ circumference }}"
+    transform="rotate(-90 {{ center }} {{ center }})" />
+  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="font-sans font-semibold tabular-nums" fill="currentColor" font-size="{% widthratio size 4 1 %}">{{ percent }}<tspan dx="1" font-size="{% widthratio size 8 1 %}" fill="var(--sf-text-muted)">%</tspan></text>
+</svg>

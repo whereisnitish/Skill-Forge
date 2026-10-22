@@ -1,0 +1,3425 @@
+# Django and backend curriculum: 8 skills in category `django`, 5 in `backend`.
+# Targets Django 5.2 and PostgreSQL. Skill graph: docs/curriculum-map.md.
+
+skills:
+  # ---------------------------------------------------------------- django
+  - slug: dj-models-orm
+    name: Models & the ORM
+    category: django
+    difficulty: 2
+    review_interval_days: 2
+    summary: Model data with Django fields and relations, and query it with lazy, chainable QuerySets.
+    description: |
+      Django models map Python classes to database tables, and the ORM turns
+      chained `QuerySet` calls such as `filter()`, `exclude()` and `order_by()`
+      into SQL. QuerySets are **lazy**: building one costs nothing, and the
+      query only runs when the result is needed (iteration, `len()`, `bool()`,
+      slicing with a step, `list()`). Each chained call returns a *new*
+      QuerySet rather than modifying the original.
+
+      Almost every Django feature (admin, forms, serializers, migrations) is
+      driven by model definitions, so modelling choices matter: which relation
+      type to use, what `on_delete` should do, which constraints belong in the
+      database, and how to update rows safely with `F()` expressions or
+      `update()`.
+
+      Common pitfalls: discarding the result of `filter()`, using mutable
+      defaults such as `default=[]` instead of a callable, choosing
+      `on_delete=CASCADE` without thinking about what disappears, and
+      accidentally evaluating a QuerySet several times.
+    objectives:
+      - Define models with appropriate field types, relations and `on_delete` behaviour.
+      - Explain when a QuerySet is evaluated and when its result cache is reused.
+      - Chain `filter()`, `exclude()` and `order_by()` correctly, knowing each returns a new QuerySet.
+      - Use `F()` expressions and `update()` to change rows without read-modify-write races.
+    prerequisites:
+      - py-oop-dataclasses
+    related: [sql-joins]
+
+  - slug: dj-views-urls
+    name: Views, URLs & templates
+    category: django
+    difficulty: 2
+    review_interval_days: 2
+    summary: Route requests to function- and class-based views, return the right responses and render templates.
+    description: |
+      A Django view is a callable that takes an `HttpRequest` and **must return
+      an `HttpResponse`**. The URL resolver walks `urlpatterns` in order and
+      dispatches to the first pattern that matches, passing captured path
+      converter values as keyword arguments. Templates render context data with
+      automatic HTML escaping.
+
+      Getting this layer right is what makes an app predictable: named URLs
+      with `reverse()` and `{% url %}` instead of hard-coded paths,
+      `get_object_or_404` so missing objects return 404 rather than 500, and
+      the Post/Redirect/Get pattern so refreshing a page never resubmits a
+      form.
+
+      Common pitfalls: pattern ordering that lets a generic `<slug:slug>` route
+      swallow a specific one, forgetting to `return` a redirect, and putting
+      business logic in templates.
+    objectives:
+      - Explain how the URL resolver picks a view and passes captured arguments.
+      - Use named URLs with `reverse()` and the `{% url %}` tag instead of hard-coded paths.
+      - Return correct responses, including 404s via `get_object_or_404` and redirects after POST.
+      - Choose between function-based views and generic class-based views.
+    prerequisites:
+      - py-functions
+
+  - slug: dj-forms-validation
+    name: Forms & validation
+    category: django
+    difficulty: 2
+    review_interval_days: 2
+    summary: Validate and clean user input with Django forms and ModelForms, and surface errors properly.
+    description: |
+      Django forms turn untrusted request data into validated Python values.
+      Validation runs in a defined order: each field's `to_python()` and
+      validators, then `clean_<field>()` methods, then the form-wide `clean()`.
+      Only fields that passed their own validation appear in `cleaned_data`.
+      `ModelForm` adds model-level validation, including unique checks, and a
+      `save()` method.
+
+      Forms are the first line of defence against bad data and an important
+      part of security: they whitelist fields, coerce types and give users
+      actionable error messages. Knowing the validation lifecycle is what lets
+      you write cross-field checks without crashing on partially invalid input.
+
+      Common pitfalls: forgetting `request.FILES` for uploads, reading
+      `self.cleaned_data["x"]` in `clean()` when `x` already failed, forgetting
+      to return the value from `clean_<field>()`, and using `fields = "__all__"`
+      on a ModelForm, which exposes fields users should not control.
+    objectives:
+      - Describe the order in which field validation, `clean_<field>()` and `clean()` run.
+      - Write cross-field validation that tolerates fields missing from `cleaned_data`.
+      - Use `save(commit=False)` to set server-controlled fields before saving a ModelForm.
+      - Handle file uploads by binding both `request.POST` and `request.FILES`.
+    prerequisites:
+      - dj-views-urls
+
+  - slug: dj-query-optimization
+    name: ORM query optimisation
+    category: django
+    difficulty: 3
+    review_interval_days: 2
+    summary: Find and fix N+1 queries and wasteful ORM usage with select_related, prefetch_related, annotations and only().
+    description: |
+      The ORM makes it easy to write code that is correct but issues hundreds
+      of queries. The classic case is the **N+1 problem**: one query for a list,
+      then one more per row when a template touches a related object.
+      `select_related()` follows forward foreign keys and one-to-one relations
+      with a SQL JOIN; `prefetch_related()` runs one extra query per relation and
+      joins the results in Python, which works for reverse foreign keys and
+      many-to-many relations.
+
+      In production, query count and the amount of data transferred dominate
+      response time far more than Python code does. Aggregating in the database
+      with `annotate(Count(...))`, using `exists()` and `count()` instead of
+      loading rows, and fetching only needed columns keep pages fast as data
+      grows.
+
+      Common pitfalls: calling `.filter()` or `.count()` on a prefetched
+      relation (which bypasses the prefetch cache), using `select_related` on
+      many-valued relations, and only measuring with tiny development data sets.
+    objectives:
+      - Detect N+1 queries using query counts, logging or django-debug-toolbar.
+      - Choose correctly between `select_related()` and `prefetch_related()`.
+      - Use `Prefetch` objects and annotations to filter or aggregate related data in the database.
+      - Predict the number of queries a piece of ORM code will execute.
+    prerequisites:
+      - dj-models-orm
+      - skill: sql-joins
+        strength: recommended
+    related: [sql-indexes]
+
+  - slug: dj-transactions
+    name: Transactions & data integrity
+    category: django
+    difficulty: 4
+    review_interval_days: 3
+    summary: Keep data consistent under concurrency with atomic(), row locks, constraints and on_commit hooks.
+    description: |
+      By default Django runs in autocommit mode: each query is committed
+      immediately. `transaction.atomic()` groups statements so they commit or
+      roll back together, and nested `atomic` blocks become savepoints.
+      Atomicity alone does not prevent races, though: two requests can read the
+      same balance and both write back a stale value. Row locks with
+      `select_for_update()`, atomic `F()` updates and database constraints are
+      what make concurrent writes safe.
+
+      Integrity bugs are expensive: double-spent credits, oversold stock and
+      orphaned records rarely show up in tests because they need concurrent
+      traffic. Side effects outside the database (emails, payments, task
+      queues) are not rolled back with the transaction, so they belong in
+      `transaction.on_commit()` callbacks.
+
+      Common pitfalls: `select_for_update()` outside a transaction (Django raises
+      `TransactionManagementError`), catching exceptions *inside* an `atomic`
+      block, enqueuing Celery tasks before the data they need is committed,
+      and relying on application checks where a unique constraint is needed.
+    objectives:
+      - Use `transaction.atomic()` and explain how nested blocks become savepoints.
+      - Prevent lost updates with `select_for_update()` or `F()` expressions.
+      - Defer external side effects with `transaction.on_commit()`.
+      - Enforce invariants with database constraints rather than only Python checks.
+    prerequisites:
+      - dj-models-orm
+    related: [background-jobs]
+
+  - slug: dj-auth-permissions
+    name: Authentication & permissions
+    category: django
+    difficulty: 3
+    review_interval_days: 2
+    summary: Authenticate users and enforce model and object-level permissions so users only reach their own data.
+    description: |
+      Authentication answers *who is this?*; authorisation answers *may they do
+      this?*. Django provides sessions, `login_required` / `LoginRequiredMixin`,
+      groups and model permissions checked with `user.has_perm("app_label.codename")`.
+      Model permissions are coarse ("can change any article"), so most apps also
+      need **object-level** checks: scoping querysets to the current user or
+      tenant.
+
+      Broken access control is the most common serious web vulnerability. An
+      endpoint that fetches `Invoice.objects.get(pk=pk)` for any logged-in user
+      is an insecure direct object reference (IDOR): changing the ID in the URL
+      exposes another customer's data.
+
+      Common pitfalls: checking permissions in templates but not in views,
+      testing only as a superuser (who passes every `has_perm` check), relying
+      on hidden form fields for ownership, and confusing `is_staff` with real
+      permissions.
+    objectives:
+      - Protect views with `login_required`, `LoginRequiredMixin` and permission checks.
+      - Explain the difference between model-level and object-level authorisation.
+      - Prevent IDOR by scoping querysets to the requesting user or tenant.
+      - Use `has_perm` with the correct `app_label.codename` format.
+    prerequisites:
+      - dj-views-urls
+      - dj-models-orm
+    related: [dj-security]
+
+  - slug: dj-migrations
+    name: Migrations
+    category: django
+    difficulty: 3
+    review_interval_days: 3
+    summary: Evolve database schemas safely with schema and data migrations, including zero-downtime changes.
+    description: |
+      Migrations are versioned, ordered descriptions of schema changes that
+      Django generates from model diffs and applies with `migrate`. Data
+      migrations use `RunPython` and must use **historical models** from
+      `apps.get_model()`, because the real model class reflects today's code,
+      not the schema at that point in history.
+
+      In production the hard part is not generating migrations but applying
+      them while the old version of the code is still serving traffic. Adding a
+      `NOT NULL` column, renaming a field or building an index on a large table
+      can lock it or break running servers unless the change is split into
+      backwards-compatible steps (expand, migrate data, contract).
+
+      Common pitfalls: importing models directly in data migrations, editing
+      migrations that have already been applied elsewhere, renames that break
+      old code mid-deploy, and long-running data migrations inside a single
+      transaction.
+    objectives:
+      - Write data migrations with `RunPython` using `apps.get_model()` and a reverse function.
+      - Plan expand/contract migrations for renames and new non-nullable columns.
+      - Explain migration dependencies and how conflicting migrations are resolved.
+      - Build indexes on large PostgreSQL tables without blocking writes.
+    prerequisites:
+      - dj-models-orm
+
+  - slug: dj-security
+    name: Django security essentials
+    category: django
+    difficulty: 3
+    review_interval_days: 2
+    summary: Use Django's built-in defences against XSS, CSRF, SQL injection and clickjacking, and avoid bypassing them.
+    description: |
+      Django ships strong defaults: templates auto-escape output, the CSRF
+      middleware protects state-changing requests, the ORM parameterises
+      queries, and `SecurityMiddleware` and `XFrameOptionsMiddleware` set
+      protective headers. Most real vulnerabilities come from code that
+      **bypasses** those defaults: `mark_safe()` around user input, f-strings
+      in `raw()` or `cursor.execute()`, `csrf_exempt` on a cookie-authenticated
+      endpoint, or `DEBUG = True` in production.
+
+      Security reviews of Django code are therefore largely about spotting the
+      escape hatches and checking that each one is justified. Settings such as
+      `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE` and
+      HSTS round out a production deployment; `manage.py check --deploy`
+      reports the obvious gaps.
+
+      Common pitfalls: building HTML with string formatting instead of
+      `format_html()`, trusting the `Host` header or `ALLOWED_HOSTS = ["*"]`,
+      leaking secrets through debug pages, and unsafe redirects to
+      user-supplied URLs.
+    objectives:
+      - Explain how auto-escaping, `mark_safe()` and `format_html()` interact.
+      - Write raw SQL safely with query parameters instead of string formatting.
+      - Describe what CSRF protection defends against and when `csrf_exempt` is dangerous.
+      - Configure production security settings and validate them with `check --deploy`.
+    prerequisites:
+      - dj-forms-validation
+      - dj-auth-permissions
+
+  # --------------------------------------------------------------- backend
+  - slug: sql-joins
+    name: SQL joins & aggregation
+    category: backend
+    difficulty: 2
+    review_interval_days: 2
+    summary: Combine tables with inner and outer joins and summarise data with GROUP BY, aggregates and HAVING.
+    description: |
+      Joins combine rows from several tables: an `INNER JOIN` keeps only
+      matching pairs, while a `LEFT JOIN` keeps every row from the left table
+      and fills the right side with `NULL` when nothing matches. Aggregation
+      with `GROUP BY`, `COUNT`, `SUM` and `HAVING` turns those rows into
+      reports.
+
+      Every ORM query is ultimately SQL, and reading the generated SQL is the
+      fastest way to understand surprising results or slow pages. Reporting,
+      analytics and debugging production data all depend on writing these
+      queries correctly by hand.
+
+      Common pitfalls: filtering the right-hand table of a `LEFT JOIN` in
+      `WHERE` (which silently turns it into an inner join), `COUNT(*)` counting
+      the NULL-padded rows of an outer join, and joining two one-to-many tables
+      at once so that sums are multiplied (fan-out).
+    objectives:
+      - Choose between inner and left joins and predict which rows each returns.
+      - Place conditions correctly in `ON`, `WHERE` or `HAVING`.
+      - Use `COUNT(*)` versus `COUNT(column)` correctly with outer joins.
+      - Recognise and fix fan-out when aggregating across several one-to-many joins.
+    prerequisites: []
+
+  - slug: sql-indexes
+    name: Indexes & query plans
+    category: backend
+    difficulty: 3
+    review_interval_days: 3
+    summary: Design B-tree and composite indexes that match real queries and read PostgreSQL EXPLAIN plans.
+    description: |
+      An index is a separate, sorted data structure that lets the database find
+      rows without scanning the whole table. PostgreSQL's default B-tree index
+      supports equality, range and ordering queries, and a composite index on
+      `(a, b)` can serve queries that filter on `a`, or on `a` and `b`, but not
+      efficiently on `b` alone. `EXPLAIN ANALYZE` shows whether the planner
+      chose a sequential scan, an index scan or a bitmap scan, and how long
+      each step really took.
+
+      Missing indexes are one of the most common causes of slow endpoints as
+      tables grow; unnecessary indexes slow every write and consume memory.
+      Good index design starts from the queries the application actually runs,
+      including their `WHERE`, `ORDER BY` and `LIMIT` clauses.
+
+      Common pitfalls: assuming foreign keys are indexed in raw SQL schemas
+      (PostgreSQL does not index them automatically; Django does create an
+      index for `ForeignKey` by default), wrapping indexed columns in functions
+      such as `lower()`, putting composite-index columns in the wrong order, and
+      creating indexes on large tables without `CONCURRENTLY`.
+    objectives:
+      - Explain how a B-tree index speeds up equality, range and ORDER BY queries.
+      - Order composite index columns to match filter and sort patterns.
+      - Read EXPLAIN ANALYZE output and identify sequential scans and misestimates.
+      - Declare indexes in Django with `Meta.indexes`, including expression and partial indexes.
+    prerequisites:
+      - sql-joins
+
+  - slug: http-api-design
+    name: HTTP & REST API design
+    category: backend
+    difficulty: 2
+    review_interval_days: 2
+    summary: Design predictable HTTP APIs with correct methods, status codes, pagination and conditional requests.
+    description: |
+      A well-designed HTTP API uses methods for their defined semantics (`GET`
+      is safe, `PUT` and `DELETE` are idempotent, `POST` is neither), returns
+      status codes that clients can act on, and represents resources with
+      stable URLs. Conditional requests with `ETag`, `If-None-Match` and
+      `If-Match` enable caching and optimistic concurrency control.
+
+      APIs outlive the code behind them: mobile apps and partners keep calling
+      old endpoints for years. Consistent error formats, stable pagination and
+      clear versioning make an API cheap to evolve, while ambiguous semantics
+      cause retries that create duplicates and clients that cannot recover
+      from errors.
+
+      Common pitfalls: returning `200` with an error body, offset pagination
+      that skips or repeats items when data changes, using `GET` for actions
+      with side effects, and ignoring idempotency for retried `POST` requests.
+    objectives:
+      - Choose methods and status codes according to their HTTP semantics.
+      - Explain safety and idempotency, and why they matter for retries.
+      - Implement cursor-based pagination and compare it with offset pagination.
+      - Use ETags for conditional GETs and optimistic concurrency with `If-Match`.
+    prerequisites: []
+
+  - slug: caching-strategies
+    name: Caching strategies
+    category: backend
+    difficulty: 3
+    review_interval_days: 3
+    summary: Speed up systems with cache-aside, TTLs and HTTP caching while keeping data correct and private.
+    description: |
+      Caching trades freshness for speed by keeping the result of expensive
+      work (queries, rendered fragments, API responses) somewhere faster.
+      The most common pattern is **cache-aside**: read from the cache, fall
+      back to the source on a miss, then populate the cache with a TTL.
+      Eviction policies such as LRU bound memory use, and HTTP caching headers
+      (`Cache-Control`, `ETag`, `Vary`) push caching out to browsers and CDNs.
+
+      A cache is only useful if it is correct. The hard problems are
+      invalidation when the source changes, keys that accidentally share data
+      between users or tenants, and stampedes when a hot key expires and many
+      requests recompute it at once.
+
+      Common pitfalls: cache keys that omit the user, locale or permissions
+      that shaped the response, caching without a TTL, treating cached falsy
+      values as misses, and caching authenticated pages in a shared proxy.
+    objectives:
+      - Implement cache-aside reads with sensible TTLs and invalidation.
+      - Build cache keys that include every input that shapes the cached value.
+      - Explain LRU eviction and implement an LRU cache with TTL expiry.
+      - Mitigate cache stampedes and choose HTTP cache headers for private data.
+    prerequisites:
+      - http-api-design
+    related: [sd-rate-limiting]
+
+  - slug: background-jobs
+    name: Background jobs & idempotency
+    category: backend
+    difficulty: 4
+    review_interval_days: 3
+    summary: Run work asynchronously with task queues, retries with backoff, and idempotent handlers that survive redelivery.
+    description: |
+      Background jobs move slow or unreliable work (emails, payments, report
+      generation, webhooks) out of the request cycle into workers fed by a
+      queue such as Celery with Redis or RabbitMQ. Real queues deliver messages
+      **at least once**: a worker can crash after doing the work but before
+      acknowledging it, so the same job may run twice.
+
+      That makes **idempotency** the core design principle: running a job, or
+      handling a retried API request, twice must have the same effect as
+      running it once. Idempotency keys, unique constraints and state checks
+      make duplicates harmless, and retries with exponential backoff and jitter
+      handle transient failures without overwhelming a struggling dependency.
+
+      Common pitfalls: enqueuing a job before the transaction that created its
+      data has committed, passing whole model instances instead of IDs,
+      retrying non-transient errors forever, and retrying without backoff so
+      every worker hammers a recovering service at the same moment.
+    objectives:
+      - Explain at-least-once delivery and why handlers must be idempotent.
+      - Implement idempotency keys for retried requests and jobs.
+      - Compute exponential backoff schedules with caps and jitter.
+      - Enqueue jobs safely after commit and pass identifiers rather than objects.
+    prerequisites:
+      - py-exceptions
+      - skill: http-api-design
+        strength: recommended
+
+challenges:
+  # ======================================================= dj-models-orm
+  - slug: orm-on-delete-protect-mcq
+    skill: dj-models-orm
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: What happens when you delete a protected parent?
+    objective: Predict the effect of on_delete=PROTECT when deleting a referenced row.
+    prompt: |
+      ```python
+      class Customer(models.Model):
+          name = models.CharField(max_length=100)
+
+
+      class Order(models.Model):
+          customer = models.ForeignKey(
+              Customer, on_delete=models.PROTECT, related_name="orders"
+          )
+      ```
+
+      A customer has three orders. What does `customer.delete()` do?
+    hints:
+      - "`on_delete` describes what Django should do with rows that *point to* the deleted object."
+      - The option name describes its intent quite literally.
+    explanation: |
+      `on_delete=models.PROTECT` makes Django's deletion collector refuse to
+      delete an object that is still referenced. It raises
+      `django.db.models.ProtectedError` (a subclass of `IntegrityError`) before
+      any `DELETE` is issued, so the customer and the orders are left untouched.
+      Use `PROTECT` (or `RESTRICT`) for data that must never vanish as a side
+      effect, such as orders or invoices; `CASCADE` deletes dependants and
+      `SET_NULL` requires `null=True` on the foreign key.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: It raises ProtectedError and nothing is deleted.
+          correct: true
+          feedback: Correct. Django finds the referencing orders, refuses the delete and raises `ProtectedError` before running any `DELETE`.
+        - id: b
+          text: It deletes the customer and its three orders.
+          feedback: That is `on_delete=models.CASCADE`. `PROTECT` exists precisely to stop dependants disappearing as a side effect.
+          misconception: {code: on-delete-default-cascade, label: Assumes deleting a parent always cascades to its children, category: conceptual}
+        - id: c
+          text: It deletes the customer and sets order.customer to NULL.
+          feedback: That is `on_delete=models.SET_NULL`, which also requires `null=True` on the field. This field is neither.
+          misconception: {code: on-delete-set-null, label: Confuses PROTECT with SET_NULL, category: conceptual}
+        - id: d
+          text: It deletes the customer and leaves the orders pointing at an ID that no longer exists.
+          feedback: Django never leaves dangling references silently; `on_delete` is enforced, and PostgreSQL also has a foreign key constraint on `customer_id`.
+          misconception: {code: fk-not-enforced, label: Thinks foreign keys are not enforced, category: conceptual}
+
+  - slug: orm-discarded-filter-debug
+    skill: dj-models-orm
+    kind: debugging
+    difficulty: 2
+    minutes: 5
+    title: The status filter on order history does nothing
+    objective: Identify why a chained QuerySet filter has no effect and fix it.
+    prompt: |
+      Support reports that choosing a status on the order history page has no
+      effect: every order is still listed. The view calls this helper. Pick the
+      line with the defect and explain the fix.
+    hints:
+      - The SQL that eventually runs contains the customer filter and the ordering, but no status condition.
+      - Compare how lines 7 and 9 use the value returned by the QuerySet method.
+      - What does `filter()` return, and what happens to that return value on line 7?
+    explanation: |
+      QuerySet methods such as `filter()`, `exclude()` and `order_by()` never
+      modify the QuerySet they are called on: they return a **new** QuerySet.
+      Line 7 builds a filtered QuerySet and throws it away, so `orders` still
+      only filters by customer. Reassign the result, exactly as line 9 does:
+      `orders = orders.filter(status=status)`.
+    solution: |
+      `filter()` returns a new QuerySet and does not modify `orders` in place,
+      so the result on line 7 is discarded. Reassign it:
+
+      ```python
+      if status is not None:
+          orders = orders.filter(status=status)
+      ```
+    content:
+      language: python
+      code: |
+        from shop.models import Order
+
+
+        def orders_for_customer(customer_id, status=None, newest_first=True):
+            orders = Order.objects.filter(customer_id=customer_id)
+            if status is not None:
+                orders.filter(status=status)
+            if newest_first:
+                orders = orders.order_by("-created_at")
+            return orders
+      bug_lines: [7]
+      line_weight: 0.4
+      min_words: 8
+      max_words: 200
+      criteria:
+        - id: returns-new-queryset
+          label: Explains that filter() returns a new QuerySet instead of modifying the existing one
+          weight: 2
+          required: true
+          any: ["returns a new", "return a new", "new queryset", "new query set", "new object", "discard", "thrown away", "throws away", "throw away", "ignored", "not assigned", "never assigned", "isn't assigned", "is not assigned", "not stored", "isn't stored", "never stored", "doesn't modify", "does not modify", "doesn't mutate", "does not mutate", "doesn't change", "does not change", "not in place", "in place", "immutable", "copy", "clone", "not saved", "isn't saved", "doesn't save", "does not save", "re:return value (is|was) (lost|unused|not used)"]
+          missing_feedback: Explain what `filter()` returns and why calling it on its own line has no effect.
+          misconception: {code: queryset-mutated-in-place, label: Thinks filter() modifies the QuerySet in place, category: conceptual}
+        - id: reassign
+          label: Fixes it by reassigning the filtered QuerySet
+          weight: 1
+          any: ["re:orders\\s*=\\s*orders\\s*\\.\\s*filter", "reassign", "re-assign", "assign the result", "assign it back", "assign back", "assigning the result", "store the result", "save the result", "keep the result"]
+          missing_feedback: Show the corrected line, for example `orders = orders.filter(status=status)`.
+
+  - slug: orm-queryset-cache-count-short
+    skill: dj-models-orm
+    kind: short_answer
+    difficulty: 2
+    minutes: 3
+    tags: [interview]
+    title: How many queries does this code run?
+    objective: Predict when a QuerySet is evaluated and when its result cache is reused.
+    prompt: |
+      Assume at least one book matches. How many SQL queries does this code
+      execute in total? Answer with a number.
+
+      ```python
+      books = Book.objects.filter(published_year__gte=2020)
+      books = books.exclude(author__isnull=True).order_by("title")
+      if books:
+          for book in books:
+              print(book.title)
+      print(len(books))
+      ```
+    hints:
+      - Building and chaining a QuerySet does not touch the database.
+      - Find the first line that needs actual rows, then ask what the QuerySet keeps afterwards.
+    explanation: |
+      Lines 1 and 2 only build a query. `if books:` calls `bool()`, which
+      evaluates the QuerySet and stores every row in its **result cache**.
+      The `for` loop and `len(books)` both reuse that cache, and `book.title`
+      is an ordinary column that is already loaded, so exactly **one** query
+      runs. A new query only happens if you build a new QuerySet (for example
+      by calling `filter()` again) or use a method that always queries, such
+      as `exists()` or `iterator()`.
+    solution: |
+      **1.** `if books:` evaluates the QuerySet once and fills its result
+      cache; iterating and `len()` reuse the cached rows.
+    content:
+      placeholder: e.g. 2
+      accepted: ["1", "one", "1 query", "one query", "a single query", "single query"]
+      wrong:
+        - answers: ["3", "three", "4", "four", "3 queries", "4 queries"]
+          feedback: Using the same QuerySet again does not repeat the query. Once `if books:` has evaluated it, the loop and `len()` read the cached rows.
+          misconception: {code: queryset-reevaluated, label: Thinks every use of a QuerySet runs a new query, category: conceptual}
+        - answers: ["2", "two", "2 queries"]
+          feedback: Chaining `filter()`, `exclude()` and `order_by()` is lazy and runs no SQL, and `len()` on an already evaluated QuerySet uses its cache.
+          misconception: {code: queryset-reevaluated, label: Thinks every use of a QuerySet runs a new query, category: conceptual}
+        - answers: ["0", "zero", "none", "0 queries"]
+          feedback: QuerySets are lazy, but not forever. `if books:` needs to know whether any row exists, so it evaluates the QuerySet.
+          misconception: {code: queryset-evaluation-triggers, label: Does not know which operations evaluate a QuerySet, category: conceptual}
+
+  # ======================================================= dj-views-urls
+  - slug: urls-pattern-order-mcq
+    skill: dj-views-urls
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Which view handles /articles/new/?
+    objective: Predict which view the URL resolver dispatches to when patterns overlap.
+    prompt: |
+      ```python
+      urlpatterns = [
+          path("articles/<slug:slug>/", views.article_detail, name="article-detail"),
+          path("articles/new/", views.article_create, name="article-create"),
+      ]
+      ```
+
+      A user requests `GET /articles/new/`. What happens?
+    hints:
+      - Could the string `new` be a valid slug?
+      - Django does not rank patterns by how specific they are.
+    explanation: |
+      The resolver tries `urlpatterns` **in order** and dispatches to the first
+      pattern that matches. `new` is a valid slug (letters, digits, hyphens and
+      underscores), so the detail pattern matches first and `article_detail`
+      runs with `slug="new"`, typically returning a 404 for a missing article.
+      Put specific, static routes before generic converter routes, or give the
+      create view a path that cannot collide.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: article_detail runs with slug="new".
+          correct: true
+          feedback: Correct. The first matching pattern wins, and `new` matches the `slug` converter.
+        - id: b
+          text: article_create runs, because Django prefers the more specific static pattern.
+          feedback: Django does not rank patterns by specificity. It stops at the first pattern in the list that matches.
+          misconception: {code: url-most-specific-wins, label: Thinks the URL resolver picks the most specific pattern, category: conceptual}
+        - id: c
+          text: Django refuses to start because the two patterns overlap.
+          feedback: Overlapping patterns are legal and are not reported by the system checks; the order of the list silently decides.
+          misconception: {code: url-overlap-error, label: Thinks overlapping URL patterns are rejected at startup, category: conceptual}
+        - id: d
+          text: Django returns 404 because the path matches more than one pattern.
+          feedback: Matching several patterns is not an error. A 404 here would only come from `article_detail` failing to find an article called "new".
+          misconception: {code: url-overlap-error, label: Thinks overlapping URL patterns are rejected, category: conceptual}
+
+  - slug: views-missing-return-redirect-debug
+    skill: dj-views-urls
+    secondary_skills: [dj-forms-validation]
+    kind: debugging
+    difficulty: 2
+    minutes: 5
+    tags: [scenario]
+    title: Saving a profile leaves users on the edit page
+    objective: Recognise that a view must return its redirect response, and explain Post/Redirect/Get.
+    prompt: |
+      After saving their profile, users stay on the edit form instead of being
+      sent to their profile page. When they press refresh, the browser offers
+      to resubmit the form, and some profiles have been saved twice. Pick the
+      defective line and explain the fix.
+    hints:
+      - The data is saved correctly; the problem is what the browser receives afterwards.
+      - Trace what the function does after `form.save()` finishes.
+      - "`redirect()` builds a response object. Who sends it to the browser?"
+    explanation: |
+      `redirect()` only *creates* an `HttpResponseRedirect`; Django sends
+      whatever the view **returns**. Without `return`, the response is
+      discarded, execution falls through to the final `render()`, and the user
+      gets the edit page as the response to their POST. Refreshing that page
+      re-sends the POST. Returning the redirect implements Post/Redirect/Get:
+      the browser follows the redirect with a GET, so refreshing is harmless.
+    solution: |
+      Line 12 builds a redirect response but never returns it, so execution
+      falls through and the form is rendered again as the response to the
+      POST. Returning the redirect implements Post/Redirect/Get: the browser
+      follows it with a GET, so a refresh no longer resubmits the form.
+
+      ```python
+      if form.is_valid():
+          form.save()
+          return redirect("profile-detail")
+      ```
+    content:
+      language: python
+      code: |
+        from django.shortcuts import redirect, render
+
+        from .forms import ProfileForm
+
+
+        def edit_profile(request):
+            profile = request.user.profile
+            if request.method == "POST":
+                form = ProfileForm(request.POST, instance=profile)
+                if form.is_valid():
+                    form.save()
+                    redirect("profile-detail")
+            else:
+                form = ProfileForm(instance=profile)
+            return render(request, "profiles/edit.html", {"form": form})
+      bug_lines: [12]
+      line_weight: 0.4
+      min_words: 10
+      max_words: 200
+      criteria:
+        - id: missing-return
+          label: Identifies that the redirect response is never returned
+          weight: 2
+          required: true
+          any: ["return redirect", "missing return", "missing a return", "missing the return", "no return", "without return", "without a return", "forgot to return", "forgot the return", "forgets to return", "not returned", "never returned", "isn't returned", "is not returned", "doesn't return", "does not return", "never return", "add return", "add a return", "add the return", "needs a return", "needs to be returned", "must be returned", "re:return\\s+redirect", "discarded", "thrown away"]
+          missing_feedback: What does the view do with the object `redirect()` creates?
+          misconception: {code: view-response-not-returned, label: Thinks calling redirect() performs the redirect without returning it, category: conceptual}
+        - id: falls-through
+          label: Explains that execution falls through to render the form again
+          weight: 1
+          any: ["falls through", "fall through", "falling through", "continues", "carries on", "re-render", "rerender", "renders the form again", "renders the template", "still render", "render is", "render() is", "same page", "stays on", "edit page", "final render", "last line"]
+          missing_feedback: Describe what the view does next once the redirect is ignored.
+        - id: post-redirect-get
+          label: Explains why a redirect after POST prevents resubmission
+          weight: 1
+          any: ["post/redirect/get", "post redirect get", "prg", "resubmi", "re-submi", "re-send", "resend", "double submi", "duplicate submi", "re:redirect[^.]{0,80}\\bget\\b", "re:\\bget\\b (request|instead)", "re:(refresh|reload)\\w*[^.]{0,80}\\b(get|harmless|safe|no longer|doesn't|does not|won't|will not|only repeats)\\b"]
+          missing_feedback: Explain what the redirect protects against when the user refreshes the page.
+
+  - slug: urls-resolution-reverse-explain
+    skill: dj-views-urls
+    kind: concept_explanation
+    difficulty: 2
+    minutes: 8
+    title: How does a URL reach its view?
+    objective: Explain URL resolution, include(), path converters and why named URLs are reversed.
+    prompt: |
+      A colleague new to Django asks how a request for `/shop/products/42/`
+      reaches a view, and why the team insists on `reverse()` and `{% url %}`
+      instead of writing paths by hand.
+
+      ```python
+      # config/urls.py (ROOT_URLCONF)
+      urlpatterns = [
+          path("shop/", include("shop.urls")),
+      ]
+
+      # shop/urls.py
+      app_name = "shop"
+      urlpatterns = [
+          path("products/<int:pk>/", views.product_detail, name="product-detail"),
+      ]
+      ```
+
+      Explain how Django chooses the view, what `include()` does with the
+      path, what happens to `42`, and why named URLs are worth it.
+    hints:
+      - Start from `ROOT_URLCONF` and describe how the list is searched.
+      - "`include()` hands only part of the path to the next URLconf. Which part?"
+      - Think about what happens to every hard-coded link when a path changes.
+    explanation: |
+      Django loads `ROOT_URLCONF` and tries each pattern **in order**; the first
+      match wins, and no match means a 404. `include()` matches the prefix
+      (`shop/`), strips it and resolves the remainder (`products/42/`) against
+      the included URLconf. Path converters such as `<int:pk>` both restrict
+      what matches and convert the value, so the view is called as
+      `product_detail(request, pk=42)` with an `int`. Naming patterns lets
+      `reverse("shop:product-detail", kwargs={"pk": 42})` and
+      `{% url "shop:product-detail" pk=42 %}` generate URLs, so paths can change
+      in one place without breaking hard-coded links, and `app_name`
+      namespaces stop names from clashing between apps.
+    solution: |
+      Django starts at `ROOT_URLCONF` and tests the `urlpatterns` in order, top
+      to bottom; the first pattern that matches wins and nothing after it is
+      tried. If nothing matches, Django returns a 404.
+
+      `path("shop/", include("shop.urls"))` matches the leading `shop/`, strips
+      that matched prefix and passes the remainder, `products/42/`, to the
+      patterns in `shop/urls.py`. There `<int:pk>` uses the `int` converter: it
+      only matches digits and converts the captured text to the integer 42,
+      which is passed as the keyword argument `pk=42`, so Django calls
+      `product_detail(request, pk=42)`.
+
+      Named URLs matter because `reverse("shop:product-detail", kwargs={"pk": 42})`
+      and `{% url "shop:product-detail" pk=42 %}` build the URL from the
+      pattern. We can change a path in one place without hunting down
+      hard-coded links that would otherwise break, and the `app_name`
+      namespace avoids clashes between apps that reuse a name.
+    content:
+      min_words: 50
+      max_words: 350
+      placeholder: Walk through the request step by step…
+      criteria:
+        - id: ordered-first-match
+          label: Patterns are tried in order and the first match wins
+          weight: 2
+          required: true
+          any: ["in order", "first match", "first matching", "first pattern", "first one that matches", "first that matches", "top to bottom", "top down", "sequentially", "one by one", "in turn", "in sequence", "order of the list", "list order"]
+          missing_feedback: Explain how Django searches `urlpatterns` and which pattern wins.
+          misconception: {code: url-most-specific-wins, label: Thinks the URL resolver picks the most specific pattern, category: conceptual}
+        - id: include-strips-prefix
+          label: include() strips the matched prefix and resolves the remainder
+          weight: 1
+          any: ["strip", "remaining", "remainder", "rest of the", "chop", "removes the matched", "remove the matched", "removes the prefix", "cuts off", "passes the rest", "hands the rest", "re:(passes|hands|forwards|sends|leaves)[^.]{0,40}products/42", "re:matched (part|portion|prefix)", "re:prefix (is|gets) (removed|stripped|consumed)"]
+          missing_feedback: Describe which part of the path `include()` passes to `shop/urls.py`.
+        - id: converter-kwarg
+          label: The converter converts 42 to an int passed as a keyword argument
+          weight: 1
+          any: ["keyword argument", "keyword arg", "kwarg", "pk=42", "pk = 42", "as an int", "as an integer", "to an int", "into an int", "an integer", "converted", "converts", "convert"]
+          missing_feedback: Explain what `<int:pk>` does to the captured `42` and how the view receives it.
+        - id: named-urls
+          label: Named URLs avoid hard-coded paths that break when routes change
+          weight: 1
+          any: ["hard-cod", "hard cod", "hardcod", "one place", "single place", "change the path", "change a path", "change the url", "changing the path", "changing the url", "rename", "break", "namespac", "decoupl", "in sync"]
+          missing_feedback: Explain what `reverse()` and `{% url %}` buy you when a path changes.
+
+  # ================================================= dj-forms-validation
+  - slug: forms-clean-missing-field-mcq
+    skill: dj-forms-validation
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 3
+    diagnostic: true
+    title: Why does clean() raise KeyError?
+    objective: Explain why a field can be missing from cleaned_data inside Form.clean().
+    prompt: |
+      ```python
+      class BookingForm(forms.Form):
+          start = forms.DateField()
+          end = forms.DateField()
+
+          def clean(self):
+              cleaned = super().clean()
+              if cleaned["end"] < cleaned["start"]:
+                  raise forms.ValidationError("End must be after start.")
+              return cleaned
+      ```
+
+      Submitting `start=2026-03-01&end=2026-02-31` crashes with
+      `KeyError: 'end'` instead of showing a validation error. Why?
+    hints:
+      - February has no 31st day. Which validation step rejects that value?
+      - Think about the order in which field validation and `clean()` run, and what happens to fields that fail.
+    explanation: |
+      Field validation runs first: each field's `clean()` (`to_python()`,
+      `validate()`, validators), then `clean_<field>()`. A field that fails is
+      recorded in `form.errors` and **left out of `cleaned_data`**. The
+      form-wide `clean()` still runs afterwards, so it must cope with missing
+      keys:
+
+      ```python
+      start, end = cleaned.get("start"), cleaned.get("end")
+      if start and end and end < start:
+          raise forms.ValidationError("End must be after start.")
+      ```
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: The end field already failed its own validation, so it is not in cleaned_data when clean() runs.
+          correct: true
+          feedback: Correct. Invalid fields are removed from `cleaned_data`, but `clean()` still runs, so use `.get()` and skip the comparison when a value is missing.
+        - id: b
+          text: Form.clean() runs before the individual fields are validated, so cleaned_data is still empty.
+          feedback: The order is the opposite. Fields are cleaned first; `clean()` runs last and sees only the fields that passed.
+          misconception: {code: form-clean-order, label: Misunderstands the order of form validation steps, category: conceptual}
+        - id: c
+          text: Calling super().clean() first resets cleaned_data; it must be called at the end of the method.
+          feedback: "`super().clean()` simply returns `self.cleaned_data`; calling it first is the documented pattern. The key is missing because the field was invalid."
+          misconception: {code: form-clean-order, label: Misunderstands the order of form validation steps, category: conceptual}
+        - id: d
+          text: cleaned_data only contains fields whose values differ from their initial values.
+          feedback: That describes `form.changed_data`. `cleaned_data` contains every field that validated successfully, changed or not.
+          misconception: {code: cleaned-data-changed-only, label: Confuses cleaned_data with changed_data, category: conceptual}
+
+  - slug: forms-upload-missing-files-debug
+    skill: dj-forms-validation
+    kind: debugging
+    difficulty: 2
+    minutes: 5
+    title: The avatar upload always says "This field is required"
+    objective: Diagnose a file upload form that never receives the uploaded file.
+    prompt: |
+      `AvatarForm` is a ModelForm with a required `ImageField`. The template
+      uses `<form method="post" enctype="multipart/form-data">` and includes
+      `{% csrf_token %}`. Users choose an image, submit, and always get
+      "This field is required." Pick the defective line and explain the fix.
+    hints:
+      - The template is correct, and the browser really does send the file.
+      - Where does Django put the uploaded file on the request object?
+    explanation: |
+      Django parses multipart uploads into `request.FILES`, not `request.POST`.
+      A form bound only to `request.POST` never sees the file, so a required
+      file field fails with "This field is required." Bind both:
+      `AvatarForm(request.POST, request.FILES, instance=profile)`. Uploads
+      need both this and `enctype="multipart/form-data"` on the form element.
+    solution: |
+      Line 10 binds the form to `request.POST` only. Uploaded files are not in
+      `request.POST`; Django puts them in `request.FILES`, so the form never
+      sees the image and the required field is empty.
+
+      ```python
+      form = AvatarForm(request.POST, request.FILES, instance=profile)
+      ```
+    content:
+      language: python
+      code: |
+        from django.shortcuts import get_object_or_404, redirect, render
+
+        from .forms import AvatarForm
+        from .models import Profile
+
+
+        def upload_avatar(request):
+            profile = get_object_or_404(Profile, user=request.user)
+            if request.method == "POST":
+                form = AvatarForm(request.POST, instance=profile)
+                if form.is_valid():
+                    form.save()
+                    return redirect("profile-detail")
+            else:
+                form = AvatarForm(instance=profile)
+            return render(request, "profiles/avatar.html", {"form": form})
+      bug_lines: [10]
+      line_weight: 0.4
+      min_words: 8
+      max_words: 200
+      criteria:
+        - id: pass-request-files
+          label: Binds the form to request.FILES as well as request.POST
+          weight: 2
+          required: true
+          any: ["request.files", "request files", "re:\\bfiles\\b"]
+          missing_feedback: Name the request attribute that holds uploaded files and show how to pass it to the form.
+          misconception: {code: upload-in-post, label: Thinks uploaded files arrive in request.POST, category: conceptual}
+        - id: why-empty
+          label: Explains that uploads are not part of request.POST, so the form sees no file
+          weight: 1
+          any: ["not in request.post", "aren't in request.post", "are not in request.post", "isn't in request.post", "is not in request.post", "not part of request.post", "separate", "never sees", "doesn't see", "does not see", "never receives", "doesn't receive", "does not receive", "empty", "no file", "missing"]
+          missing_feedback: Explain why the form believes no file was submitted.
+          misconception: {code: upload-in-post, label: Thinks uploaded files arrive in request.POST, category: conceptual}
+
+  - slug: forms-save-commit-false-short
+    skill: dj-forms-validation
+    kind: short_answer
+    difficulty: 2
+    minutes: 2
+    title: Set the author before saving a ModelForm
+    objective: Use save(commit=False) to set server-controlled fields on a ModelForm instance.
+    prompt: |
+      `ArticleForm` is a ModelForm that deliberately excludes the `author`
+      field so users cannot choose it. In the view you want to set
+      `author = request.user` before the row is inserted.
+
+      ```python
+      if form.is_valid():
+          article = ...            # what goes here?
+          article.author = request.user
+          article.save()
+      ```
+
+      Which `ModelForm` method call returns the model instance **without**
+      writing it to the database?
+    hints:
+      - It is the same method you would normally call to save the form.
+      - The method takes a keyword argument that controls whether the database write happens.
+    explanation: |
+      `form.save(commit=False)` builds the instance from `cleaned_data` but
+      skips the `INSERT`, so you can set server-controlled fields such as the
+      author or tenant and then call `article.save()`. If the form has
+      many-to-many fields, call `form.save_m2m()` afterwards, because those
+      relations can only be saved once the row exists.
+    solution: |
+      ```python
+      article = form.save(commit=False)
+      article.author = request.user
+      article.save()
+      form.save_m2m()   # only needed if the form has many-to-many fields
+      ```
+    content:
+      placeholder: e.g. form.something(...)
+      ignore_spaces: true
+      accepted: ["form.save(commit=False)", "save(commit=False)", ".save(commit=False)", "commit=False", "form.save(False)", "save(False)"]
+      patterns: ["(form\\.|\\.)?save\\(\\s*(commit\\s*=\\s*)?false\\s*\\)"]
+      partial:
+        - answers: ["form.instance", "instance"]
+          score: 0.5
+          feedback: "After `is_valid()`, `form.instance` does hold the unsaved, populated instance, and class-based views often set `form.instance.author` in `form_valid()`. But it is an attribute, not a method call: the call designed for this is `form.save(commit=False)`."
+      wrong:
+        - answers: ["form.save()", "save()", "save", "form.save"]
+          feedback: "`form.save()` inserts the row immediately, before you have set the author, so the insert fails with an IntegrityError on the NOT NULL `author_id` column."
+          misconception: {code: modelform-save-immediate, label: Does not know save() writes immediately unless commit=False, category: conceptual}
+        - answers: ["form.cleaned_data", "cleaned_data"]
+          feedback: "`cleaned_data` is a plain dictionary of validated values, not a model instance."
+          misconception: {code: modelform-save-immediate, label: Does not know save() writes immediately unless commit=False, category: conceptual}
+        - answers: ["form.save_m2m()", "save_m2m()", "save_m2m"]
+          feedback: "`save_m2m()` saves many-to-many data *after* a `commit=False` save; it does not return the instance."
+          misconception: {code: modelform-save-immediate, label: Does not know save() writes immediately unless commit=False, category: conceptual}
+
+  # =============================================== dj-query-optimization
+  - slug: queryopt-reverse-fk-prefetch-mcq
+    skill: dj-query-optimization
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 2
+    diagnostic: true
+    tags: [interview]
+    title: Loading authors with their books
+    objective: Choose between select_related and prefetch_related for a reverse foreign key.
+    prompt: |
+      ```python
+      class Book(models.Model):
+          author = models.ForeignKey(Author, on_delete=models.CASCADE, related_name="books")
+          title = models.CharField(max_length=200)
+      ```
+
+      A page lists 50 authors and, under each one, the titles of their books
+      (`{% for book in author.books.all %}`). Which queryset avoids running a
+      query per author?
+    hints:
+      - Each author has *many* books. How would a single SQL JOIN represent that?
+      - One of the two relation-loading methods only follows single-valued relations.
+    explanation: |
+      `select_related()` follows **single-valued** relations (forward foreign
+      keys and one-to-one) with a SQL JOIN. A reverse foreign key is
+      many-valued, so `select_related("books")` raises `FieldError`.
+      `prefetch_related("books")` runs one extra query
+      (`... WHERE author_id IN (...)`) and attaches the books to each author in
+      Python: 2 queries in total, whatever the number of authors.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Author.objects.prefetch_related("books")
+          correct: true
+          feedback: Correct. Two queries in total, one for authors and one for all of their books, matched up in Python.
+        - id: b
+          text: Author.objects.select_related("books")
+          feedback: "`select_related()` only follows single-valued relations (forward ForeignKey and OneToOne). For a reverse foreign key Django raises `FieldError: Invalid field name(s) given in select_related`."
+          misconception: {code: select-related-many, label: Thinks select_related works for many-valued relations, category: conceptual}
+        - id: c
+          text: Author.objects.all(), because Django caches each related manager after the first access
+          feedback: Without prefetching, every `author.books.all` in the template runs its own query, giving 1 + 50 queries.
+          misconception: {code: orm-auto-prefetch, label: Thinks the ORM loads or caches related objects automatically, category: performance}
+        - id: d
+          text: Author.objects.annotate(book_count=Count("books"))
+          feedback: "`annotate()` adds an aggregate column such as a count; it does not load the related `Book` rows, so their titles would still be fetched per author."
+          misconception: {code: annotate-loads-related, label: Thinks annotate() loads related rows, category: conceptual}
+
+  - slug: queryopt-order-list-n-plus-one-review
+    skill: dj-query-optimization
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review a slow recent-orders page
+    objective: Spot N+1 queries, per-row aggregation and unbounded querysets in a Django view.
+    prompt: |
+      This view powers the "Recent orders" page. Large shops report that it
+      takes several seconds to load and the database CPU spikes whenever it is
+      opened. Review the code: list each problem, why it hurts, and how you
+      would fix it with the ORM.
+    hints:
+      - Count the queries for a shop with N orders. Which lines run a query on every loop iteration?
+      - Each line inside the loop that touches a relation is a separate problem with its own fix.
+      - Also ask how many orders this page loads for a shop that has been trading for five years.
+    explanation: |
+      For N orders this view runs **3N + 1** queries: one for the orders, then
+      a customer lookup, a `COUNT` and an items query per order. Fix them with
+      `select_related("customer")` (a JOIN), and compute the item count and
+      total in the database with `annotate(item_count=Count("items"),
+      total=Sum(F("items__price") * F("items__quantity")))`. Both annotations
+      use the same single join, so they do not inflate each other. Finally,
+      "recent" orders should be a bounded slice or a paginated page: the
+      current queryset loads the shop's entire history on every request.
+    solution: |
+      1. **N+1 on customers**: `order.customer.name` runs one query per order.
+         Add `select_related("customer")` so the customer is joined in the main
+         query.
+      2. **COUNT per order**: `order.items.count()` runs a separate
+         `SELECT COUNT(*)` for each order. Use
+         `.annotate(item_count=Count("items"))` instead.
+      3. **Items fetched per order to add up totals in Python**:
+         `order.items.all()` is yet another query per order. Compute the total
+         in the database with
+         `.annotate(total=Sum(F("items__price") * F("items__quantity")))`
+         (or `prefetch_related("items")` if the items are displayed).
+      4. **Unbounded queryset**: the page loads every order the shop has ever
+         had. Slice it (`[:50]`) or paginate, and use `.count()` for the total.
+
+      ```python
+      orders = (
+          Order.objects.filter(shop=request.user.shop)
+          .select_related("customer")
+          .annotate(
+              item_count=Count("items"),
+              total=Sum(F("items__price") * F("items__quantity")),
+          )
+          .order_by("-created_at")[:50]
+      )
+      ```
+
+      The page now runs one query instead of 3N + 1.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, its impact and the fix…
+      code: |
+        from django.shortcuts import render
+
+        from .models import Order
+
+
+        def recent_orders(request):
+            orders = Order.objects.filter(shop=request.user.shop).order_by("-created_at")
+            rows = []
+            for order in orders:
+                rows.append({
+                    "number": order.number,
+                    "customer": order.customer.name,
+                    "items": order.items.count(),
+                    "total": sum(i.price * i.quantity for i in order.items.all()),
+                })
+            return render(request, "orders/recent.html", {"rows": rows, "total_orders": len(orders)})
+      criteria:
+        - id: customer-n-plus-one
+          label: Spots the per-order customer query (N+1) and fixes it with select_related
+          weight: 2
+          required: true
+          any: ["select_related", "join the customer", "join customer", "joins the customer", "joining the customer", "re:customer.{0,60}(n\\s*\\+\\s*1|query per|queries per|per order|each order|every order|per row|each row|each iteration)", "re:(n\\s*\\+\\s*1|query per|per order|each order|every order).{0,60}customer"]
+          missing_feedback: What happens on every iteration when the loop reads `order.customer.name`?
+          misconception: {code: orm-auto-prefetch, label: Thinks the ORM loads or caches related objects automatically, category: performance}
+        - id: count-per-order
+          label: Replaces the per-order COUNT query with an annotation
+          weight: 1
+          any: ["annotate", "re:count\\(\\s*[\"']items", "count query", "count queries", "select count", "re:\\.count\\(\\).{0,80}(each|every|per|loop|separate|extra|another|n times)", "re:(each|every|per|loop|separate|extra|another).{0,80}\\.count\\(\\)"]
+          missing_feedback: "`order.items.count()` runs inside the loop. How can the database return the counts in the main query?"
+        - id: totals-per-order
+          label: Computes totals in the database (or prefetches items) instead of querying items per order
+          weight: 1
+          any: ["prefetch", "items__price", "re:\\bsum\\(\\s*f\\(", "re:\\bsum\\(\\s*[\"']", "aggregat", "in the database", "in the db", "database side", "db side", "in sql", "re:items\\.all\\(\\).{0,80}(each|every|per|loop|separate|extra|another)", "re:(each|every|per|loop|separate|extra|another).{0,80}items\\.all\\(\\)"]
+          missing_feedback: Summing `order.items.all()` in Python costs another query per order. Where should the total be computed?
+        - id: unbounded
+          label: Bounds the list with slicing or pagination
+          weight: 1
+          any: ["paginat", "slice", "slicing", "limit", "unbounded", "no upper bound", "re:\\[\\s*:\\s*\\d+", "re:\\b(last|latest|most recent|first|top) \\d+", "loads every", "loads all", "fetches all", "fetches every", "entire history", "whole history", "all of its orders", "all of the orders", "all the orders"]
+          missing_feedback: How many orders does this page load for a shop with years of history?
+          misconception: {code: unbounded-queryset, label: Loads entire tables where a bounded page is needed, category: performance}
+
+  - slug: queryopt-filter-bypasses-prefetch-short
+    skill: dj-query-optimization
+    kind: short_answer
+    difficulty: 3
+    minutes: 3
+    tags: [interview]
+    title: Does filtering a prefetched relation use the prefetch?
+    objective: Predict query counts when a prefetched relation is filtered and counted.
+    prompt: |
+      Ten authors match the filter. How many SQL queries does this code run in
+      total? Answer with a number.
+
+      ```python
+      authors = Author.objects.filter(country="NL").prefetch_related("books")
+      for author in authors:
+          published = author.books.filter(is_published=True)
+          print(author.name, published.count())
+      ```
+    hints:
+      - Starting the loop evaluates `authors`. How many queries does that take with `prefetch_related`?
+      - The prefetch cache is only used by `author.books.all()`. What does `.filter()` create?
+    explanation: |
+      Evaluating `authors` runs **2** queries: the authors, then the prefetch of
+      all their books. But `author.books.filter(...)` builds a **new** QuerySet
+      that ignores the prefetch cache, and `.count()` sends a `SELECT COUNT(*)`
+      for each author: 2 + 10 = **12** queries, and the prefetched books are
+      never used. Filter inside the prefetch instead
+      (`Prefetch("books", queryset=Book.objects.filter(is_published=True), to_attr="published_books")`
+      and `len(author.published_books)`: 2 queries) or aggregate in SQL
+      (`annotate(published=Count("books", filter=Q(books__is_published=True)))`: 1 query).
+    solution: |
+      **12** queries: 1 for authors + 1 prefetch for books + 10 `COUNT`
+      queries, because `.filter()` on a prefetched relation creates a new
+      QuerySet that bypasses the prefetch cache.
+    content:
+      placeholder: e.g. 3
+      accepted: ["12", "twelve", "12 queries"]
+      wrong:
+        - answers: ["2", "two", "2 queries"]
+          feedback: The prefetch cache is only used by `.all()`. Calling `.filter()` creates a new QuerySet, so each author triggers its own `COUNT` query.
+          misconception: {code: filter-uses-prefetch, label: Thinks filtering a prefetched relation uses the prefetch cache, category: performance}
+        - answers: ["11", "eleven", "11 queries"]
+          feedback: The prefetch query still runs when `authors` is evaluated, even though its results are never used. Count it as well.
+          misconception: {code: prefetch-runs-on-access, label: Thinks prefetch queries only run when the relation is accessed, category: conceptual}
+        - answers: ["1", "one", "1 query"]
+          feedback: "`prefetch_related` is not a JOIN: it always issues a separate query per relation. And the filtered counts add more queries."
+          misconception: {code: prefetch-is-join, label: Thinks prefetch_related uses a SQL JOIN, category: conceptual}
+        - answers: ["21", "22", "twenty-one", "twenty-two"]
+          feedback: "`published.count()` on an unevaluated QuerySet is a single `SELECT COUNT(*)`; it does not fetch the rows first."
+          misconception: {code: filter-uses-prefetch, label: Thinks filtering a prefetched relation uses the prefetch cache, category: performance}
+
+  # ===================================================== dj-transactions
+  - slug: tx-atomic-lost-update-mcq
+    skill: dj-transactions
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    tags: [interview]
+    title: Does atomic() stop a double withdrawal?
+    objective: Recognise that atomic() alone does not prevent lost updates under concurrency.
+    prompt: |
+      ```python
+      def withdraw(account_id, amount):
+          with transaction.atomic():
+              account = Account.objects.get(pk=account_id)
+              if account.balance < amount:
+                  raise InsufficientFunds()
+              account.balance -= amount
+              account.save()
+      ```
+
+      The balance is 100. Two requests call `withdraw(account_id, 80)` at the
+      same moment on PostgreSQL with Django's default settings
+      (`READ COMMITTED`). What can happen?
+    hints:
+      - Does a plain `SELECT` inside a transaction lock the row it reads?
+      - "`save()` writes the value computed in Python. Which value did each request compute?"
+    explanation: |
+      `atomic()` makes a group of statements commit or roll back together; it
+      does **not** lock rows read with a plain `SELECT`. Both requests read
+      100, both pass the check and both write `balance = 20`. The second
+      `UPDATE` waits for the first transaction's row lock, then simply
+      overwrites the row: a **lost update**, and 160 has been withdrawn from
+      100. Fix it with `select_for_update()` (lock the row before reading) or
+      a conditional atomic update:
+      `Account.objects.filter(pk=account_id, balance__gte=amount).update(balance=F("balance") - amount)`.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Both withdrawals succeed and the final balance is 20.
+          correct: true
+          feedback: Correct. Both read 100 and both write 20, so one update is lost and 160 has left an account that held 100.
+        - id: b
+          text: The second request waits until the first commits, then raises InsufficientFunds.
+          feedback: That only happens if the row is locked before it is read, using `select_for_update()`. A plain `get()` inside `atomic()` takes no lock.
+          misconception: {code: atomic-locks-rows, label: Thinks atomic() locks the rows it reads, category: conceptual}
+        - id: c
+          text: PostgreSQL detects the conflict and aborts one transaction with a serialization error.
+          feedback: Serialization failures happen under `REPEATABLE READ` or `SERIALIZABLE`. Under the default `READ COMMITTED`, the second update waits and then overwrites the row without any error.
+          misconception: {code: default-isolation-prevents-races, label: Assumes the default isolation level prevents concurrent anomalies, category: conceptual}
+        - id: d
+          text: Both withdrawals succeed and the final balance is -60.
+          feedback: "`save()` writes the absolute value each request computed in Python (20), not a delta. You would only reach -60 with `F(\"balance\") - amount` updates and no balance check."
+          misconception: {code: save-writes-delta, label: Thinks save() applies changes as a delta, category: logic}
+
+  - slug: tx-stock-reservation-review
+    skill: dj-transactions
+    secondary_skills: [background-jobs]
+    kind: code_review
+    difficulty: 4
+    minutes: 12
+    tags: [scenario]
+    title: Review a stock reservation endpoint
+    objective: Spot missing row locks, side effects inside a transaction and unvalidated input in a write path.
+    prompt: |
+      During a flash sale this endpoint oversold a product, some customers
+      received confirmation emails for reservations that do not exist, and
+      the stock count of one product went *up*. Authentication is enforced by
+      middleware. Review the view: name each problem, explain how it happens
+      and how you would fix it.
+    hints:
+      - Imagine two requests for the last unit arriving at the same millisecond.
+      - When exactly does the Celery worker see the reservation row?
+      - What does the stock check do with `quantity = -5`?
+    explanation: |
+      `atomic()` alone does not prevent races: two requests can both read the
+      same stock and both pass the check. Lock the row with
+      `select_for_update()` (or use a conditional `F()` update and check the
+      affected row count). Side effects such as task enqueues must run in
+      `transaction.on_commit()`, otherwise a worker may run before the commit
+      (and fail to find the row) or after a rollback (emailing about data that
+      never existed). Finally, request data is untrusted: validate `quantity`
+      as a positive integer with a form before using it.
+    solution: |
+      1. **Race condition / overselling.** Two concurrent requests both read
+         `stock = 1`, both pass the check and both save, so the product is
+         oversold (a lost update). `atomic()` does not lock the row. Use
+         `Product.objects.select_for_update().get(pk=product_id)` inside the
+         transaction, or a conditional update:
+         `Product.objects.filter(pk=product_id, stock__gte=quantity).update(stock=F("stock") - quantity)`
+         and check that one row was updated.
+      2. **Task enqueued inside the transaction.** The worker can pick up the
+         job before the transaction commits and fail with
+         `Reservation.DoesNotExist`, and if the transaction rolls back the
+         email is still sent. Use
+         `transaction.on_commit(lambda: send_confirmation_email.delay(reservation.id))`.
+      3. **Unvalidated quantity.** A negative quantity passes the stock check
+         and *increases* the stock, and a non-numeric value raises `ValueError`
+         (a 500). Validate it with a form field such as
+         `forms.IntegerField(min_value=1)`.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, how it happens and the fix…
+      code: |
+        from django.db import transaction
+        from django.http import JsonResponse
+        from django.views.decorators.http import require_POST
+
+        from .models import Product, Reservation
+        from .tasks import send_confirmation_email
+
+
+        @require_POST
+        @transaction.atomic
+        def reserve(request, product_id):
+            quantity = int(request.POST["quantity"])
+            product = Product.objects.get(pk=product_id)
+            if product.stock < quantity:
+                return JsonResponse({"error": "Not enough stock"}, status=409)
+            product.stock -= quantity
+            product.save(update_fields=["stock"])
+            reservation = Reservation.objects.create(
+                product=product, user=request.user, quantity=quantity
+            )
+            send_confirmation_email.delay(reservation.id)
+            return JsonResponse({"id": reservation.id}, status=201)
+      criteria:
+        - id: row-lock
+          label: Identifies the read-check-write race and fixes it with select_for_update or a conditional F() update
+          weight: 2
+          required: true
+          any: ["select_for_update", "for update", "row lock", "lock the row", "locks the row", "locking", "race", "concurren", "oversell", "over-sell", "lost update", "re:f\\(\\s*[\"']stock", "stock__gte", "conditional update", "two requests", "simultaneous", "at the same time"]
+          missing_feedback: What happens when two requests read the same stock value before either has saved?
+          misconception: {code: atomic-locks-rows, label: Thinks atomic() locks the rows it reads, category: conceptual}
+        - id: on-commit
+          label: Moves the task enqueue into transaction.on_commit
+          weight: 1
+          any: ["on_commit", "on commit", "after commit", "after the commit", "before commit", "before the commit", "before the transaction commits", "not committed", "not yet committed", "uncommitted", "hasn't committed", "has not committed", "rolled back", "rolls back", "doesnotexist", "does not exist", "doesn't exist"]
+          missing_feedback: When does the worker see the new reservation, and what if the transaction rolls back?
+          misconception: {code: side-effect-in-transaction, label: Triggers external side effects before the transaction commits, category: logic}
+        - id: validate-quantity
+          label: Validates quantity as a positive integer
+          weight: 1
+          any: ["negative", "validat", "positive", "valueerror", "min_value", "minvaluevalidator", "integerfield", "a form", "django form", "serializer", "zero", "less than 1", "less than one", "non-numeric", "not a number", "untrusted", "user input", "sanitis", "sanitiz"]
+          missing_feedback: What does the stock check do with `quantity = -5`, or with `quantity = "abc"`?
+          misconception: {code: trusts-request-data, label: Uses request data without validating it, category: security}
+
+  - slug: tx-savepoint-integrityerror-explain
+    skill: dj-transactions
+    kind: concept_explanation
+    difficulty: 4
+    minutes: 10
+    title: Why does the import crash after the first duplicate?
+    objective: Explain aborted transactions, savepoints and nested atomic blocks when handling database errors.
+    prompt: |
+      ```python
+      @transaction.atomic
+      def import_contacts(rows):
+          for row in rows:
+              try:
+                  Contact.objects.create(email=row["email"], name=row["name"])
+              except IntegrityError:
+                  logger.info("Skipping duplicate %s", row["email"])
+          ImportLog.objects.create(count=len(rows))
+      ```
+
+      `Contact.email` is unique. After the first duplicate, the next query
+      raises `TransactionManagementError: An error occurred in the current
+      transaction. You can't execute queries until the end of the 'atomic'
+      block.` Explain why catching the exception is not enough, how to fix
+      the function so the import continues, and what a nested `atomic` block
+      does on PostgreSQL.
+    hints:
+      - After a failed statement, what state is the PostgreSQL transaction in?
+      - A nested `atomic` block is not a new transaction. What does Django create instead?
+      - Where must the `try`/`except` sit relative to the nested block for the rollback to happen?
+    explanation: |
+      When a statement fails, PostgreSQL marks the whole transaction as
+      **aborted**: every later statement fails until a rollback, and Django
+      also marks the `atomic` block as needing rollback. Catching the Python
+      exception does not repair the transaction. Wrapping each insert in its
+      own `with transaction.atomic():` creates a **savepoint**; when the insert
+      fails, Django rolls back to that savepoint, so only that insert is undone
+      and the outer transaction stays usable. The `try`/`except` must be
+      *outside* the inner block so the exception leaves it and triggers the
+      savepoint rollback.
+
+      ```python
+      for row in rows:
+          try:
+              with transaction.atomic():
+                  Contact.objects.create(email=row["email"], name=row["name"])
+          except IntegrityError:
+              logger.info("Skipping duplicate %s", row["email"])
+      ```
+    solution: |
+      When the `INSERT` violates the unique constraint, PostgreSQL marks the
+      whole transaction as aborted: every further statement fails with
+      "current transaction is aborted" until a rollback, and Django flags the
+      atomic block (`needs_rollback`) and raises `TransactionManagementError`
+      on the next query. Catching `IntegrityError` in Python does not undo
+      that.
+
+      The fix is a nested atomic block around each insert:
+      `with transaction.atomic(): Contact.objects.create(...)`. A nested
+      `atomic` creates a savepoint. If the insert fails, Django rolls back to
+      the savepoint, so only that insert is undone and the outer transaction
+      continues with the other rows and commits at the end. The `try`/`except`
+      must sit outside the inner atomic block, so that the exception leaves
+      the block and triggers the rollback to the savepoint.
+
+      For large imports, `bulk_create(objs, ignore_conflicts=True)` (which
+      uses `ON CONFLICT DO NOTHING`) avoids raising per-row errors at all.
+    content:
+      min_words: 50
+      max_words: 350
+      placeholder: Explain what PostgreSQL and Django do after the failed insert…
+      criteria:
+        - id: aborted-transaction
+          label: Explains that a failed statement leaves the transaction aborted until rollback
+          weight: 2
+          required: true
+          any: ["abort", "broken", "unusable", "poisoned", "invalid state", "bad state", "failed state", "error state", "failed transaction", "re:transaction (is|becomes|gets|stays) (dead|broken|invalid|unusable|poisoned|failed)", "current transaction is aborted", "needs_rollback", "needs rollback", "marked for rollback", "must be rolled back", "has to be rolled back", "re:(any|every|all) (further|subsequent|following|later|other) (query|queries|statement|statements)"]
+          missing_feedback: What state is the PostgreSQL transaction in after the failed `INSERT`, and why doesn't catching the exception fix it?
+          misconception: {code: catching-repairs-transaction, label: Thinks catching a database exception keeps the transaction usable, category: conceptual}
+        - id: nested-atomic
+          label: Wraps each insert in a nested atomic block, which creates a savepoint
+          weight: 1
+          any: ["savepoint", "save point", "nested atomic", "inner atomic", "atomic block inside", "atomic() inside", "atomic inside", "re:with\\s+transaction\\.atomic\\(\\)", "re:wrap[^.]{0,40}(in|with) (its own|a|an) (nested |inner |separate )?(atomic|transaction)"]
+          missing_feedback: Show how to isolate each insert so that a failure doesn't poison the outer transaction.
+        - id: partial-rollback
+          label: Only the failed insert is rolled back and the outer transaction continues
+          weight: 1
+          any: ["rolls back to the savepoint", "roll back to the savepoint", "rolled back to the savepoint", "rollback to the savepoint", "rollback to savepoint", "roll back to savepoint", "only the inner", "just the inner", "only that insert", "only the failed", "only that row", "just that row", "just that insert", "rest of the import", "other rows", "remaining rows", "re:outer (transaction|block) (continues|carries on|survives|is preserved|stays usable|remains usable|can continue|keeps going)"]
+          missing_feedback: Explain what is rolled back when an insert inside the nested block fails, and what happens to the rest of the import.
+        - id: except-outside
+          label: Places the try/except outside the nested atomic block
+          weight: 1
+          any: ["outside the atomic", "outside the inner", "outside the nested", "around the atomic", "around the inner", "around the nested", "re:(try|except|catch)[^.]{0,60}(outside|around|wrap)", "re:atomic[^.]{0,40}inside (the )?try"]
+          missing_feedback: Where must the `try`/`except` be placed relative to the nested block, and why?
+          misconception: {code: catching-repairs-transaction, label: Thinks catching a database exception keeps the transaction usable, category: conceptual}
+
+  # ================================================= dj-auth-permissions
+  - slug: auth-model-vs-object-permission-mcq
+    skill: dj-auth-permissions
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: What does permission_required actually guarantee?
+    objective: Distinguish model-level permissions from object-level authorisation.
+    prompt: |
+      Every customer account is granted the `billing.view_invoice` permission
+      so customers can see their own invoices.
+
+      ```python
+      @permission_required("billing.view_invoice")
+      def invoice_detail(request, pk):
+          invoice = get_object_or_404(Invoice, pk=pk)
+          return render(request, "billing/invoice.html", {"invoice": invoice})
+      ```
+
+      What does this view guarantee?
+    hints:
+      - The decorator runs before the view, so it never sees which invoice will be loaded.
+      - Model permissions answer "may this user view invoices?", not "may this user view *this* invoice?".
+    explanation: |
+      Django's model permissions are **model-level**: `billing.view_invoice`
+      means "may view invoices", and the decorator checks it without knowing
+      which invoice will be loaded. Any customer holding the permission can
+      read any invoice by changing `pk` in the URL, an insecure direct object
+      reference (IDOR). Object-level authorisation must be enforced in the
+      query itself, for example
+      `get_object_or_404(Invoice, pk=pk, account=request.user.account)`.
+      Anonymous users are redirected to the login page, because they hold no
+      permissions.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Only that the user holds the model-level permission; any such user can open any invoice by changing pk.
+          correct: true
+          feedback: Correct. Nothing ties the invoice to the user, so this is an IDOR. Scope the lookup to the user's account.
+        - id: b
+          text: Users can only open invoices they own, because the permission is checked against the loaded invoice.
+          feedback: The decorator runs before the view and never sees the invoice. Django's default `ModelBackend` has no notion of ownership.
+          misconception: {code: model-perm-is-object-perm, label: Thinks model permissions are checked per object, category: security}
+        - id: c
+          text: Only staff users can open the view.
+          feedback: "`is_staff` only controls access to the admin site. `permission_required` checks the named permission, which these customers hold."
+          misconception: {code: is-staff-means-permission, label: Confuses is_staff with permissions, category: conceptual}
+        - id: d
+          text: Nothing, because permission_required does not check that the user is logged in.
+          feedback: Anonymous users have no permissions, so the decorator redirects them to the login page. The real gap is ownership, not authentication.
+          misconception: {code: perm-required-skips-auth, label: Thinks permission checks do not cover anonymous users, category: conceptual}
+
+  - slug: auth-invoice-idor-review
+    skill: dj-auth-permissions
+    secondary_skills: [dj-security]
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review the invoice download and update views
+    objective: Find IDOR, mass assignment and missing validation in authenticated views.
+    prompt: |
+      In this multi-tenant SaaS, every user belongs to one
+      `Account` (`request.user.account`), and every `Invoice` has an
+      `account` foreign key. Invoice IDs are sequential integers. Review these
+      two views before they ship.
+    hints:
+      - "`@login_required` answers *who* the user is. What answers whether this invoice is theirs?"
+      - Look at every value the update view copies from `request.POST`.
+      - What happens if `email` is missing or is not an email address?
+    explanation: |
+      Authentication is not authorisation. Both views load invoices by
+      primary key alone, so any logged-in user can read or modify any
+      tenant's invoice by changing the ID (IDOR); sequential IDs make that
+      trivial to enumerate. Always scope lookups to the requester's tenant,
+      which also returns a 404 instead of revealing that the invoice exists.
+      Never accept ownership fields such as `account_id` from the client, and
+      validate input with a form that whitelists the editable fields.
+    solution: |
+      1. **IDOR / missing object-level authorisation.** Both views look up the
+         invoice by primary key only, so any logged-in user can download or
+         edit another customer's invoice by changing the ID in the URL; the IDs
+         are sequential, so enumerating them is trivial. Scope the lookup:
+         `get_object_or_404(Invoice, pk=invoice_id, account=request.user.account)`.
+      2. **Mass assignment of ownership.** The update view copies `account_id`
+         from the POST data, so a user can move an invoice into or out of any
+         account. Ownership must come from the server, never from the client.
+      3. **No validation.** `request.POST["email"]` raises `KeyError` (a 500)
+         when the field is missing, and any arbitrary string is stored. Use a
+         `ModelForm` with `fields = ["billing_email"]` so the email is
+         validated and only that field can change.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, the impact and the fix…
+      code: |
+        @login_required
+        def invoice_pdf(request, invoice_id):
+            invoice = get_object_or_404(Invoice, pk=invoice_id)
+            return FileResponse(invoice.pdf.open("rb"), filename=f"invoice-{invoice.number}.pdf")
+
+
+        @login_required
+        @require_POST
+        def update_invoice_email(request, invoice_id):
+            invoice = get_object_or_404(Invoice, pk=invoice_id)
+            invoice.billing_email = request.POST["email"]
+            invoice.account_id = request.POST.get("account_id", invoice.account_id)
+            invoice.save()
+            return redirect("invoice-detail", invoice_id=invoice.pk)
+      criteria:
+        - id: idor-scope
+          label: Identifies the IDOR and scopes lookups to the user's account
+          weight: 2
+          required: true
+          any: ["idor", "insecure direct object", "re:account\\s*=\\s*request\\.user", "scope the", "scoped to", "scoping", "filter by account", "filter by the account", "filter on account", "object level", "object-level", "any invoice", "anyone's invoice", "other customers' invoices", "another customer's invoice", "other people's invoices", "someone else's invoice", "change the id", "changing the id", "changes the id", "re:(guess|enumerat|increment)\\w*", "ownership check", "owner check", "doesn't check that", "does not check that", "never checks that", "not checked against"]
+          missing_feedback: "`@login_required` only proves the user is logged in. What stops them from loading invoice 1, 2, 3…?"
+          misconception: {code: model-perm-is-object-perm, label: Thinks authentication or model permissions imply access to every object, category: security}
+        - id: mass-assignment
+          label: Flags accepting account_id from the client (mass assignment)
+          weight: 1
+          any: ["mass assign", "mass-assign", "move the invoice", "moves the invoice", "move an invoice", "move invoices", "reassign", "re-assign", "ownership", "owner field", "transfer", "hijack", "steal", "client-controlled", "lets the client", "lets the user", "lets users", "lets a user", "lets an attacker", "let the client", "let the user", "let users", "allow the client", "allows the client", "allows users", "allows a user", "allows an attacker", "re:(change|set|move|overwrit|control|choose|pick|modif|switch)\\w*[^.]{0,40}\\baccount", "re:\\baccount\\w*[^.]{0,40}\\b(from|in) (the )?(post|request|client|form|user input|body)"]
+          missing_feedback: Which field in the update view should never be controlled by the client?
+          misconception: {code: trusts-request-data, label: Uses request data without validating it, category: security}
+        - id: validate-input
+          label: Validates the email with a form instead of raw request.POST access
+          weight: 1
+          any: ["emailfield", "validat", "a form", "modelform", "django form", "keyerror", "malformed", "invalid email", "arbitrary string", "sanitis", "sanitiz", "whitelist", "allowlist"]
+          missing_feedback: What happens when `email` is missing or not an email address?
+          misconception: {code: trusts-request-data, label: Uses request data without validating it, category: security}
+
+  - slug: auth-has-perm-app-label-debug
+    skill: dj-auth-permissions
+    kind: debugging
+    difficulty: 3
+    minutes: 6
+    tags: [scenario]
+    title: Editors get 403 when publishing, but admins don't
+    objective: Diagnose a has_perm check that silently fails because of the permission string format.
+    prompt: |
+      The `Article` model in the `newsroom` app declares
+      `permissions = [("publish_article", "Can publish articles")]`, and the
+      Editors group has been granted it. Editors still get **403 Forbidden**
+      from this view. It worked when the developer tested it while logged in
+      as the admin user. Pick the defective line and explain both symptoms.
+    hints:
+      - The group, the permission and the user's membership are all set up correctly in the database.
+      - Look at the exact string passed to the permission check, and compare it with how Django names permissions.
+      - Why would the same check pass for the admin account regardless of the string?
+    explanation: |
+      `has_perm()` expects `"<app_label>.<codename>"`. `"publish_article"`
+      matches no permission, so the check returns `False` for every normal
+      user. Active superusers short-circuit every `has_perm()` call to `True`,
+      which is why the developer never saw the bug. Use
+      `has_perm("newsroom.publish_article")`, and always test permission code
+      with a non-superuser account.
+    solution: |
+      Line 13 passes the codename without the app label. `has_perm()` expects
+      `"newsroom.publish_article"` (`<app_label>.<codename>`), so the check is
+      always false for editors. It passed in testing because an active
+      superuser is granted every permission, whatever the string.
+
+      ```python
+      if not request.user.has_perm("newsroom.publish_article"):
+          raise PermissionDenied
+      ```
+    content:
+      language: python
+      code: |
+        from django.contrib.auth.decorators import login_required
+        from django.core.exceptions import PermissionDenied
+        from django.shortcuts import get_object_or_404, redirect
+        from django.views.decorators.http import require_POST
+
+        from .models import Article
+
+
+        @login_required
+        @require_POST
+        def publish_article(request, pk):
+            article = get_object_or_404(Article, pk=pk, newsroom=request.user.newsroom)
+            if not request.user.has_perm("publish_article"):
+                raise PermissionDenied
+            article.status = Article.Status.PUBLISHED
+            article.save(update_fields=["status"])
+            return redirect("article-detail", pk=article.pk)
+      bug_lines: [13]
+      line_weight: 0.4
+      min_words: 10
+      max_words: 200
+      criteria:
+        - id: app-label
+          label: Explains that has_perm needs the "app_label.codename" format
+          weight: 2
+          required: true
+          any: ["app label", "app_label", "newsroom.publish_article", "app name", "app prefix", "application label", "application name", "namespac", "full permission name", "fully qualified", "full name", "re:\\bapp\\b[^.]{0,30}(label|name|prefix)", "dotted"]
+          missing_feedback: Compare the string passed to `has_perm()` with the full name Django gives the permission.
+          misconception: {code: perm-without-app-label, label: Calls has_perm without the app_label prefix, category: syntax}
+        - id: superuser-bypass
+          label: Explains that superusers pass every permission check
+          weight: 1
+          any: ["superuser", "super user", "is_superuser", "every permission", "all permissions", "any permission", "always true", "always returns true", "re:admin[^.]{0,40}\\b(bypass|every|all|any|always)\\b"]
+          missing_feedback: Explain why the check passed when the developer tested as the admin user.
+
+  # ======================================================= dj-migrations
+  - slug: migrations-fix-applied-mcq
+    skill: dj-migrations
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Fixing a migration that is already in production
+    objective: Choose the safe way to correct a migration that has already been applied.
+    prompt: |
+      Migration `0014_add_invoice_due_date` has been applied in production
+      and on your teammates' machines. You notice that it set the wrong
+      default for `due_date`. What should you do?
+    hints:
+      - How does Django know which migrations a database has already run?
+      - Think about every environment where `0014` is already recorded as applied.
+    explanation: |
+      Django records applied migrations by app and name in the
+      `django_migrations` table and never re-runs them, even if the file
+      changes. Editing or deleting an applied migration makes environments
+      silently diverge: databases that already ran it keep the old schema.
+      Correct mistakes with a **new** migration (`0015_...`) so every
+      environment converges on the same state. Only edit migrations that have
+      never left your machine.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Change the model and create a new migration (0015) that corrects it.
+          correct: true
+          feedback: Correct. A new migration runs everywhere exactly once, so every database ends up in the same state.
+        - id: b
+          text: Edit 0014 in place; migrate notices the change and applies it again.
+          feedback: Django tracks migrations by name, not by content. An edited, already applied migration is never re-run, so databases diverge.
+          misconception: {code: migrations-rerun-on-edit, label: Thinks Django re-applies edited migrations, category: conceptual}
+        - id: c
+          text: Delete 0014 and run makemigrations again so the history stays clean.
+          feedback: Databases that applied the old 0014 still have it recorded and keep its schema, while fresh databases get the new one. Histories must never be rewritten once shared.
+          misconception: {code: rewrite-applied-migrations, label: Thinks migration history can be rewritten after it has been applied, category: conceptual}
+        - id: d
+          text: Edit 0014 and run migrate --fake so the change takes effect.
+          feedback: "`--fake` only marks migrations as applied in `django_migrations` without running any SQL, so it changes nothing in the schema."
+          misconception: {code: fake-applies-changes, label: Thinks migrate --fake changes the schema, category: conceptual}
+
+  - slug: migrations-historical-model-debug
+    skill: dj-migrations
+    kind: debugging
+    difficulty: 3
+    minutes: 6
+    tags: [scenario]
+    title: An old data migration breaks fresh databases
+    objective: Diagnose a data migration that imports the real model instead of the historical one.
+    prompt: |
+      Migration `0008_fill_product_slugs` worked fine when it was written.
+      Six months later, after migration `0012` added a `discount` field to
+      `Product`, CI starts failing while building a fresh test database:
+
+      ```text
+      Applying shop.0008_fill_product_slugs...
+      django.db.utils.ProgrammingError: column shop_product.discount does not exist
+      ```
+
+      Pick the line that causes this and explain the fix.
+    hints:
+      - At migration 0008, the `discount` column has not been created yet. Who is asking for it?
+      - "Which `Product` class does this migration use: the one that existed at 0008, or today's?"
+      - The `apps` argument of the function is there for a reason.
+    explanation: |
+      Importing `shop.models.Product` gives you **today's** model class,
+      including fields added by later migrations, so its query selects a
+      `discount` column that does not exist yet at 0008. Data migrations must
+      use the **historical model** for that point in the migration graph:
+      `Product = apps.get_model("shop", "Product")`. Historical models have the
+      fields of that moment but none of your custom methods or `save()`
+      overrides (and only managers marked `use_in_migrations = True`), so keep
+      the logic self-contained, as `slugify()` is here.
+    solution: |
+      The module-level import on line 4 (used on line 8) loads the current
+      `Product` model, whose query selects the `discount` column added later in
+      0012. Use the historical model passed in via `apps`:
+
+      ```python
+      def fill_slugs(apps, schema_editor):
+          Product = apps.get_model("shop", "Product")
+          for product in Product.objects.filter(slug=""):
+              product.slug = slugify(product.name)
+              product.save(update_fields=["slug"])
+      ```
+    content:
+      language: python
+      code: |
+        from django.db import migrations
+        from django.utils.text import slugify
+
+        from shop.models import Product
+
+
+        def fill_slugs(apps, schema_editor):
+            for product in Product.objects.filter(slug=""):
+                product.slug = slugify(product.name)
+                product.save(update_fields=["slug"])
+
+
+        class Migration(migrations.Migration):
+            dependencies = [("shop", "0007_product_slug")]
+            operations = [migrations.RunPython(fill_slugs, migrations.RunPython.noop)]
+      bug_lines: [4, 8]
+      line_weight: 0.4
+      min_words: 10
+      max_words: 200
+      criteria:
+        - id: historical-model
+          label: Uses the historical model from apps.get_model()
+          weight: 2
+          required: true
+          any: ["apps.get_model", "get_model", "historical model", "historical version", "historical state", "historic model", "state at that point", "at that point in", "frozen"]
+          missing_feedback: How should a data migration obtain the `Product` model?
+          misconception: {code: import-model-in-migration, label: Imports real models in data migrations, category: conceptual}
+        - id: current-schema
+          label: Explains that the imported class reflects the current code, including later columns
+          weight: 1
+          any: ["current model", "current code", "current version", "current schema", "current state", "latest", "today's", "future", "newer", "new column", "new field", "doesn't exist yet", "does not exist yet", "not exist yet", "not yet exist", "added later", "later migration"]
+          missing_feedback: Explain why the query asks for a column that does not exist at this point in the migration history.
+
+  - slug: migrations-zero-downtime-rename-explain
+    skill: dj-migrations
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 10
+    tags: [scenario]
+    title: Renaming a column without downtime
+    objective: Plan an expand/contract migration for a column rename during rolling deploys.
+    prompt: |
+      You need to rename the column `customer.phone` to `phone_number` on a
+      busy PostgreSQL database. The column itself must change name because
+      the data team queries it directly. Deploys are rolling: old and new app
+      versions serve traffic side by side for several minutes.
+
+      Explain why shipping a single `RenameField` migration with the code
+      change is dangerous, and describe a safe sequence of deploys.
+    hints:
+      - On PostgreSQL the rename itself is fast. The problem is which code is running at that moment.
+      - Split the change so that every intermediate state works with both the old and the new code.
+      - Think "expand, migrate data, contract".
+    explanation: |
+      `RenameField` becomes `ALTER TABLE ... RENAME COLUMN`, which is a quick
+      metadata change on PostgreSQL, but during a rolling deploy old code is
+      still running. The moment the column is renamed, every old instance
+      querying `phone` fails. The safe pattern is **expand/contract**: add the
+      new nullable column and write to both; backfill existing rows in
+      batches; switch reads to the new column; and only in a later deploy,
+      when no running code uses it, drop the old column. Every step is
+      compatible with the version deployed before and after it.
+    solution: |
+      `RenameField` runs `ALTER TABLE ... RENAME COLUMN`, which is quick on
+      PostgreSQL, but during a rolling deploy the old version of the code is
+      still running side by side with the new one. As soon as the column is
+      renamed, every query from the old servers that selects `phone` fails
+      with "column does not exist"; if the code ships first, the new code
+      fails instead.
+
+      Use expand/contract:
+
+      1. **Expand**: add a new nullable column `phone_number` and deploy code
+         that writes to both columns.
+      2. **Backfill**: copy the data from `phone` to `phone_number` in
+         batches with a data migration or management command.
+      3. **Switch reads** to `phone_number`, and add `NOT NULL` once every row
+         is filled.
+      4. **Contract**: in a later deploy, once no running code uses `phone`,
+         stop writing it and drop the old column.
+    content:
+      min_words: 50
+      max_words: 350
+      placeholder: Explain the risk, then the sequence of deploys…
+      criteria:
+        - id: old-code-breaks
+          label: Explains that old code still running during the deploy breaks when the column is renamed
+          weight: 2
+          required: true
+          any: ["old code", "old version", "old servers", "old instances", "old app", "previous version", "running instances", "still running", "both versions", "mid-deploy", "during the deploy", "during deployment", "during a rolling", "column does not exist", "no longer exists", "no longer exist"]
+          missing_feedback: Which code is still serving requests at the moment the column is renamed, and what happens to it?
+          misconception: {code: migrations-ignore-running-code, label: Ignores code that is still running during a deploy, category: conceptual}
+        - id: expand
+          label: Adds the new column first and writes to both
+          weight: 1
+          any: ["expand", "add a new", "add the new", "adds a new", "adding a new", "new nullable", "nullable column", "null=true", "dual write", "dual-write", "write to both", "writes to both", "writing to both", "both columns"]
+          missing_feedback: What is the first, backwards-compatible schema change?
+        - id: backfill
+          label: Backfills existing data, ideally in batches
+          weight: 1
+          any: ["backfill", "back-fill", "copy the data", "copy data", "copies the data", "copy existing", "migrate the data", "data migration", "batch", "chunk"]
+          missing_feedback: How do existing rows get a value in the new column?
+        - id: contract
+          label: Drops the old column only in a later deploy
+          weight: 1
+          any: ["contract", "drop the old", "remove the old", "drops the old", "dropping the old", "later deploy", "later release", "subsequent deploy", "subsequent release", "next deploy", "next release", "separate deploy", "separate release", "final deploy"]
+          missing_feedback: When is it safe to remove `phone`, and why not in the same deploy?
+
+  # ======================================================== dj-security
+  - slug: security-csrf-exempt-fetch-mcq
+    skill: dj-security
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: The fetch() call gets a 403. Is csrf_exempt the fix?
+    objective: Explain why CSRF protection is needed for cookie-authenticated views and how to send the token from JavaScript.
+    prompt: |
+      A view that changes the logged-in user's email is authenticated with
+      Django's session cookie. Front-end `fetch()` POSTs to it fail with
+      **403 Forbidden (CSRF verification failed)**, so a colleague adds
+      `@csrf_exempt` to the view. What is the right call?
+    hints:
+      - A forged request from another site carries the victim's cookies too. What does the attacker *not* have?
+      - The 403 means the protection works; the JavaScript just isn't sending something Django expects.
+    explanation: |
+      CSRF attacks abuse the fact that the browser attaches the victim's
+      session cookie to requests triggered by *other* sites, so being logged
+      in is exactly what makes the victim vulnerable. Django blocks this by
+      requiring a secret token that a cross-site page cannot read. The fix is
+      to send it, not to remove the check: read the token (from the
+      `csrftoken` cookie or a `{% csrf_token %}` input) and send it in the
+      `X-CSRFToken` header. `csrf_exempt` is only appropriate for endpoints
+      that are not authenticated by cookies, such as webhooks verified by a
+      signature.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: Remove csrf_exempt and send the CSRF token from JavaScript in the X-CSRFToken header.
+          correct: true
+          feedback: Correct. The 403 shows the protection is working; the client just has to send the token Django expects.
+        - id: b
+          text: Keep csrf_exempt; the view requires login, so attackers cannot call it.
+          feedback: CSRF exploits the victim's own logged-in session. The forged request arrives with the victim's cookies, so `login_required` passes.
+          misconception: {code: login-prevents-csrf, label: Thinks authentication protects against CSRF, category: security}
+        - id: c
+          text: Keep csrf_exempt; CORS and the same-origin policy stop other sites from sending requests to our API.
+          feedback: The same-origin policy and CORS stop other sites from *reading* responses; they do not stop a browser from *sending* a cross-site form POST.
+          misconception: {code: cors-blocks-csrf, label: Thinks CORS or the same-origin policy stops cross-site requests from being sent, category: security}
+        - id: d
+          text: Change the view to accept GET requests, which CSRF checks do not apply to.
+          feedback: State-changing actions must not use GET. A GET can be triggered by an image tag or a link, so this makes the attack even easier.
+          misconception: {code: get-for-state-change, label: Uses GET for state-changing actions to avoid CSRF checks, category: security}
+
+  - slug: security-raw-sql-report-review
+    skill: dj-security
+    secondary_skills: [sql-joins]
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review a staff-only sales report
+    objective: Find SQL injection, unsafe ORDER BY input and insecure production settings.
+    prompt: |
+      A teammate wrote a quick sales report for staff and adjusted the
+      production settings while deploying it. "It's staff-only, so security
+      isn't a concern." Review both excerpts.
+    hints:
+      - Follow each value from `request.GET` until it reaches the database.
+      - Query parameters can replace values, but can they replace a column name in `ORDER BY`?
+      - For each setting, ask what happens when the environment is misconfigured or a request arrives with an unexpected `Host` header.
+    explanation: |
+      Never build SQL with string formatting: pass values as parameters
+      (`cursor.execute(sql, [region])`) so the driver sends them separately
+      from the SQL text. Identifiers such as `ORDER BY` columns cannot be
+      parameterised, so map user choices onto a whitelist. "Staff-only" does
+      not excuse injection: staff accounts get phished, and a reflected link
+      can be sent to a staff member. In settings, fail safe: `DEBUG` must
+      default to `False`, and `ALLOWED_HOSTS` must list real domains so that
+      forged `Host` headers cannot poison password-reset links or caches.
+    solution: |
+      1. **SQL injection**: `region` from the query string is interpolated
+         into the SQL with an f-string, so `?region=' OR '1'='1` (or a
+         `UNION SELECT`) rewrites the query. Use placeholders and pass
+         parameters: `cursor.execute("... WHERE o.region = %s ...", [region])`,
+         or better, the ORM with `values("customer__name").annotate(revenue=Sum("total"))`.
+      2. **ORDER BY injection**: `sort` is also injected. Placeholders cannot
+         be used for identifiers, so map the choice through a whitelist such
+         as `{"total": "total", "name": "c.name"}` and reject anything else.
+      3. **DEBUG defaults to True**: if the environment variable is missing in
+         production, Django serves debug pages with stack traces, settings and
+         SQL. Use a fail-safe `default=False`.
+      4. **`ALLOWED_HOSTS = ["*"]`** disables Host header validation, enabling
+         host header poisoning of password-reset links and caches. List the
+         real domains.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, how it could be exploited and the fix…
+      code: |
+        # reports/views.py
+        @staff_member_required
+        def sales_report(request):
+            region = request.GET.get("region", "EU")
+            sort = request.GET.get("sort", "total")
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SELECT c.name, SUM(o.total) AS total "
+                    "FROM shop_order o JOIN shop_customer c ON c.id = o.customer_id "
+                    f"WHERE o.region = '{region}' "
+                    f"GROUP BY c.name ORDER BY {sort} DESC"
+                )
+                rows = cursor.fetchall()
+            return render(request, "reports/sales.html", {"rows": rows})
+
+
+        # settings/production.py (excerpt)
+        DEBUG = env.bool("DEBUG", default=True)
+        ALLOWED_HOSTS = ["*"]
+      criteria:
+        - id: sql-injection
+          label: Spots SQL injection through region and fixes it with query parameters
+          weight: 2
+          required: true
+          any: ["sql injection", "inject", "parameteri", "parametri", "placeholder", "%s", "params", "bind variable", "bound parameter", "query parameter", "re:cursor\\.execute\\([^)]*,\\s*\\[", "f-string", "string formatting", "string interpolation", "interpolat", "concatenat"]
+          missing_feedback: What can an attacker put in `?region=` given how it reaches the SQL?
+          misconception: {code: raw-sql-is-escaped, label: Thinks values interpolated into raw SQL are escaped automatically, category: security}
+        - id: order-by-whitelist
+          label: Validates the sort column against a whitelist because identifiers cannot be parameterised
+          weight: 1
+          any: ["whitelist", "allowlist", "allow-list", "allow list", "allowed columns", "allowed values", "allowed fields", "known columns", "fixed set", "mapping", "dict of", "dictionary", "identifier", "column name", "re:\\bsort\\b[^.]{0,80}(inject|validat|whitelist|allow|untrusted|user controlled|attacker)", "re:order by[^.]{0,80}(inject|validat|whitelist|allow|untrusted|placeholder|parameter)"]
+          missing_feedback: The `sort` value lands in `ORDER BY`. Can a placeholder protect it, and if not, what can?
+          misconception: {code: raw-sql-is-escaped, label: Thinks values interpolated into raw SQL are escaped automatically, category: security}
+        - id: debug-default
+          label: Flags DEBUG defaulting to True in production
+          weight: 1
+          any: ["stack trace", "traceback", "debug page", "default=false", "default false", "default to false", "defaults to false", "fail safe", "fail-safe", "fail open", "fail closed", "secure default", "re:\\bdebug\\b[^.\"'(]{0,80}\\b(default|true|leak|expos|production|prod|on)", "re:\\b(default|true)\\b[^.\"']{0,40}\\bfor debug"]
+          missing_feedback: What happens in production if the `DEBUG` environment variable is not set?
+          misconception: {code: insecure-defaults, label: Chooses defaults that fail open in production, category: security}
+        - id: allowed-hosts
+          label: Flags the wildcard ALLOWED_HOSTS and Host header attacks
+          weight: 1
+          any: ["host header", "host poisoning", "wildcard", "any host", "every host", "all hosts", "re:allowed.hosts[^.\"'\\[]{0,60}\\b(any|every|all|disable|accept|should|must|list|real|domain|validat)"]
+          missing_feedback: What does `ALLOWED_HOSTS = ["*"]` stop Django from checking?
+          misconception: {code: insecure-defaults, label: Chooses defaults that fail open in production, category: security}
+
+  - slug: security-mark-safe-xss-debug
+    skill: dj-security
+    kind: debugging
+    difficulty: 3
+    minutes: 6
+    tags: [scenario]
+    title: A display name pops up alerts on the forum
+    objective: Diagnose an XSS hole caused by mark_safe() and fix it with format_html().
+    prompt: |
+      A user changed their display name to
+      `<img src=x onerror=alert(document.cookie)>`, and now every visitor to
+      the forum sees a popup. Badges are rendered with this template tag
+      (`{% user_badge post.author %}`). The developer added `mark_safe()`
+      because the `<span>` was showing up as literal text. Pick the defective
+      line and explain the fix.
+    hints:
+      - Django escapes `simple_tag` output automatically unless it is marked safe.
+      - What exactly is being marked safe on line 10, and where does part of it come from?
+      - Django has a helper that builds HTML from a template string and escapes each argument.
+    explanation: |
+      `mark_safe()` does not sanitise anything: it tells Django that the
+      **whole string** is trusted HTML and must not be escaped. Interpolating
+      `user.display_name` into it first means attacker-controlled markup is
+      rendered as-is: stored XSS. `format_html()` is the right tool: it treats
+      the template string as safe and escapes every argument
+      (`format_html('<span class="{}">{}</span>', css_class, user.display_name)`).
+    solution: |
+      Line 10 interpolates `user.display_name` into an f-string and then
+      marks the whole result safe, so Django skips escaping and the
+      attacker's HTML runs in every visitor's browser (stored XSS). Use
+      `format_html()`, which escapes each argument:
+
+      ```python
+      return format_html('<span class="{}">{}</span>', css_class, user.display_name)
+      ```
+    content:
+      language: python
+      code: |
+        from django import template
+        from django.utils.safestring import mark_safe
+
+        register = template.Library()
+
+
+        @register.simple_tag
+        def user_badge(user):
+            css_class = "badge badge-staff" if user.is_staff else "badge"
+            return mark_safe(f'<span class="{css_class}">{user.display_name}</span>')
+      bug_lines: [10]
+      line_weight: 0.4
+      min_words: 10
+      max_words: 200
+      criteria:
+        - id: unescaped-user-input
+          label: Explains that mark_safe disables escaping for the user-controlled display name
+          weight: 2
+          required: true
+          any: ["marks the whole", "marked safe", "marks it safe", "marks the string", "marks the result", "trusted html", "bypass", "disables escaping", "disables auto", "turns off escaping", "turns off auto", "skips escaping", "skip escaping", "no escaping", "not escaped", "isn't escaped", "unescaped", "without escaping", "never escaped", "trust"]
+          missing_feedback: What does `mark_safe()` tell Django about the string, and which part of it is controlled by users?
+          misconception: {code: mark-safe-escapes, label: Thinks mark_safe sanitises or escapes its content, category: security}
+        - id: format-html
+          label: Fixes it with format_html() or by escaping the argument
+          weight: 1
+          any: ["format_html", "conditional_escape", "escape(", "escape the", "escapes the", "escaping the", "escape user", "escape display_name", "escape each", "escapes each", "html escape"]
+          missing_feedback: Show how to build the HTML so that the display name is escaped.
+        - id: xss
+          label: Names the vulnerability as cross-site scripting
+          weight: 1
+          any: ["xss", "cross site scripting", "cross-site scripting", "script injection", "html injection", "inject", "javascript", "arbitrary html", "arbitrary script", "runs in", "executes in", "steal"]
+          missing_feedback: Name the class of vulnerability and its impact.
+
+  # =========================================================== sql-joins
+  - slug: sql-left-join-count-star-mcq
+    skill: sql-joins
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    tags: [interview]
+    title: What does COUNT(*) report for a customer with no orders?
+    objective: Predict how COUNT(*) behaves over the NULL-padded rows of a LEFT JOIN.
+    prompt: |
+      ```sql
+      SELECT c.name, COUNT(*) AS order_count
+      FROM customers AS c
+      LEFT JOIN orders AS o ON o.customer_id = c.id
+      GROUP BY c.id, c.name;
+      ```
+
+      The customer Ada has never placed an order. What does the query report
+      for Ada?
+    hints:
+      - First work out which rows the `LEFT JOIN` produces for Ada, before any grouping.
+      - "`COUNT(*)` and `COUNT(o.id)` count different things."
+    explanation: |
+      A `LEFT JOIN` keeps every customer: Ada gets **one** row whose `orders`
+      columns are all `NULL`. `COUNT(*)` counts rows, so it reports **1**.
+      `COUNT(o.id)` counts non-NULL values and would correctly report 0. When
+      counting the right-hand side of an outer join, count one of its
+      non-nullable columns, typically its primary key.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "1"
+          correct: true
+          feedback: Correct. The LEFT JOIN produces one NULL-padded row for Ada and `COUNT(*)` counts rows. Use `COUNT(o.id)` to get 0.
+        - id: b
+          text: "0"
+          feedback: That is what `COUNT(o.id)` returns. `COUNT(*)` counts rows, including the NULL-padded row the LEFT JOIN created for Ada.
+          misconception: {code: count-star-ignores-nulls, label: Thinks COUNT(*) skips NULL-padded rows, category: edge_case}
+        - id: c
+          text: "NULL"
+          feedback: "`COUNT` never returns NULL; it returns 0 when there is nothing to count. `SUM` and `AVG` are the aggregates that return NULL for no values."
+          misconception: {code: count-returns-null, label: Thinks COUNT returns NULL for groups without values, category: edge_case}
+        - id: d
+          text: Ada does not appear in the result.
+          feedback: That would be an `INNER JOIN`. A `LEFT JOIN` keeps every row of the left table, matched or not.
+          misconception: {code: left-join-drops-unmatched, label: Thinks a LEFT JOIN drops unmatched left rows, category: conceptual}
+
+  - slug: sql-left-join-where-filter-debug
+    skill: sql-joins
+    kind: debugging
+    difficulty: 2
+    minutes: 5
+    title: Customers without 2026 orders vanish from the report
+    objective: Diagnose a WHERE condition that silently turns a LEFT JOIN into an inner join.
+    prompt: |
+      The report should list **every** customer with the number of orders
+      they placed in 2026, showing 0 for customers without any. Customers with
+      no 2026 orders are missing from the output entirely. Pick the line that
+      causes this and explain the fix.
+    hints:
+      - Which rows does the LEFT JOIN produce for a customer with no 2026 orders?
+      - "What is the value of `o.created_at` in those rows, and what does the comparison evaluate to?"
+    explanation: |
+      For a customer without matching orders the `LEFT JOIN` produces a row
+      whose `o.*` columns are `NULL`. `WHERE o.created_at >= '2026-01-01'`
+      evaluates to NULL (unknown) for that row, so it is filtered out, which
+      makes the outer join behave like an inner join. Conditions on the
+      right-hand table belong in the `ON` clause, so they restrict which
+      orders match without removing customers:
+
+      ```sql
+      LEFT JOIN orders AS o
+        ON o.customer_id = c.id
+       AND o.created_at >= '2026-01-01'
+       AND o.created_at <  '2027-01-01'
+      ```
+    solution: |
+      The `WHERE` clause on lines 6–7 filters on the right-hand table. For
+      customers without 2026 orders `o.created_at` is NULL, the comparison is
+      not true, and those rows are discarded, effectively an inner join. Move
+      the date conditions into the `ON` clause (the join condition) so that
+      unmatched customers keep their NULL-padded row and `COUNT(o.id)`
+      reports 0.
+    content:
+      language: sql
+      code: |
+        -- Every customer with the number of orders placed in 2026 (0 if none)
+        SELECT c.id, c.name, COUNT(o.id) AS orders_2026
+        FROM customers AS c
+        LEFT JOIN orders AS o
+          ON o.customer_id = c.id
+        WHERE o.created_at >= '2026-01-01'
+          AND o.created_at < '2027-01-01'
+        GROUP BY c.id, c.name
+        ORDER BY orders_2026 DESC;
+      bug_lines: [6, 7]
+      line_weight: 0.4
+      min_words: 10
+      max_words: 200
+      criteria:
+        - id: move-to-on
+          label: Moves the date conditions into the ON clause
+          weight: 2
+          required: true
+          any: ["on clause", "join condition", "into the on", "in the on", "to the on", "move the condition", "move the date", "move the filter", "moving the condition", "moving the date", "moving the filter", "in the join", "into the join", "to the join", "part of the join", "join clause", "join predicate", "re:\\bon\\b[^.]{0,30}(clause|condition)"]
+          missing_feedback: Where should conditions on the right-hand table of a LEFT JOIN go?
+          misconception: {code: where-on-outer-join, label: Filters the right-hand table of a LEFT JOIN in WHERE, category: logic}
+        - id: nulls-filtered
+          label: Explains that the NULL-padded rows fail the WHERE condition, effectively an inner join
+          weight: 1
+          any: ["null", "inner join", "effectively an inner", "turns it into", "turns the left join", "discard", "filters out", "filtered out", "removes the unmatched", "removes unmatched", "unmatched rows", "unmatched customers"]
+          missing_feedback: Explain what happens to customers without 2026 orders when the WHERE clause is evaluated.
+          misconception: {code: where-on-outer-join, label: Filters the right-hand table of a LEFT JOIN in WHERE, category: logic}
+
+  - slug: sql-join-fan-out-explain
+    skill: sql-joins
+    secondary_skills: [dj-query-optimization]
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 10
+    tags: [interview]
+    title: Why are the totals multiplied?
+    objective: Explain join fan-out when aggregating over two one-to-many relations, and how to fix it.
+    prompt: |
+      A customer has 3 payments of 100 each and 2 support tickets. This query
+      reports `paid = 600` and `tickets = 6` for them:
+
+      ```sql
+      SELECT c.id, SUM(p.amount) AS paid, COUNT(t.id) AS tickets
+      FROM customers AS c
+      LEFT JOIN payments AS p ON p.customer_id = c.id
+      LEFT JOIN support_tickets AS t ON t.customer_id = c.id
+      GROUP BY c.id;
+      ```
+
+      Explain why, how to fix the query, and whether `DISTINCT` is a valid
+      fix. Does the Django ORM have the same problem?
+    hints:
+      - Write out the rows for this customer after the first join, then after the second.
+      - Each child table needs to be reduced to one row per customer before it meets the other.
+      - Would `SUM(DISTINCT p.amount)` give 300 for three payments of 100?
+    explanation: |
+      Joining two independent one-to-many tables pairs every payment with
+      every ticket: 3 × 2 = 6 rows per customer (**fan-out**). Each payment is
+      repeated twice and each ticket three times, so the sum and the count are
+      inflated. Aggregate each child table separately (subqueries, CTEs or
+      `LATERAL`) and join the one-row-per-customer results.
+      `COUNT(DISTINCT t.id)` happens to fix the count, but `SUM(DISTINCT
+      p.amount)` is wrong: it collapses equal amounts, giving 100. Django's
+      `annotate(Sum("payments__amount"), Count("tickets"))` generates the same
+      joins and the same wrong numbers; use `Subquery` annotations instead.
+    solution: |
+      Each join multiplies rows. Joining payments gives 3 rows for the
+      customer; joining tickets then pairs each of those with both tickets, so
+      the group has 3 × 2 = 6 rows, a fan-out (effectively a cross product per
+      customer). Each payment is repeated twice, so `SUM` gives 600, and each
+      ticket three times, so `COUNT` gives 6.
+
+      Fix it by aggregating each child table separately before joining:
+      compute payments per customer and tickets per customer in subqueries or
+      CTEs, then `LEFT JOIN` those one-row-per-customer results (or use
+      correlated subqueries or `LATERAL`).
+
+      `COUNT(DISTINCT t.id)` would repair the ticket count, but
+      `SUM(DISTINCT p.amount)` is not a fix: it collapses the three equal
+      amounts of 100 into a single 100.
+
+      The Django ORM has the same trap: `annotate(paid=Sum("payments__amount"),
+      tickets=Count("tickets"))` joins both relations and returns the same
+      inflated numbers, so use `Subquery` annotations instead.
+    content:
+      language: sql
+      min_words: 50
+      max_words: 350
+      placeholder: Walk through the rows produced by each join…
+      criteria:
+        - id: row-multiplication
+          label: Explains that the two joins multiply rows (3 × 2 = 6)
+          weight: 2
+          required: true
+          any: ["cartesian", "cross product", "cross join", "every combination", "each combination", "all combinations", "multipl", "3 x 2", "3 × 2", "3*2", "3 * 2", "six rows", "6 rows", "fan out", "fanout", "duplicat", "repeated", "counted twice", "counted multiple"]
+          missing_feedback: Write out how many rows this customer has after both joins, and why.
+          misconception: {code: join-fan-out, label: Does not see that joining several one-to-many tables multiplies rows, category: logic}
+        - id: aggregate-separately
+          label: Aggregates each child table separately before joining
+          weight: 1
+          any: ["subquer", "sub-quer", "cte", "with clause", "derived table", "pre-aggregat", "preaggregat", "aggregate each", "aggregate separately", "aggregate them separately", "aggregating each", "aggregating separately", "separately", "before joining", "before the join", "lateral"]
+          missing_feedback: How can each child table be reduced to one row per customer before the tables are combined?
+        - id: distinct-pitfall
+          label: Explains that SUM(DISTINCT) is not a valid fix
+          weight: 1
+          any: ["sum(distinct", "re:distinct[^.]{0,80}(equal|same|identical|duplicate) (amount|value|payment)", "re:(equal|same|identical) (amount|value|payment)s?[^.]{0,80}distinct", "re:distinct[^.]{0,60}(wrong|incorrect|not (a |the )?(valid )?fix|doesn't work|does not work|breaks|collapse)"]
+          missing_feedback: Would `SUM(DISTINCT p.amount)` return 300 here?
+          misconception: {code: distinct-fixes-fan-out, label: Thinks DISTINCT reliably fixes inflated aggregates, category: logic}
+        - id: orm-same-problem
+          label: Notes that Django annotations across two multi-valued relations have the same problem
+          weight: 1
+          any: ["annotate", "re:subquery\\(", "re:(django|orm)[^.]{0,80}(same|also|too|as well|identical|inflat|wrong|double|multipl|join)", "re:(same|also|too|as well|identical)[^.]{0,80}(django|orm)"]
+          missing_feedback: What SQL does `annotate(Sum("payments__amount"), Count("tickets"))` generate?
+
+  # ========================================================= sql-indexes
+  - slug: indexes-composite-order-mcq
+    skill: sql-indexes
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    tags: [interview]
+    title: Which query does this composite index serve?
+    objective: Predict which queries a composite B-tree index can serve efficiently.
+    prompt: |
+      ```sql
+      CREATE INDEX orders_customer_created_idx ON orders (customer_id, created_at);
+      ```
+
+      `orders` has 50 million rows spread over 2 million customers. Which
+      query can use this index **efficiently**, reading only a small part of
+      it?
+    hints:
+      - A composite B-tree is sorted by the first column, then by the second within each value of the first.
+      - Think of a phone book sorted by surname, then first name. Which lookups are fast?
+    explanation: |
+      A B-tree on `(customer_id, created_at)` is sorted by customer first and,
+      within each customer, by date. `WHERE customer_id = 42 ORDER BY
+      created_at DESC LIMIT 20` jumps straight to customer 42, reads that
+      customer's entries already in date order (backwards) and stops after 20:
+      no sort, no scan. A condition on `created_at` alone matches entries
+      scattered across 2 million customer groups (PostgreSQL 18's skip scan
+      only pays off when the leading column has few distinct values), and a
+      condition matching almost every row is cheaper as a sequential scan, so
+      the planner will not use the index for it.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "WHERE customer_id = 42 ORDER BY created_at DESC LIMIT 20"
+          correct: true
+          feedback: Correct. Equality on the leading column plus ordering by the second column lets PostgreSQL read 20 index entries in order and stop.
+        - id: b
+          text: "WHERE created_at >= '2026-01-01'"
+          feedback: The index is ordered by `customer_id` first, so matching dates are scattered across every customer's section of the index. Filtering on `created_at` alone needs its own index (or `created_at` first).
+          misconception: {code: composite-any-column, label: Thinks a composite index helps queries on any of its columns, category: performance}
+        - id: c
+          text: "WHERE customer_id > 0 (matches 99% of rows)"
+          feedback: The planner estimates that almost every row matches, so reading the table sequentially is cheaper than millions of index lookups. An index is only chosen when it is expected to be cheaper.
+          misconception: {code: index-always-used, label: Thinks the planner always uses an available index, category: performance}
+        - id: d
+          text: None of them; a composite index is only used when every indexed column is in the WHERE clause.
+          feedback: Queries that constrain a leading prefix of the columns (here `customer_id`) can use the index, and the remaining columns can still provide ordering.
+          misconception: {code: composite-needs-all-columns, label: Thinks a composite index is only used when all its columns are filtered, category: conceptual}
+
+  - slug: indexes-events-model-review
+    skill: sql-indexes
+    secondary_skills: [dj-migrations]
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review the indexes on a 400-million-row table
+    objective: Match index definitions to real queries, spot unusable and unused indexes, and build indexes safely.
+    prompt: |
+      `Event` has 400 million rows and receives thousands of inserts per
+      second; `Customer` has 30 million rows. The two functions below are the
+      **only** queries that touch these tables, and both are slow. A teammate
+      opened a PR that adds the `indexes` shown. Review the models, the
+      queries and how the PR should be rolled out (PostgreSQL).
+    hints:
+      - For each query, write down which columns use equality, which use a range and which are sorted.
+      - Look at the SQL Django generates for `__iexact` on PostgreSQL. Can a plain B-tree on `email` serve it?
+      - Ask what each index costs on every insert, and what a plain `CREATE INDEX` locks.
+    explanation: |
+      Design indexes from the queries: equality columns first, then the range
+      or sort column, so `(account, created_at)` serves "this account's events
+      from the last week, newest first". Lookups that wrap a column in a
+      function, as `__iexact` does with `UPPER()`, need a matching expression
+      index or normalised data. Every index slows every write, so drop indexes
+      no query uses. On large tables build indexes with
+      `CREATE INDEX CONCURRENTLY` (`AddIndexConcurrently` in a non-atomic
+      migration) so writes are not blocked during the build.
+    solution: |
+      1. **Wrong column order.** The query filters `account` by equality,
+         `created_at` by range and sorts by `created_at`, so the index should be
+         `(account, created_at)`: equality column first, then the range/sort
+         column. With `created_at` first, PostgreSQL has to walk a week of
+         *every* account's events.
+      2. **`email__iexact` cannot use the unique index.** On PostgreSQL it
+         compiles to `UPPER("email"::text) = UPPER(...)`, so the B-tree on
+         `email` is not used and every lookup scans the table. Add an
+         expression index `Index(Upper("email"), name="customer_email_upper_idx")`,
+         or store emails normalised to lowercase and use an exact lookup.
+      3. **Unused index on `kind`.** No query filters on it, and with a handful
+         of distinct values it is low selectivity anyway; it only slows down
+         every insert on a write-heavy table. Drop it.
+      4. **Rollout.** A plain `CREATE INDEX` on 400 million rows blocks writes
+         for the whole build. Use `AddIndexConcurrently`
+         (`CREATE INDEX CONCURRENTLY`) in a migration with `atomic = False`.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, why it matters and the fix…
+      code: |
+        class Event(models.Model):
+            account = models.ForeignKey(Account, on_delete=models.CASCADE)
+            kind = models.CharField(max_length=40)  # 6 distinct values
+            created_at = models.DateTimeField(auto_now_add=True)
+            payload = models.JSONField()
+
+            class Meta:
+                indexes = [
+                    models.Index(fields=["created_at", "account"]),
+                    models.Index(fields=["kind"]),
+                ]
+
+
+        class Customer(models.Model):
+            email = models.EmailField(unique=True)
+
+
+        def recent_events(account):
+            week_ago = timezone.now() - timedelta(days=7)
+            return Event.objects.filter(
+                account=account, created_at__gte=week_ago
+            ).order_by("-created_at")[:50]
+
+
+        def find_customer(email):
+            return Customer.objects.filter(email__iexact=email).first()
+      criteria:
+        - id: column-order
+          label: Puts the equality column first, indexing (account, created_at)
+          weight: 2
+          required: true
+          any: ["re:[\"'\\[(]\\s*account(_id)?[\"']?\\s*,\\s*[\"']?created_at\\b(?!__)", "account and created_at", "account then created_at", "account before created_at", "account followed by created_at", "account first", "account_id first", "equality column first", "equality first", "re:equality[^.]{0,40}\\bfirst\\b", "re:\\bfirst\\b[^.]{0,30}equality", "leading column", "first column", "column order", "order of the columns", "wrong order", "reverse the order", "reversed", "swap", "leftmost", "left-most"]
+          missing_feedback: Compare the column order of the composite index with how `recent_events` filters and sorts.
+          misconception: {code: composite-any-column, label: Thinks a composite index helps queries on any of its columns, category: performance}
+        - id: iexact-expression
+          label: Explains that __iexact (UPPER) cannot use the plain index and adds an expression index or normalises emails
+          weight: 1
+          any: ["upper(", "lower(", "expression index", "functional index", "function-based", "index on an expression", "index on upper", "index on lower", "iexact", "case-insensitive collation", "citext", "db_collation", "normalis", "normaliz", "lowercase"]
+          missing_feedback: What SQL does `email__iexact` produce on PostgreSQL, and can the unique index on `email` serve it?
+        - id: unused-index
+          label: Removes the unused, low-selectivity index on kind
+          weight: 1
+          any: ["index on kind", "re:\\bkind\\b[^.]{0,80}\\b(unused|never|not used|isn't used|no query|drop|remove|useless|unnecessary|low)", "re:\\b(drop|remove|delete|unused|unnecessary|useless)\\w*[^.]{0,60}\\bkind\\b", "unused", "low cardinality", "few distinct", "selectiv", "write overhead", "slows writes", "slows down writes", "slows down every", "slower inserts", "slower writes", "write amplification", "every insert"]
+          missing_feedback: Which index does no query need, and what does it cost on a write-heavy table?
+          misconception: {code: more-indexes-always-faster, label: Thinks adding indexes has no cost, category: performance}
+        - id: concurrently
+          label: Builds the indexes concurrently so writes are not blocked
+          weight: 1
+          any: ["concurrently", "addindexconcurrently", "lock", "block", "atomic = false", "atomic=false", "non-atomic"]
+          missing_feedback: What happens to the thousands of inserts per second while a plain `CREATE INDEX` builds?
+
+  - slug: indexes-explain-seq-scan-explain
+    skill: sql-indexes
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 10
+    title: Read this query plan and fix the query
+    objective: Read an EXPLAIN ANALYZE plan, identify the bottleneck and design an index that removes it.
+    prompt: |
+      ```sql
+      EXPLAIN ANALYZE
+      SELECT * FROM orders WHERE status = 'pending' ORDER BY created_at LIMIT 20;
+      ```
+
+      ```text
+      Limit  (cost=180234.12..180234.17 rows=20 width=96) (actual time=912.40..912.41 rows=20 loops=1)
+        ->  Sort  (cost=180234.12..180250.62 rows=6600 width=96) (actual time=912.39..912.40 rows=20 loops=1)
+              Sort Key: created_at
+              Sort Method: top-N heapsort  Memory: 30kB
+              ->  Seq Scan on orders  (cost=0.00..180058.50 rows=6600 width=96) (actual time=0.02..911.80 rows=6512 loops=1)
+                    Filter: ((status)::text = 'pending'::text)
+                    Rows Removed by Filter: 8993488
+      Planning Time: 0.15 ms
+      Execution Time: 912.47 ms
+      ```
+
+      Explain what this plan tells you, whether the planner's estimates are
+      the problem, and which index you would add and why it helps.
+    hints:
+      - Read the plan from the innermost node outwards. Where is almost all of the time spent?
+      - Compare the estimated `rows=` with the actual `rows=` on the scan node.
+      - An index can do more than filter. Can it also hand rows back in `created_at` order?
+    explanation: |
+      Almost all 912 ms are spent in a **sequential scan** that reads about 9
+      million rows and discards all but 6,512, which are then sorted to return
+      20. The estimate (6,600 rows) matches reality (6,512), so statistics are
+      fine; the problem is a missing index. An index on
+      `(status, created_at)` lets PostgreSQL jump to the pending entries, read
+      them already ordered by `created_at` and stop after 20 rows, removing
+      both the scan and the sort. Since pending orders are a tiny fraction, a
+      **partial index** `ON orders (created_at) WHERE status = 'pending'` is
+      even smaller. Build it with `CREATE INDEX CONCURRENTLY`.
+    solution: |
+      The plan does a Seq Scan on `orders`: it reads all of the roughly 9
+      million rows, and the filter throws away 8,993,488 of them
+      (Rows Removed by Filter) to find 6,512 pending orders, which are then
+      sorted by `created_at` only to return 20. Nearly all of the 912 ms is in
+      that scan.
+
+      The row estimate (6600) is close to the actual 6512, so the statistics
+      are accurate; this is a missing index, not a misestimate.
+
+      Add a composite index on `(status, created_at)`: the equality column
+      first, then the sort column. PostgreSQL can then jump to the pending
+      entries, read them already in `created_at` order, skip the sort and stop
+      after 20 rows, so the query takes milliseconds. Because pending orders
+      are a tiny fraction, a partial index on `(created_at) WHERE status =
+      'pending'` is even smaller. Build it with `CREATE INDEX CONCURRENTLY` to
+      avoid blocking writes.
+    content:
+      language: sql
+      min_words: 50
+      max_words: 350
+      placeholder: Walk through the plan node by node…
+      criteria:
+        - id: seq-scan
+          label: Identifies the sequential scan that discards almost every row as the bottleneck
+          weight: 2
+          required: true
+          any: ["seq scan", "sequential scan", "full table scan", "full scan", "table scan", "scans the whole", "scans the entire", "reads every row", "reads the whole", "reads all", "every row", "all rows", "9 million", "nine million", "almost every row", "discards", "throws away", "re:(filter|it)[^.]{0,20}(throws|throw|discards|discard) away"]
+          missing_feedback: Which node takes almost all of the 912 ms, and how many rows does it read to return 6,512?
+        - id: index-design
+          label: Proposes an index covering the filter and the sort, (status, created_at) or a partial index
+          weight: 1
+          any: ["(status, created_at)", "status, created_at", "status and created_at", "composite", "multi-column", "multicolumn", "two-column", "partial index", "re:index[^.]{0,80}where status", "re:\\(\\s*created_at\\s*\\)\\s*where"]
+          missing_feedback: Which index serves both `WHERE status = 'pending'` and `ORDER BY created_at`?
+          misconception: {code: index-filter-only, label: Designs indexes for filtering only and ignores sorting, category: performance}
+        - id: avoids-sort
+          label: Explains that the index returns rows in order, so the sort disappears and the scan stops after 20 rows
+          weight: 1
+          any: ["no sort", "without a sort", "without sorting", "avoid the sort", "avoids the sort", "skip the sort", "skips the sort", "remove the sort", "removes the sort", "already sorted", "already ordered", "already in", "in order", "sorted order", "index order", "stop after", "stops after", "first 20", "20 rows", "early"]
+          missing_feedback: Besides filtering, what does a B-tree on `created_at` give the `ORDER BY ... LIMIT 20`?
+        - id: estimates
+          label: Notes that the row estimates are accurate, so statistics are not the problem
+          weight: 1
+          any: ["estimate", "statistic", "misestimat", "accurate", "re:6,?600[^.]{0,40}6,?512", "re:6,?512[^.]{0,40}6,?600"]
+          missing_feedback: Compare `rows=6600` with `actual ... rows=6512`. What does that tell you?
+
+  # ===================================================== http-api-design
+  - slug: http-safe-retry-idempotent-mcq
+    skill: http-api-design
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    tags: [interview]
+    title: Which request can a client retry blindly?
+    objective: Identify which HTTP requests are idempotent and therefore safe to retry after a timeout.
+    prompt: |
+      A mobile client's request times out: it does not know whether the
+      server processed it. According to HTTP semantics, which request can it
+      safely retry without any extra mechanism?
+    hints:
+      - Idempotent means that sending the same request twice has the same effect on the server as sending it once.
+      - Compare "set this to X" with "add X" or "create another one".
+    explanation: |
+      `PUT` replaces the target resource with the representation sent, so
+      repeating it leaves the same final state: it is **idempotent**, as are
+      `GET`, `HEAD`, `OPTIONS` and `DELETE`. `POST` is not: each call may create
+      another resource. `PATCH` is not guaranteed to be idempotent, and an
+      "increment" patch clearly is not. Non-idempotent operations need an
+      idempotency key so the server can recognise and deduplicate retries.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: PUT /users/7/avatar with the complete new avatar image
+          correct: true
+          feedback: Correct. PUT replaces the resource, so applying it twice leaves the same state as applying it once.
+        - id: b
+          text: POST /orders with the basket contents
+          feedback: POST is not idempotent. If the first attempt succeeded, a retry creates a second order unless the API supports idempotency keys.
+          misconception: {code: post-is-idempotent, label: Thinks POST requests can be retried safely, category: conceptual}
+        - id: c
+          text: "PATCH /accounts/7 with {\"op\": \"increment\", \"credits\": 10}"
+          feedback: PATCH is not guaranteed to be idempotent, and an increment certainly is not. A retry would add another 10 credits.
+          misconception: {code: patch-is-idempotent, label: Assumes PATCH is always idempotent, category: conceptual}
+        - id: d
+          text: None of them; a retry is never safe because the first attempt may already have succeeded.
+          feedback: That is exactly the situation idempotency covers. If repeating a request has the same effect as sending it once, the client can retry without knowing what happened.
+          misconception: {code: retry-never-safe, label: Does not know that idempotent requests can be retried safely, category: conceptual}
+
+  - slug: http-cursor-pagination-code
+    skill: http-api-design
+    kind: python_code
+    difficulty: 3
+    minutes: 25
+    tags: [interview]
+    title: Implement keyset (cursor) pagination
+    objective: Implement opaque cursor encoding and keyset pagination that stays stable when new items arrive.
+    prompt: |
+      Your activity feed API uses offset pagination, and users see duplicates
+      when new items are posted while they scroll. Replace it with **keyset
+      pagination** behind an opaque cursor.
+
+      Implement three functions (standard library only):
+
+      * `encode_cursor(created_at, item_id)` returns an opaque, URL-safe
+        string (letters, digits, `-`, `_`, optionally `=`).
+      * `decode_cursor(cursor)` is its inverse and returns
+        `(created_at, item_id)` as a tuple of ints. It raises `ValueError` for
+        anything that is not a valid cursor.
+      * `paginate(items, limit, cursor=None)` returns `(page, next_cursor)`.
+
+      `items` is a list of dicts with integer `"id"` and `"created_at"`,
+      already sorted **newest first**: by `created_at` descending, then `id`
+      descending (several items can share a `created_at`). A page contains up
+      to `limit` items that come strictly *after* the cursor position in that
+      order. `next_cursor` identifies the last item on the page, and is `None`
+      when there are no further items.
+
+      ```python
+      page, cursor = paginate(items, 20)
+      page, cursor = paginate(items, 20, cursor)   # next page
+      ```
+    hints:
+      - "The cursor must identify a *position*, not an offset: encode the sort key of the last item returned."
+      - Because `created_at` values can repeat, compare the pair `(created_at, id)`. Python compares tuples lexicographically, just like SQL row comparison `(created_at, id) < (%s, %s)`.
+      - To know whether another page exists without an extra query, fetch `limit + 1` items and only return `limit`.
+    explanation: |
+      Offset pagination (`LIMIT 20 OFFSET 40`) counts rows, so inserts and
+      deletes shift every later page, causing duplicates and gaps, and large
+      offsets get slower. Keyset pagination remembers the sort key of the last
+      item and asks for rows strictly after it:
+      `WHERE (created_at, id) < (%s, %s) ORDER BY created_at DESC, id DESC LIMIT 21`.
+      Including the unique `id` breaks ties, so items sharing a timestamp are
+      never skipped, and with an index on `(created_at, id)` every page costs
+      the same. Encoding the key as an opaque base64 token keeps clients from
+      depending on its structure, and validating it on decode turns tampered
+      cursors into a clean 400 response instead of a 500.
+    solution: |
+      Encode the sort key `(created_at, id)` of the last item as JSON and
+      base64url, without padding. On decode, reverse it and validate the
+      shape, converting every failure into `ValueError`. To paginate, keep
+      the items whose `(created_at, id)` tuple is strictly smaller than the
+      cursor (the list is sorted descending), take `limit + 1`, and only emit
+      a cursor if that extra item exists.
+
+      ```python
+      def paginate(items, limit, cursor=None):
+          remaining = items
+          if cursor is not None:
+              after = decode_cursor(cursor)
+              remaining = [it for it in items if (it["created_at"], it["id"]) < after]
+          page = remaining[: limit + 1]
+          if len(page) > limit:
+              last = page[limit - 1]
+              return page[:limit], encode_cursor(last["created_at"], last["id"])
+          return page, None
+      ```
+    content:
+      starter_code: |
+        import base64
+        import json
+
+
+        def encode_cursor(created_at, item_id):
+            """Return an opaque, URL-safe string for the position (created_at, item_id)."""
+            raise NotImplementedError
+
+
+        def decode_cursor(cursor):
+            """Return (created_at, item_id). Raise ValueError for invalid cursors."""
+            raise NotImplementedError
+
+
+        def paginate(items, limit, cursor=None):
+            """Return (page, next_cursor) for items sorted by (created_at, id) descending."""
+            raise NotImplementedError
+      reference_solution: |
+        import base64
+        import binascii
+        import json
+
+
+        def encode_cursor(created_at, item_id):
+            raw = json.dumps([created_at, item_id], separators=(",", ":")).encode("utf-8")
+            return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+        def decode_cursor(cursor):
+            if not isinstance(cursor, str) or not cursor:
+                raise ValueError("invalid cursor")
+            padded = cursor + "=" * (-len(cursor) % 4)
+            try:
+                raw = base64.urlsafe_b64decode(padded.encode("ascii"))
+                value = json.loads(raw)
+            except (binascii.Error, ValueError) as exc:
+                raise ValueError("invalid cursor") from exc
+            if (
+                not isinstance(value, list)
+                or len(value) != 2
+                or not all(isinstance(v, int) and not isinstance(v, bool) for v in value)
+            ):
+                raise ValueError("invalid cursor")
+            return value[0], value[1]
+
+
+        def paginate(items, limit, cursor=None):
+            if limit < 1:
+                raise ValueError("limit must be positive")
+            remaining = items
+            if cursor is not None:
+                after = decode_cursor(cursor)
+                remaining = [it for it in items if (it["created_at"], it["id"]) < after]
+            page = remaining[: limit + 1]
+            if len(page) > limit:
+                last = page[limit - 1]
+                return page[:limit], encode_cursor(last["created_at"], last["id"])
+            return page, None
+    tests:
+      - name: cursor round-trips and is URL-safe
+        code: |
+          import string
+          cursor = encode_cursor(1767225600, 42)
+          assert isinstance(cursor, str) and cursor
+          assert set(cursor) <= set(string.ascii_letters + string.digits + "-_="), cursor
+          assert decode_cursor(cursor) == (1767225600, 42)
+      - name: walks every page without gaps or duplicates when timestamps tie
+        code: |
+          pairs = [(9, 500), (8, 500), (7, 400), (6, 300), (5, 300), (4, 300), (3, 200), (2, 100), (1, 100)]
+          items = [{"id": i, "created_at": t} for i, t in pairs]
+          seen, cursor = [], None
+          for _ in range(10):
+              page, cursor = paginate(items, 2, cursor)
+              seen.extend(item["id"] for item in page)
+              if cursor is None:
+                  break
+          assert seen == [9, 8, 7, 6, 5, 4, 3, 2, 1], seen
+      - name: an exactly full last page returns no cursor
+        hidden: true
+        code: |
+          items = [{"id": i, "created_at": 100 * i} for i in (4, 3, 2, 1)]
+          page, cursor = paginate(items, 4)
+          assert [item["id"] for item in page] == [4, 3, 2, 1]
+          assert cursor is None
+          page, cursor = paginate(items, 2)
+          page, cursor = paginate(items, 2, cursor)
+          assert [item["id"] for item in page] == [2, 1]
+          assert cursor is None
+      - name: new items posted between requests do not shift the next page
+        hidden: true
+        code: |
+          pairs = [(9, 500), (8, 500), (7, 400), (6, 300), (5, 300), (4, 300), (3, 200)]
+          items = [{"id": i, "created_at": t} for i, t in pairs]
+          first, cursor = paginate(items, 3)
+          assert [item["id"] for item in first] == [9, 8, 7]
+          items = [{"id": 11, "created_at": 700}, {"id": 10, "created_at": 600}] + items
+          second, _ = paginate(items, 3, cursor)
+          assert [item["id"] for item in second] == [6, 5, 4]
+      - name: rejects malformed or tampered cursors with ValueError
+        hidden: true
+        code: |
+          import base64
+          bad_cursors = [
+              "",
+              "not-a-cursor",
+              base64.urlsafe_b64encode(b'"hello"').decode(),
+              base64.urlsafe_b64encode(b"[1]").decode(),
+          ]
+          for bad in bad_cursors:
+              try:
+                  decode_cursor(bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"accepted invalid cursor {bad!r}")
+
+  - slug: http-if-match-conflict-short
+    skill: http-api-design
+    kind: short_answer
+    difficulty: 2
+    minutes: 2
+    title: The document changed since the client read it
+    objective: Choose the status code for a failed If-Match precondition in optimistic concurrency control.
+    prompt: |
+      Clients edit documents using optimistic concurrency. A client fetched
+      `GET /docs/7` and received `ETag: "v3"`. Meanwhile another user saved
+      the document, which is now at `"v4"`. The client sends:
+
+      ```http
+      PUT /docs/7 HTTP/1.1
+      If-Match: "v3"
+      Content-Type: application/json
+      ```
+
+      Which status code should the server return? Answer with the number.
+    hints:
+      - The client attached a condition to the request. Is the condition true?
+      - There is a status code dedicated to "the precondition you sent evaluated to false".
+    explanation: |
+      `If-Match` makes the request conditional: "apply this only if the
+      current ETag is still `"v3"`". It is not, so the server must not apply
+      the change and responds **412 Precondition Failed**; the client should
+      re-fetch, merge and retry. This prevents lost updates without locks.
+      `428 Precondition Required` is for servers that *require* `If-Match`
+      when the client omitted it, and `304 Not Modified` answers a conditional
+      `GET` with `If-None-Match`.
+    solution: |
+      **412 Precondition Failed**: the `If-Match` condition evaluated to
+      false because the current ETag is `"v4"`.
+    content:
+      placeholder: e.g. 200
+      accepted: ["412", "412 precondition failed", "precondition failed", "http 412"]
+      partial:
+        - answers: ["409", "409 conflict", "conflict"]
+          score: 0.4
+          feedback: 409 is often used for edit conflicts when no precondition is sent, but here the client sent `If-Match`, and HTTP defines a specific status for a failed precondition.
+      wrong:
+        - answers: ["304", "304 not modified", "not modified"]
+          feedback: 304 answers a conditional *GET* (`If-None-Match`) when the client's cached copy is still current. This is a write whose precondition failed.
+          misconception: {code: etag-status-confusion, label: Confuses the status codes used with conditional requests, category: conceptual}
+        - answers: ["428", "428 precondition required"]
+          feedback: 428 tells a client that it *must* send a precondition such as `If-Match`. This client did send one; it just no longer holds.
+          misconception: {code: etag-status-confusion, label: Confuses the status codes used with conditional requests, category: conceptual}
+        - answers: ["200", "204", "200 ok", "204 no content"]
+          feedback: Applying the PUT would silently overwrite the other user's changes, a lost update. The whole point of `If-Match` is to refuse this.
+          misconception: {code: last-write-wins, label: Silently overwrites concurrent edits, category: logic}
+        - answers: ["400", "422", "400 bad request", "422 unprocessable entity"]
+          feedback: The request is well-formed and valid; what failed is the condition attached to it.
+          misconception: {code: etag-status-confusion, label: Confuses the status codes used with conditional requests, category: conceptual}
+
+  # ================================================== caching-strategies
+  - slug: caching-stampede-mcq
+    skill: caching-strategies
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    tags: [scenario]
+    title: Why does the database spike every five minutes?
+    objective: Recognise a cache stampede caused by a hot key expiring under concurrent load.
+    prompt: |
+      The homepage "trending" widget takes 3 seconds of heavy SQL to compute,
+      so it is cached with cache-aside and a 5-minute TTL. The site serves
+      about 400 requests per second. Every 5 minutes, database CPU jumps to
+      100% for a few seconds and response times spike. What is the most
+      likely cause?
+    hints:
+      - The spikes are perfectly periodic, and the period matches the TTL.
+      - How many requests arrive during the 3 seconds after the key expires, and what does each of them do?
+    explanation: |
+      When a hot key expires, every request in the next few seconds misses
+      at the same time, and with cache-aside **each one** recomputes the value:
+      here about 1,200 concurrent copies of a 3-second query. This is a
+      **cache stampede** (dogpile). Mitigations: let only one worker recompute
+      (a lock or "single flight", e.g. `cache.add()` as a mutex) while others
+      serve the stale value, refresh the value *before* it expires, and add
+      jitter to TTLs so many keys do not expire together.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: When the key expires, hundreds of concurrent requests miss at once and all recompute the widget.
+          correct: true
+          feedback: Correct. That is a cache stampede. Let one request recompute while the others serve the old value, or refresh the key before it expires.
+        - id: b
+          text: The cache is evicting the key under memory pressure with its LRU policy.
+          feedback: Eviction under memory pressure happens irregularly, and LRU keeps hot keys. Spikes that line up exactly with the TTL point to expiry.
+          misconception: {code: eviction-vs-expiry, label: Confuses TTL expiry with eviction, category: conceptual}
+        - id: c
+          text: The TTL is too long; lowering it to 30 seconds would spread the load.
+          feedback: A shorter TTL means the key expires ten times as often, so stampedes become more frequent, not smaller.
+          misconception: {code: shorter-ttl-reduces-load, label: Thinks shorter TTLs reduce load on the source, category: performance}
+        - id: d
+          text: Cache-aside writes every cache hit back to the database.
+          feedback: Cache-aside only touches the source on a miss. Writing on every hit would cause constant load, not periodic spikes.
+          misconception: {code: cache-aside-writes-through, label: Confuses cache-aside with write-through caching, category: conceptual}
+
+  - slug: caching-unsafe-keys-review
+    skill: caching-strategies
+    secondary_skills: [dj-security]
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review the dashboard caching
+    objective: Spot cache keys that leak data across tenants, falsy-miss bugs, unbounded keys and unsafe HTTP caching.
+    prompt: |
+      Both views run behind login middleware in a multi-tenant SaaS, and the
+      site is served through a CDN. A customer has reported seeing *another
+      company's* numbers on their dashboard. Review the caching in this code.
+    hints:
+      - Write down two different requests that produce the same cache key.
+      - What happens on every request for a new account whose dashboard is `{}`?
+      - Who else, besides the user's browser, may store a response marked `public`?
+    explanation: |
+      A cache key must include **every input that shapes the value**: here the
+      account, as well as the period. Otherwise one tenant's data is served to
+      another. Test for misses with `is None` (or a sentinel), not
+      truthiness, or empty results are never cached. Validate user-supplied
+      key parts so attackers cannot create unlimited keys and evict useful
+      entries. For per-user HTTP responses, use `Cache-Control: private` (or
+      `no-store`) so CDNs and shared proxies never store them.
+    solution: |
+      1. **Key leaks data across tenants.** The dashboard cache key contains
+         only the period, so every account shares one entry: whichever
+         account loads `dashboard:30d` first has its data served to other
+         customers for five minutes. Include the tenant in the key:
+         `f"dashboard:{request.user.account.pk}:{period}"`.
+      2. **Falsy values treated as misses.** `if not data` treats a cached
+         empty dict (new accounts) as a miss, so those dashboards are never
+         cached and are recomputed on every request. Check `if data is None`.
+      3. **Unvalidated key input.** `range` is user-controlled, so anyone can
+         create an unbounded number of keys and evict useful entries, and
+         `build_dashboard` receives arbitrary input. Validate it against the
+         allowed values.
+      4. **`Cache-Control: public` on private data.** Shared caches such as
+         the CDN may store the account summary and serve it to other users.
+         Use `private` (or `no-store`) for per-user responses.
+    content:
+      language: python
+      min_words: 40
+      max_words: 400
+      placeholder: List each issue, its impact and the fix…
+      code: |
+        from django.core.cache import cache
+        from django.http import JsonResponse
+        from django.shortcuts import render
+
+
+        def dashboard(request):
+            period = request.GET.get("range", "30d")
+            key = f"dashboard:{period}"
+            data = cache.get(key)
+            if not data:
+                # build_dashboard returns {} for brand-new accounts
+                data = build_dashboard(request.user.account, period)
+                cache.set(key, data, timeout=300)
+            return render(request, "dashboard.html", {"data": data})
+
+
+        def account_summary_api(request):
+            summary = build_summary(request.user.account)
+            response = JsonResponse(summary)
+            response["Cache-Control"] = "public, max-age=600"
+            return response
+      criteria:
+        - id: key-missing-tenant
+          label: The cache key omits the account, leaking data between tenants
+          weight: 2
+          required: true
+          any: ["re:\\bkey\\b[^.]{0,60}\\b(lacks|omits|is missing|missing|doesn't include|does not include|without|only contains|only has|only uses|only includes|ignores|needs|should include|must include)\\b", "re:(account|tenant|user)\\w*[^.]{0,40}\\b(in|into|to|from) the (cache )?key", "cross-tenant", "per tenant", "other tenants", "another tenant", "tenant id", "tenant_id", "re:(include|add|missing|omit)\\w*[^.]{0,40}\\btenant", "per user", "per account", "another user", "other users", "another account", "other accounts", "another customer", "other customers", "someone else", "leak", "shared between", "shared across", "same key", "same cache entry", "one entry", "single entry"]
+          missing_feedback: Which input to `build_dashboard` is missing from the cache key, and what does that mean for other customers?
+          misconception: {code: cache-key-missing-inputs, label: Builds cache keys that omit inputs that shape the value, category: security}
+        - id: falsy-miss
+          label: Treating falsy cached values as misses means empty dashboards are never cached
+          weight: 1
+          any: ["is none", "is not none", "sentinel", "falsy", "falsey", "empty dict", "empty dashboard", "empty result", "empty value", "never cached", "recomputed every", "recompute every", "recomputes every", "every request"]
+          missing_feedback: What does `if not data` do when the cached value is `{}`?
+          misconception: {code: falsy-cache-miss, label: Treats cached falsy values as cache misses, category: edge_case}
+        - id: unbounded-keys
+          label: Validates the user-controlled range so the key space is bounded
+          weight: 1
+          any: ["validat", "allowed values", "allowlist", "whitelist", "unbounded", "arbitrary", "any value", "cardinality", "pollut", "flood", "fill the cache", "fills the cache", "evict", "user-controlled", "user controlled", "untrusted"]
+          missing_feedback: The `range` value comes straight from the query string into the key. What can a client do with that?
+        - id: cache-control-private
+          label: Uses Cache-Control private or no-store for per-user responses
+          weight: 1
+          any: ["private", "no-store", "no store", "shared cache", "proxy", "proxies", "intermediar", "re:cdn[^.]{0,60}(store|cache|serve)"]
+          missing_feedback: Which caches may store a response marked `public`, and who might they serve it to?
+          misconception: {code: public-cache-private-data, label: Lets shared caches store per-user responses, category: security}
+
+  - slug: caching-ttl-lru-code
+    skill: caching-strategies
+    kind: python_code
+    difficulty: 3
+    minutes: 25
+    tags: [interview]
+    title: Build an LRU cache with TTL expiry
+    objective: Implement an in-memory cache that combines LRU eviction with per-entry TTL expiry.
+    prompt: |
+      Implement `TTLCache`, an in-process cache used in front of a slow
+      pricing service:
+
+      ```python
+      cache = TTLCache(capacity=1000, ttl=30.0)   # clock defaults to time.monotonic
+      cache.set("sku-1", 9.99)
+      cache.get("sku-1")              # 9.99
+      cache.get("missing", "n/a")     # "n/a"
+      ```
+
+      Requirements:
+
+      * `TTLCache(capacity, ttl, clock=time.monotonic)`: raise `ValueError` if
+        `capacity < 1` or `ttl <= 0`. `clock()` returns the current time in
+        seconds (tests pass a fake clock).
+      * An entry stored at time `t` is valid while `clock() < t + ttl`.
+      * `get(key, default=None)` returns the value, or `default` for missing
+        or expired keys. A successful `get` makes the key the most recently
+        used. Falsy values such as `0` or `""` are valid cached values.
+      * `set(key, value)` stores the value and resets its expiry. Overwriting
+        an existing key also makes it the most recently used.
+      * When a **new** key is set and the cache is full, expired entries are
+        removed first; if it is still full, the least recently used entry is
+        evicted.
+      * `len(cache)` returns the number of entries that have not expired.
+    hints:
+      - "`collections.OrderedDict` keeps insertion order and has `move_to_end()` and `popitem(last=False)`."
+      - Store the expiry timestamp next to each value rather than the time it was set.
+      - An expired entry can be the *most* recently used one, so plain LRU eviction is not enough to keep capacity for live entries.
+    explanation: |
+      An `OrderedDict` ordered from least to most recently used gives O(1)
+      lookups, recency updates (`move_to_end`) and LRU eviction
+      (`popitem(last=False)`). Storing an absolute `expires_at` per entry makes
+      expiry checks a single comparison, and checking it lazily on `get` avoids
+      a background sweeper. Injecting the clock makes TTL logic testable
+      without sleeping, and `time.monotonic` is the right default because it
+      never jumps backwards when the wall clock is adjusted.
+    solution: |
+      Keep `key -> (expires_at, value)` in an `OrderedDict`, least recently
+      used first. `get` deletes expired entries lazily and calls
+      `move_to_end` on hits. `set` removes an existing key before
+      re-inserting it (so it moves to the end with a fresh expiry); for a new
+      key in a full cache it first purges expired entries and only then
+      evicts with `popitem(last=False)`.
+
+      ```python
+      def set(self, key, value):
+          now = self._clock()
+          if key in self._data:
+              del self._data[key]
+          elif len(self._data) >= self.capacity:
+              self._purge_expired(now)
+              if len(self._data) >= self.capacity:
+                  self._data.popitem(last=False)
+          self._data[key] = (now + self.ttl, value)
+      ```
+    content:
+      starter_code: |
+        import time
+        from collections import OrderedDict
+
+
+        class TTLCache:
+            def __init__(self, capacity, ttl, clock=time.monotonic):
+                self.capacity = capacity
+                self.ttl = ttl
+                self._clock = clock
+                self._data = OrderedDict()
+
+            def get(self, key, default=None):
+                raise NotImplementedError
+
+            def set(self, key, value):
+                raise NotImplementedError
+
+            def __len__(self):
+                raise NotImplementedError
+      reference_solution: |
+        import time
+        from collections import OrderedDict
+
+
+        class TTLCache:
+            def __init__(self, capacity, ttl, clock=time.monotonic):
+                if capacity < 1:
+                    raise ValueError("capacity must be at least 1")
+                if ttl <= 0:
+                    raise ValueError("ttl must be positive")
+                self.capacity = capacity
+                self.ttl = ttl
+                self._clock = clock
+                self._data = OrderedDict()  # key -> (expires_at, value), least recently used first
+
+            def _purge_expired(self, now):
+                expired = [key for key, (expires_at, _) in self._data.items() if expires_at <= now]
+                for key in expired:
+                    del self._data[key]
+
+            def get(self, key, default=None):
+                entry = self._data.get(key)
+                if entry is None:
+                    return default
+                expires_at, value = entry
+                if expires_at <= self._clock():
+                    del self._data[key]
+                    return default
+                self._data.move_to_end(key)
+                return value
+
+            def set(self, key, value):
+                now = self._clock()
+                if key in self._data:
+                    del self._data[key]
+                elif len(self._data) >= self.capacity:
+                    self._purge_expired(now)
+                    if len(self._data) >= self.capacity:
+                        self._data.popitem(last=False)
+                self._data[key] = (now + self.ttl, value)
+
+            def __len__(self):
+                self._purge_expired(self._clock())
+                return len(self._data)
+    tests:
+      - name: stores values and returns the default on a miss
+        code: |
+          cache = TTLCache(capacity=2, ttl=10, clock=lambda: 0.0)
+          cache.set("a", 1)
+          assert cache.get("a") == 1
+          assert cache.get("missing") is None
+          assert cache.get("missing", "n/a") == "n/a"
+      - name: evicts the least recently used key, counting get() as a use
+        code: |
+          cache = TTLCache(capacity=2, ttl=100, clock=lambda: 0.0)
+          cache.set("a", "A")
+          cache.set("b", "B")
+          assert cache.get("a") == "A"
+          cache.set("c", "C")
+          assert cache.get("b") is None
+          assert cache.get("a") == "A" and cache.get("c") == "C"
+      - name: entries expire exactly ttl seconds after being set
+        code: |
+          class FakeClock:
+              now = 0.0
+              def __call__(self):
+                  return self.now
+          clock = FakeClock()
+          cache = TTLCache(capacity=5, ttl=10, clock=clock)
+          cache.set("k", "v")
+          clock.now = 9.999
+          assert cache.get("k") == "v"
+          clock.now = 10.0
+          assert cache.get("k") is None
+      - name: overwriting refreshes the expiry and recency without growing the cache
+        hidden: true
+        code: |
+          class FakeClock:
+              now = 0.0
+              def __call__(self):
+                  return self.now
+          clock = FakeClock()
+          cache = TTLCache(capacity=2, ttl=10, clock=clock)
+          cache.set("a", 1)
+          cache.set("b", 2)
+          clock.now = 8.0
+          cache.set("a", 3)
+          assert len(cache) == 2
+          cache.set("c", 4)
+          assert cache.get("b") is None
+          clock.now = 15.0
+          assert cache.get("a") == 3
+      - name: expired entries are purged before a live entry is evicted
+        hidden: true
+        code: |
+          class FakeClock:
+              now = 0.0
+              def __call__(self):
+                  return self.now
+          clock = FakeClock()
+          cache = TTLCache(capacity=2, ttl=10, clock=clock)
+          cache.set("b", "B")        # expires at 10
+          clock.now = 1.0
+          cache.set("a", "A")        # expires at 11
+          clock.now = 8.0
+          assert cache.get("b") == "B"   # b is now the most recently used
+          clock.now = 10.5           # b has expired, a is still valid
+          cache.set("c", "C")
+          assert cache.get("a") == "A"
+          assert cache.get("c") == "C"
+          assert len(cache) == 2
+      - name: caches falsy values and validates its arguments
+        hidden: true
+        code: |
+          cache = TTLCache(capacity=3, ttl=5, clock=lambda: 0.0)
+          cache.set("zero", 0)
+          cache.set("empty", "")
+          assert cache.get("zero", "miss") == 0
+          assert cache.get("empty", "miss") == ""
+          for bad in ({"capacity": 0, "ttl": 5}, {"capacity": 2, "ttl": 0}):
+              try:
+                  TTLCache(**bad)
+              except ValueError:
+                  pass
+              else:
+                  raise AssertionError(f"accepted {bad}")
+
+  # ===================================================== background-jobs
+  - slug: jobs-enqueue-before-commit-mcq
+    skill: background-jobs
+    secondary_skills: [dj-transactions]
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    tags: [scenario]
+    title: The welcome email task can't find the new user
+    objective: Explain why a task enqueued inside a transaction can run before its data is committed.
+    prompt: |
+      ```python
+      @transaction.atomic
+      def register(request):
+          form = SignupForm(request.POST)
+          if not form.is_valid():
+              return render(request, "signup.html", {"form": form})
+          user = form.save()
+          send_welcome_email.delay(user.pk)
+          return redirect("onboarding")
+      ```
+
+      A few times a day the Celery task fails with `User.DoesNotExist`, even
+      though every user is created successfully. What is the root cause, and
+      the best fix?
+    hints:
+      - The task is published to the broker at the moment `.delay()` is called. When does the `INSERT` become visible to other connections?
+      - Django has a hook for running code only after the current transaction commits.
+    explanation: |
+      `.delay()` publishes the message immediately, but the `INSERT` only
+      becomes visible to other database connections when the surrounding
+      transaction **commits**, after the view returns. A fast worker can
+      query for the user before that moment and find nothing; if the
+      transaction rolls back, the task refers to a user who never existed.
+      Enqueue after commit:
+      `transaction.on_commit(lambda: send_welcome_email.delay(user.pk))`, or
+      with Celery 5.4+'s Django task class, `send_welcome_email.delay_on_commit(user.pk)`.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: The worker can run before the transaction commits, so it cannot see the row yet; enqueue the task with transaction.on_commit().
+          correct: true
+          feedback: Correct. The message is published immediately, but the row only becomes visible at commit. `on_commit` publishes after the data is durable, and never after a rollback.
+        - id: b
+          text: Celery cannot serialise the primary key correctly; pass the User instance to the task instead.
+          feedback: The ID serialises fine. Passing model instances is worse, because they must be pickled (the JSON serializer rejects them) and they go stale. Always pass IDs.
+          misconception: {code: pass-model-instances, label: Passes model instances to tasks instead of IDs, category: conceptual}
+        - id: c
+          text: Add autoretry with a countdown so the task waits until the row exists.
+          feedback: Retries hide the race instead of removing it, add delay to every affected email, and still run (and fail) for transactions that were rolled back.
+          misconception: {code: retry-masks-race, label: Uses retries to paper over a race condition, category: logic}
+        - id: d
+          text: ".delay() runs the task synchronously inside the request, before form.save() has written the row."
+          feedback: "`.delay()` only publishes a message; a separate worker process runs the task. And `form.save()` has already executed by the time `.delay()` is called."
+          misconception: {code: delay-runs-sync, label: Thinks delay() runs the task inside the request, category: conceptual}
+
+  - slug: jobs-idempotency-key-code
+    skill: background-jobs
+    secondary_skills: [http-api-design]
+    kind: python_code
+    difficulty: 4
+    minutes: 25
+    tags: [interview]
+    title: Implement an idempotency-key store
+    objective: Implement idempotency keys that replay stored results, reject conflicting reuse and expire after a TTL.
+    prompt: |
+      Clients of your payments API send an `Idempotency-Key` header so that a
+      retried `POST /charges` never charges a card twice. Implement the store
+      behind it (standard library only; single-threaded is fine).
+
+      ```python
+      store = IdempotencyStore(ttl=24 * 3600)
+      response = store.execute(key, payload, charge_card)
+      ```
+
+      * `execute(key, payload, handler)`: on the first call for `key`, call
+        `handler(payload)`, remember the result and return it.
+      * A later call with the same key and an **equal** payload returns the
+        stored result **without** calling the handler again. Payloads are
+        JSON-compatible dicts; key order does not matter.
+      * Reusing a key with a **different** payload raises
+        `IdempotencyConflict`. The stored payload must not change if the
+        caller mutates its dict afterwards.
+      * If the handler raises, the exception propagates and nothing is
+        stored, so the client can retry.
+      * An entry stored at time `t` expires once `clock() >= t + ttl`; after
+        that the key is treated as new.
+    hints:
+      - Store a fingerprint of the payload next to the response, not a reference to the caller's dict.
+      - "`json.dumps(payload, sort_keys=True)` gives the same string for dicts that differ only in key order."
+      - Only write to the store after the handler has returned successfully.
+    explanation: |
+      Retries are unavoidable: a client that times out cannot tell whether
+      the charge happened. An idempotency key turns "maybe twice" into
+      "exactly once" from the client's point of view: the first request does
+      the work and stores the response, retries replay it. Fingerprinting the
+      payload catches clients that reuse a key for a different operation,
+      which would otherwise silently return the wrong result. In production
+      the store is a database table with a unique constraint on the key and an
+      "in progress" state, so that two concurrent requests with the same key
+      cannot both run the handler.
+    solution: |
+      Keep `key -> (expires_at, fingerprint, response)`. The fingerprint is
+      canonical JSON (`sort_keys=True`), which ignores key order and is
+      immune to later mutation of the caller's dict. On each call, drop the
+      entry if it has expired; replay or raise `IdempotencyConflict` if it
+      exists; otherwise run the handler and store the result only after it
+      succeeds.
+
+      ```python
+      def execute(self, key, payload, handler):
+          now = self._clock()
+          fingerprint = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+          entry = self._entries.get(key)
+          if entry is not None and entry[0] <= now:
+              del self._entries[key]
+              entry = None
+          if entry is not None:
+              if entry[1] != fingerprint:
+                  raise IdempotencyConflict(key)
+              return entry[2]
+          response = handler(payload)
+          self._entries[key] = (now + self.ttl, fingerprint, response)
+          return response
+      ```
+    content:
+      starter_code: |
+        import json
+        import time
+
+
+        class IdempotencyConflict(Exception):
+            """The key was already used with a different payload."""
+
+
+        class IdempotencyStore:
+            def __init__(self, ttl=24 * 3600, clock=time.monotonic):
+                self.ttl = ttl
+                self._clock = clock
+                self._entries = {}
+
+            def execute(self, key, payload, handler):
+                # TODO: replay stored responses, detect conflicting payloads, expire keys
+                return handler(payload)
+      reference_solution: |
+        import json
+        import time
+
+
+        class IdempotencyConflict(Exception):
+            """The key was already used with a different payload."""
+
+
+        class IdempotencyStore:
+            def __init__(self, ttl=24 * 3600, clock=time.monotonic):
+                self.ttl = ttl
+                self._clock = clock
+                self._entries = {}  # key -> (expires_at, fingerprint, response)
+
+            @staticmethod
+            def _fingerprint(payload):
+                return json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+            def execute(self, key, payload, handler):
+                now = self._clock()
+                fingerprint = self._fingerprint(payload)
+                entry = self._entries.get(key)
+                if entry is not None and entry[0] <= now:
+                    del self._entries[key]
+                    entry = None
+                if entry is not None:
+                    _, stored_fingerprint, response = entry
+                    if stored_fingerprint != fingerprint:
+                        raise IdempotencyConflict(f"key {key!r} was used with a different payload")
+                    return response
+                response = handler(payload)
+                self._entries[key] = (now + self.ttl, fingerprint, response)
+                return response
+    tests:
+      - name: the first request runs the handler
+        code: |
+          calls = []
+          def charge(payload):
+              calls.append(payload)
+              return {"status": "charged", "amount": payload["amount"]}
+          store = IdempotencyStore(clock=lambda: 0.0)
+          assert store.execute("key-1", {"amount": 500}, charge) == {"status": "charged", "amount": 500}
+          assert len(calls) == 1
+      - name: a retried request replays the stored response without charging again
+        code: |
+          calls = []
+          def charge(payload):
+              calls.append(payload)
+              return {"charge_id": f"ch_{len(calls)}"}
+          store = IdempotencyStore(clock=lambda: 0.0)
+          first = store.execute("key-1", {"amount": 500}, charge)
+          second = store.execute("key-1", {"amount": 500}, charge)
+          assert first == second == {"charge_id": "ch_1"}, (first, second)
+          assert len(calls) == 1
+          assert store.execute("key-2", {"amount": 500}, charge) == {"charge_id": "ch_2"}
+      - name: reusing a key with a different payload is rejected, key order is irrelevant
+        hidden: true
+        code: |
+          store = IdempotencyStore(clock=lambda: 0.0)
+          handler = lambda payload: {"ok": True}
+          store.execute("k", {"amount": 500, "currency": "EUR"}, handler)
+          assert store.execute("k", {"currency": "EUR", "amount": 500}, handler) == {"ok": True}
+          try:
+              store.execute("k", {"amount": 900, "currency": "EUR"}, handler)
+          except IdempotencyConflict:
+              pass
+          else:
+              raise AssertionError("expected IdempotencyConflict")
+      - name: failed attempts are not stored, so a retry runs the handler again
+        hidden: true
+        code: |
+          attempts = []
+          def flaky(payload):
+              attempts.append(1)
+              if len(attempts) == 1:
+                  raise ConnectionError("gateway timeout")
+              return {"status": "charged"}
+          store = IdempotencyStore(clock=lambda: 0.0)
+          try:
+              store.execute("k", {"amount": 1}, flaky)
+          except ConnectionError:
+              pass
+          else:
+              raise AssertionError("expected the handler's error to propagate")
+          assert store.execute("k", {"amount": 1}, flaky) == {"status": "charged"}
+          assert len(attempts) == 2
+      - name: keys expire after the TTL, and later mutation of the payload is not trusted
+        hidden: true
+        code: |
+          class FakeClock:
+              now = 0.0
+              def __call__(self):
+                  return self.now
+          clock = FakeClock()
+          calls = []
+          def handler(payload):
+              calls.append(dict(payload))
+              return len(calls)
+          store = IdempotencyStore(ttl=60, clock=clock)
+          payload = {"amount": 500}
+          assert store.execute("k", payload, handler) == 1
+          payload["amount"] = 900
+          try:
+              store.execute("k", payload, handler)
+          except IdempotencyConflict:
+              pass
+          else:
+              raise AssertionError("the stored payload changed when the caller mutated its dict")
+          clock.now = 59.9
+          assert store.execute("k", {"amount": 500}, handler) == 1
+          clock.now = 60.0
+          assert store.execute("k", {"amount": 900}, handler) == 2
+
+  - slug: jobs-delivery-guarantee-short
+    skill: background-jobs
+    kind: short_answer
+    difficulty: 3
+    minutes: 2
+    tags: [interview]
+    title: Which delivery guarantee forces idempotent tasks?
+    objective: Name the delivery guarantee of acknowledge-after-processing queues and connect it to idempotency.
+    prompt: |
+      Your Celery workers run with `acks_late=True`: a message is acknowledged
+      only after its task finishes. A worker machine loses power right after
+      charging a card but before acknowledging the message, so the broker
+      redelivers the message to another worker, which runs the task again.
+
+      Which delivery guarantee does this setup provide? (It is the reason
+      every task must be idempotent.)
+    hints:
+      - Can a message be lost in this setup? Can it be processed more than once?
+      - The guarantee is usually written as "at ___ once".
+    explanation: |
+      Acknowledging after processing means a message is never lost, but it
+      can be delivered and processed **more than once**: **at-least-once**
+      delivery. Acknowledging on receipt gives at-most-once (a crash loses
+      the job). End-to-end exactly-once *processing* is not something the
+      queue can give you; you build it from at-least-once delivery plus
+      idempotent handlers (idempotency keys, unique constraints, state checks).
+    solution: |
+      **At-least-once delivery.** Messages are only acknowledged after
+      processing, so none are lost, but crashes cause redeliveries, and the
+      handler must make duplicates harmless.
+    content:
+      placeholder: e.g. best-effort
+      accepted: ["at-least-once", "at least once", "at-least-once delivery", "at least once delivery", "at-least once"]
+      wrong:
+        - answers: ["exactly-once", "exactly once", "exactly-once delivery", "exactly once delivery"]
+          feedback: The redelivery in the scenario is exactly what exactly-once would forbid. Queues cannot guarantee exactly-once processing; you get there with idempotent handlers.
+          misconception: {code: exactly-once-delivery, label: Believes message queues deliver exactly once, category: conceptual}
+        - answers: ["at-most-once", "at most once", "at-most-once delivery", "at most once delivery"]
+          feedback: At-most-once is what you get when messages are acknowledged on receipt, so a crash loses the job. Here the message was redelivered, so it can be processed more than once.
+          misconception: {code: delivery-guarantee-confusion, label: Confuses acknowledgement timing with delivery guarantees, category: conceptual}
+

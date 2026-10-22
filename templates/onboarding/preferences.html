@@ -1,0 +1,29 @@
+{% extends "onboarding/_layout.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="text-display-lg">How do you like to practise?</h1>
+<p class="mt-3 text-muted">Pick any that appeal. Preferred formats come up more often; others still appear for variety.</p>
+<form method="post" class="mt-8" novalidate>
+  {% csrf_token %}
+  <fieldset>
+    <legend class="sr-only">Practice formats</legend>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {% for family in families %}
+      <label class="option-card" for="format-{{ family.value }}">
+        <input type="checkbox" name="formats" id="format-{{ family.value }}" value="{{ family.value }}" {% if family.value in form.formats.value %}checked{% endif %}>
+        <span class="icon-chip">{% icon family.icon "size-5" %}</span>
+        <span class="min-w-0 flex-1">
+          <span class="block font-semibold text-fg">{{ family.label }}</span>
+          <span class="mt-1 block text-sm text-muted">{{ family.description }}</span>
+        </span>
+        <span class="option-mark" aria-hidden="true"></span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  <div class="mt-8 flex items-center justify-between">
+    <a href="{% url 'onboarding:step' 'time' %}" class="btn btn-ghost">{% icon "arrow-left" "size-4" %} Back</a>
+    <button type="submit" class="btn btn-primary btn-lg">Build my plan {% icon "sparkles" "size-4" %}</button>
+  </div>
+</form>
+{% endblock %}

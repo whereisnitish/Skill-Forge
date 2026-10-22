@@ -1,0 +1,56 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}How it works{% endblock %}
+{% block description %}How SkillForge's adaptive engine estimates mastery, schedules reviews and chooses your next challenge — explained in plain language.{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="How it works" heading="A learning engine you can inspect." lede="No black box. Here is exactly how SkillForge decides what you should practise, and what it can and can't tell you." %}
+
+<div class="mx-auto max-w-4xl space-y-14 px-4 py-20 sm:px-6 lg:px-8">
+  <section aria-labelledby="h1">
+    <h2 id="h1" class="page-title">1. Set a goal and calibrate</h2>
+    <p class="mt-3 text-muted">You choose a goal — say, Django backend development — your current level and your daily time. A short placement check gives first evidence. Your self-reported level only sets a weak starting assumption; real answers quickly outweigh it.</p>
+  </section>
+
+  <section aria-labelledby="h2">
+    <h2 id="h2" class="page-title">2. Evaluate every attempt deterministically</h2>
+    <p class="mt-3 text-muted">Answers are checked by versioned evaluators: answer keys for multiple-choice and short answers, test cases for code, and rubrics of named key ideas for explanations and reviews. Partial credit is real. The exact challenge version and evaluator version are stored with every attempt, so your history stays reproducible.</p>
+  </section>
+
+  <section aria-labelledby="h3">
+    <h2 id="h3" class="page-title">3. Update the learner model</h2>
+    <p class="mt-3 text-muted">Each skill holds a probability estimate (a Beta distribution) of how likely you are to succeed on it. Evidence is weighted:</p>
+    <ul class="mt-4 grid gap-3 text-sm text-muted sm:grid-cols-2">
+      <li class="rounded-[var(--radius-panel)] border border-line bg-surface p-4"><span class="font-semibold text-fg">Difficulty.</span> Succeeding on harder challenges counts more; failing them counts less.</li>
+      <li class="rounded-[var(--radius-panel)] border border-line bg-surface p-4"><span class="font-semibold text-fg">Independence.</span> Hints reduce credit; a revealed solution earns very little.</li>
+      <li class="rounded-[var(--radius-panel)] border border-line bg-surface p-4"><span class="font-semibold text-fg">Delayed recall.</span> Remembering after a gap of two days or more counts extra.</li>
+      <li class="rounded-[var(--radius-panel)] border border-line bg-surface p-4"><span class="font-semibold text-fg">Forgetting.</span> Evidence decays toward the starting assumption with a 45-day half-life, so old failures don't follow you forever.</li>
+    </ul>
+    <p class="mt-4 text-sm text-muted">Time spent is recorded for your own reference but is never treated as a measure of ability.</p>
+  </section>
+
+  <section aria-labelledby="h4">
+    <h2 id="h4" class="page-title">4. Schedule reviews</h2>
+    <p class="mt-3 text-muted">A simplified SM-2 scheduler sets when each skill is next due. A failed review resets the interval to a day; a successful one grows it. Practising well before a review is due doesn't extend the interval. Reviews are scheduled per skill and recorded once per attempt, so retries can never double-book them.</p>
+  </section>
+
+  <section aria-labelledby="h5">
+    <h2 id="h5" class="page-title">5. Choose the next challenge</h2>
+    <p class="mt-3 text-muted">First, eligibility: skills whose required prerequisites aren't ready yet are held back, and challenges you saw very recently are skipped. Then each candidate gets a priority:</p>
+    <div class="code-surface mt-5 overflow-x-auto p-5 text-sm">
+      priority = {{ weights.weakness }} × weakness<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ {{ weights.review_urgency }} × review urgency<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ {{ weights.goal_relevance }} × goal relevance<br>
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ {{ weights.dependency_importance }} × dependency importance
+    </div>
+    <p class="mt-4 text-muted">That priority is then adjusted for difficulty fit, your preferred formats, variety within the day and the time you have left. A little controlled randomness — and an occasional quick check on an unmeasured skill — helps uncover gaps you didn't know you had.</p>
+    <p class="panel-note mt-4 p-4 text-sm text-fg">These weights are a starting heuristic, not a scientifically validated formula. They're configurable and we expect to refine them as evidence accumulates.</p>
+  </section>
+
+  <section aria-labelledby="h6">
+    <h2 id="h6" class="page-title">What the numbers can't tell you</h2>
+    <p class="mt-3 text-muted">Mastery estimates describe performance on SkillForge challenges. They're useful for deciding what to practise, but they are not a certification, an exam result or a prediction of job performance. With little evidence, the uncertainty is large — and we show it.</p>
+  </section>
+
+  <div class="flex flex-wrap gap-3"><a href="{% url 'accounts:register' %}" class="btn btn-primary">Try it free</a><a href="{% url 'marketing:features' %}" class="btn btn-secondary">See all features</a></div>
+</div>
+{% endblock %}

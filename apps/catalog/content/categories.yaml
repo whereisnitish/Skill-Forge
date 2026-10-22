@@ -1,0 +1,43 @@
+categories:
+  - slug: python
+    name: Python
+    description: Idiomatic, robust and performant Python — from data structures to async.
+    icon: file-code-2
+    domain: software
+    order: 1
+  - slug: django
+    name: Django
+    description: Building secure, efficient web backends with Django.
+    icon: server
+    domain: software
+    order: 2
+  - slug: backend
+    name: Backend & data
+    description: Databases, HTTP APIs, caching and background processing.
+    icon: database
+    domain: software
+    order: 3
+  - slug: system-design
+    name: System design
+    description: Designing systems that scale, stay available and fail gracefully.
+    icon: network
+    domain: software
+    order: 4
+  - slug: ai-engineering
+    name: AI & LLM engineering
+    description: Building reliable products on top of large language models.
+    icon: brain-circuit
+    domain: software
+    order: 5
+  - slug: algorithms
+    name: Algorithms
+    description: Problem-solving patterns that come up in real code and interviews.
+    icon: binary
+    domain: software
+    order: 6
+  - slug: communication
+    name: Technical communication
+    description: Writing and speaking clearly about technical work.
+    icon: message-circle-more
+    domain: communication
+    order: 7

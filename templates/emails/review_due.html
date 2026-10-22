@@ -1,0 +1,25 @@
+{% extends "emails/base.html" %}
+{% block preheader %}A few minutes of review now keeps {{ data.count }} skill{{ data.count|pluralize }} from fading.{% endblock %}
+{% block eyebrow %}Spaced review{% endblock %}
+{% block heading %}{{ data.count }} skill{{ data.count|pluralize }} ready for review{% endblock %}
+{% block content %}
+<p class="body" style="margin:0 0 18px;font-size:15px;line-height:24px;color:#4a3d33;">Hi {{ user.friendly_name }}, reviewing just before you'd forget is what moves knowledge into long-term memory. These are due now:</p>
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #ddd1be;border-radius:12px;" class="panel">
+  {% for skill in data.skills %}
+  <tr>
+    <td class="fg rule" style="padding:12px 16px;{% if not forloop.last %}border-bottom:1px solid #ede5d6;{% endif %}font-size:14px;line-height:20px;font-weight:600;color:#382b24;">{{ skill.name }}</td>
+    <td class="rule" align="right" style="padding:12px 16px;white-space:nowrap;{% if not forloop.last %}border-bottom:1px solid #ede5d6;{% endif %}">
+      {% if skill.overdue %}<span style="display:inline-block;white-space:nowrap;padding:3px 9px;border-radius:999px;background-color:#f5e8cc;color:#8a5b1a;font-size:12px;line-height:16px;font-weight:600;">Overdue</span>
+      {% else %}<span style="display:inline-block;white-space:nowrap;padding:3px 9px;border-radius:999px;background-color:#e3edf1;color:#3d6173;font-size:12px;line-height:16px;font-weight:600;">Due today</span>{% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table>
+{% if data.more %}<p class="muted" style="margin:10px 0 0;font-size:13px;line-height:19px;color:#6a5d4f;">…and {{ data.more }} more.</p>{% endif %}
+
+{% include "emails/_button.html" with url=action_url label="Start reviewing" %}
+<p class="body" style="margin:22px 0 0;font-size:14px;line-height:21px;color:#4a3d33;">Remember it and the next review moves further out. Miss it and it comes back sooner — no penalty, just more practice where it helps.</p>
+{% endblock %}
+{% block footer_reason %}You're receiving this because review reminders are on. We send at most one a day, only when reviews are due, around {{ reminder_time }} ({{ timezone_name }}).{% endblock %}
+{% block footer_links %}<a href="{{ notification_settings_url }}" style="color:#6a5d4f;text-decoration:underline;">Email preferences</a> &nbsp;·&nbsp; <a href="{{ unsubscribe_url }}" style="color:#6a5d4f;text-decoration:underline;">Turn off review reminders</a>{% endblock %}

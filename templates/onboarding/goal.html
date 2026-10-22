@@ -1,0 +1,26 @@
+{% extends "onboarding/_layout.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="text-display-lg">What do you want to get better at?</h1>
+<p class="mt-3 text-muted">Pick your main goal. You can add more goals later.</p>
+<form method="post" class="mt-8" novalidate>
+  {% csrf_token %}
+  <fieldset>
+    <legend class="sr-only">Main goal</legend>
+    <div class="grid gap-3 sm:grid-cols-2">
+      {% for option in options %}
+      <label class="option-card" for="goal-{{ option.value }}">
+        <input type="radio" name="goal_type" id="goal-{{ option.value }}" value="{{ option.value }}" {% if form.goal_type.value == option.value %}checked{% endif %} required>
+        <span class="icon-chip">{% icon option.icon "size-5" %}</span>
+        <span class="min-w-0">
+          <span class="block font-semibold text-fg">{{ option.label }}</span>
+          <span class="mt-1 block text-sm text-muted">{{ option.description }}</span>
+        </span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% if form.goal_type.errors %}<p class="field-error mt-3" role="alert">Please choose a goal to continue.</p>{% endif %}
+  <div class="mt-8 flex justify-end"><button type="submit" class="btn btn-primary btn-lg">Continue {% icon "arrow-right" "size-4" %}</button></div>
+</form>
+{% endblock %}

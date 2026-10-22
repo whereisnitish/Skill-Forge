@@ -1,0 +1,14 @@
+{% extends "emails/base.txt" %}
+{% block content %}Hi {{ user.friendly_name }},
+
+You asked to use {{ user.email }} for your SkillForge account. Confirm it to finish the change — until then, reminders and progress emails are paused.
+
+Confirm your new address:
+{{ verify_url }}
+
+This link expires in 3 days.
+
+DIDN'T REQUEST THIS?
+Someone may have access to your account. Reset your password right away: {{ password_reset_url }}
+and let us know at {{ SUPPORT_EMAIL }}.{% endblock %}
+{% block footer_reason %}You're receiving this because an email change was requested for a SkillForge account.{% endblock %}

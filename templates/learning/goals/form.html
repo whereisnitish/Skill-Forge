@@ -1,0 +1,36 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}{% if creating %}New goal{% else %}Edit goal{% endif %}{% endblock %}
+{% block content %}
+<nav aria-label="Breadcrumb" class="mb-5 flex items-center gap-2 text-sm text-muted"><a href="{% url 'learning:goals' %}" class="transition-colors hover:text-fg">Goals</a>{% icon "chevron-right" "size-3.5 text-faint" %}<span class="text-fg">{% if creating %}New goal{% else %}{{ goal.title }}{% endif %}</span></nav>
+<h1 class="page-title">{% if creating %}Create a goal{% else %}Edit goal{% endif %}</h1>
+{% if not creating %}<p class="mt-2 text-muted">Changes apply to future recommendations. Past attempts and evidence stay exactly as they were.</p>{% endif %}
+<form method="post" class="mt-7 max-w-3xl space-y-6" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<div class="rounded-[var(--radius-panel)] border border-danger/40 bg-danger-soft p-3 text-sm text-danger" role="alert">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+  <section class="card card-pad space-y-5">
+    {% form_field form.title %}
+    <div class="grid gap-5 sm:grid-cols-2">{% form_field form.goal_type %}{% form_field form.experience_level %}</div>
+    {% form_field form.path %}
+    {% form_field form.daily_minutes variant="inline" %}
+    {% form_field form.target_date %}
+  </section>
+  <section class="card card-pad space-y-5">
+    <div class="field">
+      <label for="{{ form.focus_skills.id_for_label }}" class="label">Prioritised skills <span class="font-normal text-faint">(optional)</span></label>
+      <select name="focus_skills" id="{{ form.focus_skills.id_for_label }}" class="select" multiple size="9" aria-describedby="focus_help">
+        {% regroup form.fields.focus_skills.queryset by category as groups %}
+        {% for group in groups %}<optgroup label="{{ group.grouper.name }}">{% for skill in group.list %}<option value="{{ skill.pk }}" {% if skill.pk in form.focus_skills.value or skill.pk|stringformat:"s" in form.focus_skills.value %}selected{% endif %}>{{ skill.name }}</option>{% endfor %}</optgroup>{% endfor %}
+      </select>
+      <p id="focus_help" class="help">{{ form.focus_skills.help_text }} Hold Ctrl (or ⌘) to select several.</p>
+      {% if form.focus_skills.errors %}<p class="field-error">{{ form.focus_skills.errors|join:" " }}</p>{% endif %}
+    </div>
+    {% form_field form.motivation %}
+    {% if creating %}<label class="flex items-center gap-3 text-sm"><input type="checkbox" name="make_primary" class="checkbox"> Make this my current focus</label>{% endif %}
+  </section>
+  <div class="flex flex-wrap gap-3">
+    <button type="submit" class="btn btn-primary"><span class="spinner" aria-hidden="true"></span>{% if creating %}Create goal{% else %}Save changes{% endif %}</button>
+    <a href="{% if goal %}{% url 'learning:goal_detail' goal.pk %}{% else %}{% url 'learning:goals' %}{% endif %}" class="btn btn-ghost">Cancel</a>
+  </div>
+</form>
+{% endblock %}

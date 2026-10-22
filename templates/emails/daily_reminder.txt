@@ -1,0 +1,19 @@
+{% extends "emails/base.txt" %}
+{% block content %}TODAY'S PRACTICE · {{ data.budget }}-MINUTE PLAN
+
+Hi {{ user.friendly_name }},
+{% if data.challenge_title %}
+Today's challenge: {{ data.challenge_title }}
+{% if data.skill %}{{ data.skill }}{% endif %}{% if data.kind_label %} · {{ data.kind_label }}{% endif %}{% if data.minutes %} · about {{ data.minutes }} min{% endif %}
+{% else %}
+A short, focused session is waiting for you.
+{% endif %}{% if data.reason %}
+Why this one: {{ data.reason }}
+{% endif %}
+Start today's challenge:
+{{ action_url }}
+
+{% if data.streak %}You're on a {{ data.streak }}-day streak. One challenge today keeps it going.{% else %}One challenge today starts a new streak.{% endif %}{% endblock %}
+{% block footer_reason %}You're receiving this because daily reminders are on. We only send one on days you haven't practised yet, around {{ reminder_time }} ({{ timezone_name }}).{% endblock %}
+{% block footer_links %}Change reminder time: {{ notification_settings_url }}
+Turn off daily reminders: {{ unsubscribe_url }}{% endblock %}

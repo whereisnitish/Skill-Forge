@@ -1,0 +1,59 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Plan & billing{% endblock %}
+{% block content %}
+<header class="border-b border-line pb-7"><p class="eyebrow">Account</p><h1 class="page-title mt-2">Plan &amp; billing</h1><p class="mt-2 max-w-3xl text-muted">Your plan controls daily limits and premium features. Changes only take effect once the payment provider confirms them.</p></header>
+
+{% if dev_billing %}
+<div class="mt-6 flex gap-3 rounded-[var(--radius-panel)] border border-warning/40 bg-warning-soft p-4 text-sm" role="note">{% icon "flask-conical" "size-5 flex-none text-warning" %}<p><strong>Development billing adapter.</strong> No real payments are taken. Plan switches below exist only for local testing and are disabled in production.</p></div>
+{% elif not billing_available %}
+<div class="mt-6 flex gap-3 rounded-[var(--radius-panel)] border border-line bg-surface p-4 text-sm" role="note">{% icon "info" "size-5 flex-none text-info" %}<p>Paid plans aren't available for purchase yet. Everything in the Free plan works fully.</p></div>
+{% endif %}
+
+<div class="mt-7 grid gap-px overflow-hidden rounded-[var(--radius-card)] border border-line bg-line shadow-card md:grid-cols-3">
+  <div class="bg-surface p-5 sm:p-6">
+    <p class="text-xs font-medium text-muted">Current plan</p>
+    <p class="stat-value mt-1 text-3xl">{{ current_plan.name }}</p>
+    {% if subscription and subscription.provider != "none" %}
+    <p class="mt-2 text-sm text-muted">{{ subscription.get_status_display }}{% if subscription.current_period_end %} · {% if subscription.cancel_at_period_end %}ends{% else %}renews{% endif %} {{ subscription.current_period_end|date:"j M Y" }}{% endif %}</p>
+    {% if subscription.status == "past_due" %}<p class="mt-2 text-sm text-danger">Your last payment failed. Update your payment method to keep your plan.</p>{% endif %}
+    {% endif %}
+    {% if billing_available and not dev_billing and subscription.provider_customer_id %}
+    <form method="post" action="{% url 'billing:portal' %}" class="mt-4">{% csrf_token %}<button class="btn btn-secondary btn-sm" type="submit">Manage billing</button></form>
+    {% endif %}
+    {% if dev_billing and subscription.provider == "dev" %}
+    <form method="post" action="{% url 'billing:dev_cancel' %}" class="mt-4">{% csrf_token %}<button class="btn btn-ghost btn-sm" type="submit">Reset to Free (dev)</button></form>
+    {% endif %}
+  </div>
+  <div class="bg-surface p-5 sm:p-6">
+    <p class="text-xs font-medium text-muted">Graded submissions</p>
+    <p class="stat-value mt-1 text-3xl">{% if submission_limit %}{{ submission_limit }}<span class="text-base font-normal text-muted"> / day</span>{% else %}Unlimited{% endif %}</p>
+  </div>
+  <div class="bg-surface p-5 sm:p-6">
+    <p class="text-xs font-medium text-muted">AI mentor today</p>
+    <p class="stat-value mt-1 text-3xl">{{ mentor_used }}<span class="text-base font-normal text-muted"> / {{ mentor_limit }}</span></p>
+    {% if not mentor_live %}<p class="mt-1 text-xs text-faint">AI mentor not enabled here; curated guidance doesn't count.</p>{% endif %}
+  </div>
+</div>
+
+<section class="mt-10" aria-labelledby="plans-heading">
+  <h2 id="plans-heading" class="section-title">Plans</h2>
+  <div class="mt-4 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+    {% for plan in plans %}
+    <article class="card card-pad flex flex-col {% if plan.code == current_plan.code %}card-feature{% endif %}">
+      <div class="flex items-center justify-between gap-2"><h3 class="section-title">{{ plan.name }}</h3>{% if plan.code == current_plan.code %}<span class="badge badge-gold">Current</span>{% endif %}</div>
+      <p class="mt-3"><span class="stat-value text-3xl">{{ plan.price }}</span> <span class="text-sm text-muted">{{ plan.period }}</span></p>
+      <ul class="mt-4 flex-1 space-y-2 text-sm text-muted">{% for f in plan.features %}<li class="flex gap-2">{% icon "check" "size-4 mt-0.5 flex-none text-success" %}{{ f }}</li>{% endfor %}</ul>
+      <div class="mt-5">
+        {% if plan.code == current_plan.code %}<span class="btn btn-secondary w-full" aria-disabled="true">Your plan</span>
+        {% elif plan.contact_sales %}<a href="{% url 'marketing:contact' %}?topic=teams" class="btn btn-secondary w-full">Talk to us</a>
+        {% elif plan.purchasable %}
+          {% if billing_available %}<form method="post" action="{% url 'billing:checkout' plan.code %}">{% csrf_token %}<button type="submit" class="btn btn-primary w-full">{% if dev_billing %}Switch (dev){% else %}Upgrade{% endif %}</button></form>
+          {% else %}<span class="btn btn-secondary w-full" aria-disabled="true" title="Payments aren't configured yet">Not available yet</span>{% endif %}
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

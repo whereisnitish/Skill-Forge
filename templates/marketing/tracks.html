@@ -1,0 +1,55 @@
+{% extends "layouts/marketing.html" %}
+{% load ui %}
+{% block title %}Learning tracks{% endblock %}
+{% block description %}Curated, versioned learning paths for Python, Django, interviews, AI and LLM engineering, system design and technical communication.{% endblock %}
+{% block content %}
+{% include "marketing/_page_header.html" with eyebrow="Learning tracks" heading="Curated paths, built from connected skills." lede="Each path is a versioned sequence of milestones. Within it, SkillForge adapts the order and the practice to you." %}
+
+<div class="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
+  <div class="grid gap-6 lg:grid-cols-2">
+    {% for path in paths %}
+    <article class="card card-pad flex flex-col" aria-labelledby="path-{{ path.slug }}">
+      <div class="flex items-start justify-between gap-3">
+        <span class="icon-chip size-11">{% icon path.icon "size-5" %}</span>
+        {% if path.is_premium %}<span class="badge badge-gold">{% icon "gem" "size-3" %} Pro</span>{% else %}<span class="badge badge-success">Included free</span>{% endif %}
+      </div>
+      <h2 id="path-{{ path.slug }}" class="section-title mt-4 text-xl">{{ path.name }}</h2>
+      <p class="mt-1 text-sm text-muted">{{ path.tagline }}</p>
+      <ol class="mt-5 flex-1 space-y-3">
+        {% for milestone in path.current_version.milestones.all %}
+        <li class="flex gap-3">
+          <span class="timeline-dot static mt-0.5 flex-none">{{ milestone.order }}</span>
+          <div>
+            <p class="text-sm font-medium">{{ milestone.title }}</p>
+            <p class="mt-0.5 text-xs text-faint">{% for step in milestone.steps.all %}{{ step.skill.name }}{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+      <div class="mt-6 flex items-center justify-between gap-3 border-t border-line pt-4">
+        <span class="text-xs text-faint">Version {{ path.current_version.number }}</span>
+        <a href="{% url 'accounts:register' %}" class="btn btn-secondary btn-sm">Start this track {% icon "arrow-right" "size-4" %}</a>
+      </div>
+    </article>
+    {% empty %}
+    <div class="lg:col-span-2">{% include "components/empty_state.html" with icon="route" title="Tracks are being prepared" body="The curated catalogue hasn't been loaded yet." %}</div>
+    {% endfor %}
+  </div>
+
+  {% if categories %}
+  <section class="mt-20" aria-labelledby="all-skills">
+    <h2 id="all-skills" class="page-title">All skills by category</h2>
+    <div class="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      {% for category in categories %}
+      <div id="category-{{ category.slug }}" class="card card-pad scroll-mt-24">
+        <h3 class="card-title flex items-center gap-2"><span class="text-accent-text">{% icon category.icon "size-4" %}</span>{{ category.name }}</h3>
+        <ul class="mt-3 space-y-1.5 text-sm text-muted">
+          {% for skill in category.skills.all %}{% if skill.is_active %}<li>{{ skill.name }}</li>{% endif %}{% endfor %}
+        </ul>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}

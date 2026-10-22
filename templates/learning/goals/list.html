@@ -1,0 +1,30 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Goals{% endblock %}
+{% block content %}
+<header class="flex flex-col gap-5 border-b border-line pb-7 sm:flex-row sm:items-end sm:justify-between">
+  <div><p class="eyebrow">Learn</p><h1 class="page-title mt-2">Goals</h1><p class="mt-2 text-muted">Your current focus drives the daily plan. Other active goals are kept ready.</p></div>
+  <a href="{% url 'learning:goal_create' %}" class="btn btn-primary">{% icon "plus" "size-4" %} New goal</a>
+</header>
+<div class="mt-8 grid gap-5 md:grid-cols-2">
+  {% for goal in goals %}
+  {% with progress=progress|get_item:goal.pk %}
+  <a href="{% url 'learning:goal_detail' goal.pk %}" class="card card-pad card-interactive block {% if goal.is_primary %}card-feature{% endif %} {% if goal.status == 'archived' %}opacity-70{% endif %}">
+    <div class="flex flex-wrap items-center gap-2">
+      {% if goal.is_primary %}<span class="badge badge-gold">{% icon "star" "size-3" %} Current focus</span>{% endif %}
+      <span class="badge {% if goal.status == 'active' %}badge-accent{% elif goal.status == 'paused' %}badge-warning{% else %}badge-neutral{% endif %}">{{ goal.get_status_display }}</span>
+    </div>
+    <h2 class="card-title mt-4 text-[1.35rem]">{{ goal.title }}</h2>
+    <p class="mt-1 text-sm text-muted">{% if goal.path %}{{ goal.path.name }}{% else %}Custom goal{% endif %} · {{ goal.daily_minutes }} min/day{% if goal.target_date %} · target {{ goal.target_date|date:"j M Y" }}{% endif %}</p>
+    {% if progress %}
+    <div class="mt-5 border-t border-line pt-4"><div class="flex justify-between text-xs text-muted"><span>{{ progress.completed_steps }} of {{ progress.total_steps }} skills at target</span><span class="font-semibold tabular-nums text-fg">{{ progress.fraction|percent }}</span></div>
+      <div class="progress mt-2"><div class="progress-bar {% if progress.complete %}is-gold{% endif %}" style="width: {{ progress.fraction|pct_width }}"></div></div></div>
+    {% endif %}
+  </a>
+  {% endwith %}
+  {% empty %}
+  {% url 'learning:goal_create' as create_url %}
+  <div class="md:col-span-2">{% include "components/empty_state.html" with icon="flag" title="No goals yet" body="Create a goal to get a personalised daily plan." action_url=create_url action_label="Create a goal" %}</div>
+  {% endfor %}
+</div>
+{% endblock %}

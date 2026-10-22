@@ -1,0 +1,37 @@
+{% extends "layouts/app.html" %}
+{% load ui %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<header class="border-b border-line pb-7"><p class="eyebrow">Account</p><h1 class="page-title mt-2">Settings</h1><p class="mt-2 text-muted">Manage your profile, learning preferences, notifications and account.</p></header>
+<div class="mt-8 grid gap-8 lg:grid-cols-[13rem_minmax(0,1fr)]">
+  <nav class="hidden lg:block" aria-label="Settings sections">
+    <ul class="sticky top-24 space-y-1 text-sm">
+      <li><a class="nav-link" href="#profile">{% icon "user-round" "size-4" %} Profile</a></li>
+      <li><a class="nav-link" href="#learning">{% icon "graduation-cap" "size-4" %} Learning</a></li>
+      <li><a class="nav-link" href="#notifications">{% icon "bell" "size-4" %} Notifications</a></li>
+      <li><a class="nav-link" href="#appearance">{% icon "palette" "size-4" %} Appearance</a></li>
+      <li><a class="nav-link" href="#email">{% icon "mail" "size-4" %} Email</a></li>
+      <li><a class="nav-link" href="#password">{% icon "key-round" "size-4" %} Password</a></li>
+      <li><a class="nav-link" href="#billing">{% icon "credit-card" "size-4" %} Plan</a></li>
+      <li><a class="nav-link" href="#danger">{% icon "triangle-alert" "size-4" %} Delete account</a></li>
+    </ul>
+  </nav>
+  <div class="min-w-0 space-y-6">
+    {% include "accounts/settings/_profile.html" %}
+    {% include "accounts/settings/_learning.html" %}
+    {% include "accounts/settings/_notifications.html" %}
+    {% include "accounts/settings/_appearance.html" %}
+    {% include "accounts/settings/_email.html" %}
+    {% include "accounts/settings/_password.html" %}
+    <section id="billing" class="card card-pad scroll-mt-24 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div><h2 class="section-title">Plan &amp; billing</h2><p class="mt-1 text-sm text-muted">See your plan, usage and upgrade options.</p></div>
+      <a href="{% url 'billing:index' %}" class="btn btn-secondary btn-sm">Manage plan</a>
+    </section>
+    <section id="danger" class="card card-pad scroll-mt-24 border-danger/35" aria-labelledby="danger-heading">
+      <h2 id="danger-heading" class="section-title text-danger">Delete account</h2>
+      <p class="mt-1 text-sm text-muted">Permanently delete your account and all learning data — goals, attempts, mastery history and notifications. This can't be undone.</p>
+      <a href="{% url 'accounts_settings:delete' %}" class="btn btn-danger btn-sm mt-4">Delete my account…</a>
+    </section>
+  </div>
+</div>
+{% endblock %}

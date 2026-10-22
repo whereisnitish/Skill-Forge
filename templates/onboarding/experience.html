@@ -1,0 +1,36 @@
+{% extends "onboarding/_layout.html" %}
+{% load ui %}
+{% block content %}
+<h1 class="text-display-lg">Where are you starting from?</h1>
+<p class="mt-3 text-muted">This only sets a cautious starting point. Your real answers quickly outweigh it.</p>
+<form method="post" class="mt-8 space-y-8" novalidate>
+  {% csrf_token %}
+  <fieldset>
+    <legend class="sr-only">Experience level</legend>
+    <div class="grid gap-3 sm:grid-cols-3">
+      {% for level in levels %}
+      <label class="option-card flex-col" for="level-{{ level.value }}">
+        <input type="radio" name="level" id="level-{{ level.value }}" value="{{ level.value }}" {% if form.level.value == level.value %}checked{% endif %}>
+        <span class="flex w-full items-center justify-between"><span class="font-semibold text-fg">{{ level.label }}</span><span class="option-mark" aria-hidden="true"></span></span>
+        <span class="text-sm text-muted">{{ level.description }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+  {% if not state.diagnostic_completed %}
+  <label class="card card-pad flex cursor-pointer items-start gap-4" for="id_take_diagnostic">
+    <input type="checkbox" name="take_diagnostic" id="id_take_diagnostic" class="checkbox mt-1" {% if form.take_diagnostic.value %}checked{% endif %}>
+    <span>
+      <span class="flex items-center gap-2 font-semibold">{% icon "scan-search" "size-4 text-accent-text" %} Take a 2-minute placement check</span>
+      <span class="mt-1 block text-sm text-muted">Five quick questions from across your path. They're graded like any challenge and give your plan real evidence from day one. You can skip any question.</span>
+    </span>
+  </label>
+  {% else %}
+  <p class="flex items-center gap-2 text-sm text-success">{% icon "circle-check" "size-4" %} Placement check completed.</p>
+  {% endif %}
+  <div class="flex items-center justify-between">
+    <a href="{% url 'onboarding:step' 'goal' %}" class="btn btn-ghost">{% icon "arrow-left" "size-4" %} Back</a>
+    <button type="submit" class="btn btn-primary btn-lg">Continue {% icon "arrow-right" "size-4" %}</button>
+  </div>
+</form>
+{% endblock %}

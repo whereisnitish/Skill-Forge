@@ -1,0 +1,2008 @@
+# System design and technical communication curriculum.
+# Skill graph: docs/curriculum-map.md, section "systems.yaml".
+# Schema: docs/content-authoring.md.
+
+skills:
+  # ------------------------------------------------------------------ system design
+  - slug: sd-scalability
+    name: Scalability fundamentals
+    category: system-design
+    difficulty: 2
+    review_interval_days: 3
+    summary: "Grow capacity by finding the real bottleneck, keeping app servers stateless so they can scale out, and adding caches and read replicas where the load is."
+    description: |
+      **Scalability** is a system's ability to handle more load — users, requests, data — by adding resources rather than redesigning it. You can *scale up* (a bigger machine: simple, but capped by the largest machine you can buy and still a single point of failure) or *scale out* (more machines behind a load balancer). Scaling out only works when any instance can serve any request, so per-user state such as sessions, uploaded files and local caches has to move to shared stores (a database, Redis, object storage) or to the client.
+
+      Real systems are rarely limited everywhere at once. Back-of-the-envelope estimates (users × requests per user ÷ seconds per day, times a peak factor) tell you whether one database will last for years or needs a plan now, and measurements tell you *which* tier is saturated. Because most products are read-heavy, caching and read replicas often buy more headroom than adding application servers.
+
+      Common pitfalls: scaling before measuring; sizing for the average instead of the peak; keeping state in server memory or on local disk, so a second server breaks logins and uploads; adding app servers until the database runs out of connections (use a connection pooler); and forgetting that caches and replicas serve slightly stale data.
+    objectives:
+      - Distinguish vertical from horizontal scaling and say when each is appropriate.
+      - Identify state that stops an application tier from scaling out and move it to shared storage.
+      - Estimate average and peak request rates from user numbers with back-of-the-envelope arithmetic.
+      - Propose a staged scaling plan (measure, scale out the app tier, cache, add read replicas) for a read-heavy service.
+    prerequisites:
+      - skill: http-api-design
+        strength: required
+
+  - slug: sd-load-balancing
+    name: Load balancing
+    category: system-design
+    difficulty: 3
+    review_interval_days: 3
+    summary: "Spread traffic across healthy instances: choose a balancing algorithm, tune health checks and timeouts, and know when retries and session affinity help or hurt."
+    description: |
+      A **load balancer** sits in front of a pool of servers and decides which one handles each connection or request. A layer-4 balancer works on TCP/UDP connections and never looks inside them; a layer-7 balancer understands HTTP, so it can route by host, path or header, balance individual requests over keep-alive connections and run HTTP health checks. The algorithm matters as much as the layer: round robin spreads request *counts*, least connections (or least outstanding requests) follows the work actually in flight, and hash-based schemes give affinity — the same client or key keeps landing on the same server.
+
+      Load balancing is what makes horizontal scaling, failover and zero-downtime deploys possible. Health checks take failed instances out of rotation, connection draining removes an instance without cutting off in-flight requests, and the balancer itself must be redundant or it becomes the single point of failure it was meant to remove.
+
+      Common pitfalls: health checks so slow that a dead server keeps receiving traffic for minutes, or so "deep" (querying a shared database) that one dependency blip ejects every instance at once; retrying non-idempotent requests and creating duplicates; immediate retries that multiply the load during an overload; and round robin in front of long-lived connections such as WebSockets, where request counts say little about load.
+    objectives:
+      - Compare round robin, least connections and hash-based balancing and choose one for a given workload.
+      - Explain what layer-4 and layer-7 load balancers can see and do.
+      - Configure health checks that detect failures quickly without cascading on shared dependencies.
+      - Decide when retries through a load balancer are safe, and drain instances cleanly during deploys.
+    prerequisites:
+      - skill: sd-scalability
+        strength: required
+
+  - slug: sd-data-partitioning
+    name: Replication & partitioning
+    category: system-design
+    difficulty: 4
+    review_interval_days: 2
+    summary: "Replicate data for availability and read throughput, and partition (shard) it for write and storage scale, choosing keys that keep queries local and avoid hot spots."
+    description: |
+      **Replication** keeps copies of the same data on several nodes. With single-leader replication, writes go to the leader and stream to followers; asynchronous followers can lag behind, so a read from a replica may not show a write that has just succeeded. Synchronous replication avoids that, but makes every write slower and dependent on the replicas being reachable. **Partitioning** (sharding) instead splits the data so each node stores only a subset: by key range (efficient range scans, but sequential keys create hot spots), by a hash of the key (an even spread, but range queries must ask every shard), or through a lookup directory. Consistent hashing, or a fixed set of many logical shards, lets you add nodes while moving only a small fraction of the data.
+
+      A single database eventually runs out of write throughput, storage or acceptable failover time, and the partition key is one of the hardest design decisions to reverse: it decides which queries touch a single shard, where load concentrates and how painful resharding will be. Replication decides what survives a node failure and how stale reads can be.
+
+      Common pitfalls: `hash(key) % N`, which remaps most keys whenever N changes; range-partitioning on timestamps or auto-increment IDs, so every insert lands on one partition; a few very large tenants or celebrity keys overloading their shard; cross-shard joins and transactions; reading your own write from a lagging replica; and treating replicas as backups — they replicate an accidental `DELETE` just as faithfully.
+    objectives:
+      - Explain single-leader replication and how asynchronous replication lag affects reads.
+      - Compare range and hash partitioning and predict where hot spots will appear.
+      - Choose a partition key from a workload's access patterns and justify it.
+      - Implement a consistent-hashing ring and explain why it moves fewer keys than hash-mod-N.
+    prerequisites:
+      - skill: sd-scalability
+        strength: required
+      - skill: sql-indexes
+        strength: required
+    related: [sd-consistency]
+
+  - slug: sd-consistency
+    name: Consistency & CAP trade-offs
+    category: system-design
+    difficulty: 4
+    review_interval_days: 2
+    summary: "Reason about what readers can observe in replicated systems: strong vs. eventual consistency, read-your-writes, quorums, and what CAP actually says about network partitions."
+    description: |
+      A **consistency model** says which values a read may return when data is replicated. *Linearizable* (strong) consistency makes the system behave like a single copy: once a write completes, every later read sees it. *Eventual* consistency only promises that replicas converge once writes stop, so reads in between can be stale. Between the two sit session guarantees such as *read-your-writes* (you always see your own changes) and *monotonic reads* (you never see data go back in time), and causal consistency. Leaderless stores tune this with quorums: with N replicas, W write acknowledgements and R replicas per read, R + W > N makes every read quorum overlap every write quorum.
+
+      The **CAP theorem** says that when a network partition separates replicas, each side must either refuse or delay some requests (keeping consistency) or keep answering with possibly stale data (keeping availability). It is not a free choice of "two out of three": partitions happen whether you choose them or not. When there is no partition, the trade-off is latency versus consistency (the PACELC framing). Real products mix levels: seat reservations and account balances need strong guarantees, while like counts and feeds tolerate staleness.
+
+      Common pitfalls: the "pick two" misreading; assuming a database is strongly consistent in every configuration (reads from asynchronous replicas are not); quorum off-by-one errors (R + W = N does not guarantee overlap) and forgetting caveats such as sloppy quorums; and paying the latency and availability cost of strong consistency for data that never needed it.
+    objectives:
+      - Distinguish linearizable, eventual and read-your-writes consistency with concrete examples.
+      - State what the CAP theorem does and does not claim, including why its trade-off applies during a network partition.
+      - Use quorum arithmetic (R + W > N) to decide whether reads are guaranteed to see the latest write.
+      - Choose a consistency level per feature of a product and justify it with the business rules.
+    prerequisites:
+      - skill: sd-data-partitioning
+        strength: required
+
+  - slug: sd-rate-limiting
+    name: Rate limiting & backpressure
+    category: system-design
+    difficulty: 3
+    review_interval_days: 3
+    summary: "Protect services from overload with token-bucket and window rate limiters, clear 429 responses, and backpressure: bounded queues, load shedding and clients that back off."
+    description: |
+      **Rate limiting** caps how many requests a client — a user, API key or IP address — may make in a period. A *token bucket* holds up to `capacity` tokens and refills at a steady rate, so it allows short bursts while enforcing an average; a *fixed-window counter* is the simplest, but lets a client send up to twice the limit around a window boundary; *sliding-window* logs or counters smooth that out. **Backpressure** is the broader principle: when a component can't keep up, it signals upstream to slow down instead of buffering work without limit.
+
+      Limits protect shared resources from buggy or abusive clients, enforce fair use and pricing tiers, and keep latency predictable under load. Across a fleet of servers the counters must live in a shared store with atomic operations (for example Redis `INCR` or a Lua script), or be approximated per instance. When a client exceeds its limit, respond with `429 Too Many Requests` — or `503 Service Unavailable` when the whole service is shedding load — plus a `Retry-After` header, so well-behaved clients know when to come back.
+
+      Common pitfalls: non-atomic read-modify-write counters that let concurrent requests slip through; limiting by IP when many users share one address behind NAT, or trusting a client-supplied `X-Forwarded-For` header; unbounded in-memory queues that turn a traffic spike into an out-of-memory crash; and clients that retry immediately, multiplying the load exactly when the service is struggling.
+    objectives:
+      - Implement a token-bucket limiter and explain how capacity and refill rate shape bursts.
+      - Compare fixed-window, sliding-window and token-bucket limiters, including the fixed-window boundary burst.
+      - Reject excess requests correctly (429 or 503 with Retry-After) and design clients that back off with jitter.
+      - Apply backpressure with bounded queues and load shedding instead of unbounded buffering.
+    prerequisites:
+      - skill: sd-scalability
+        strength: required
+      - skill: caching-strategies
+        strength: required
+
+  # ------------------------------------------------------------------ communication
+  - slug: comm-pr-descriptions
+    name: Writing clear PR descriptions
+    category: communication
+    difficulty: 1
+    review_interval_days: 4
+    summary: "Write pull-request descriptions that tell a reviewer why a change exists, what it does, how it was tested and what could go wrong, before they read a line of the diff."
+    description: |
+      A **pull-request description** is the reviewer's map of a change. It explains the problem and why it matters (with a link to the ticket or incident), summarises the approach and what changed, shows how the change was verified, and calls out risk: migrations, configuration or behaviour changes, rollout and rollback. A specific title ("Move order exports to a background job to stop timeouts") tells reviewers and future readers what the change does before they open it.
+
+      Reviewers who understand the intent review faster and catch real problems instead of reverse-engineering the diff. The description also outlives the review: months later, someone running `git blame` during an incident relies on it to understand why the code is the way it is.
+
+      Common pitfalls: titles like "fix" or "updates"; describing only *what* changed — which the diff already shows — and never *why*; "tests pass" with no detail; burying a risky change among routine edits; mixing unrelated changes in one PR; and walls of unstructured text where a few short headed sections would do.
+    objectives:
+      - Write a specific title that summarises the effect of a change.
+      - State the problem or motivation and link the relevant ticket or incident.
+      - Summarise what changed and point reviewers to the parts that need the most care.
+      - Describe how the change was tested and how to verify it.
+      - Flag risks, rollout steps and how to roll back.
+
+  - slug: comm-code-review-feedback
+    name: Giving code review feedback
+    category: communication
+    difficulty: 2
+    review_interval_days: 3
+    summary: "Write review comments that are specific, respectful and actionable: explain the impact, suggest a fix, separate blocking issues from nits, and critique the code rather than the person."
+    description: |
+      Code review feedback catches defects and spreads knowledge, but only if the author can act on it. An effective comment points at specific code, explains the impact (a bug, a security hole, a performance or maintainability cost), suggests a concrete alternative or asks a genuine question, and signals severity — *blocking*, *suggestion* or *nit* — so the author knows what must change before merging.
+
+      Tone has a real engineering cost. Harsh or vague comments make authors defensive, drag out threads and teach people to avoid asking for review, while rubber-stamp approvals let bugs through. Critiquing the code rather than the person, and saying what is good, keeps reviews fast and honest.
+
+      Common pitfalls: comments about the author ("did you even test this?"); "this is wrong" with no reason or alternative; marking a security issue as a nit, or a personal preference as blocking; burying one critical problem under twenty style nits that a linter or formatter should enforce; and long back-and-forth threads that a five-minute call would settle.
+    objectives:
+      - Rewrite a harsh or vague review comment so it is specific, respectful and actionable.
+      - Explain the impact behind a requested change and offer a concrete alternative.
+      - Label comments by severity (blocking, suggestion, nit) and prioritise what matters.
+      - Critique the code and its behaviour, not the author.
+    prerequisites:
+      - skill: comm-pr-descriptions
+        strength: required
+
+  - slug: comm-explaining-tradeoffs
+    name: Explaining technical trade-offs
+    category: communication
+    difficulty: 2
+    review_interval_days: 3
+    summary: "Explain technical options to any audience: frame them by user and business impact, compare cost, risk and time in plain language, and make a clear recommendation."
+    description: |
+      Almost every engineering decision is a trade-off: ship sooner or build it properly, buy or build, strong consistency or lower latency. Explaining one well means stating the decision that is needed, the realistic options, what each costs and risks in terms the audience cares about — users, revenue, deadlines, risk — and a clear recommendation with its reasoning and what would change it.
+
+      Product managers, executives and customers make or approve many of these decisions. When they can't follow the explanation they delay, decide on gut feeling, or are surprised by costs later; when they can, decisions get made quickly and engineering earns trust.
+
+      Common pitfalls: jargon such as "replica lag" or "p99" without translation; presenting a single option as if there were no choice, or listing options without recommending one; burying the answer under background detail; arguing from technical elegance instead of impact; and false precision — an exact date when the honest answer is a range with conditions.
+    objectives:
+      - Translate a technical constraint into its impact on users and the business.
+      - Present at least two realistic options with their cost, risk and timeline.
+      - Make a clear recommendation and explain the reasoning behind it.
+      - Adapt vocabulary and level of detail to a non-technical audience.
+      - State what is uncertain and what would change the recommendation.
+    related: [sd-consistency]
+
+  - slug: comm-incident-updates
+    name: Incident communication
+    category: communication
+    difficulty: 3
+    review_interval_days: 3
+    summary: "Write incident updates people can act on: what is affected, current status, what is being done, any workaround and when the next update will come, for engineers and customers alike."
+    description: |
+      During an incident, communication runs in parallel with the fix. Someone — often the incident commander or a dedicated communications lead — posts regular updates to an internal channel and, for customer-facing problems, to a status page. A useful update states the impact (who and what is affected, since when), the current status (investigating, identified, monitoring, resolved), what is being done, any workaround, and when the next update will come.
+
+      Silence or vague updates create a flood of "any news?" messages, duplicated investigations and anxious customers. Precise, regular updates let support answer customers, let account managers warn key customers and let leaders make decisions — and they build trust even when the news is bad.
+
+      Common pitfalls: speculating about a cause that isn't confirmed; naming or blaming individuals (save cause analysis for a blameless post-incident review); downplaying impact ("minor slowness" for a widespread outage); promising fix times nobody can back; internal jargon on a public status page; and going quiet because there is nothing new — "no change, next update at 15:30 UTC" is still an update.
+    objectives:
+      - Write an incident update that states impact, status, actions, workaround and the next update time.
+      - Tailor an incident update to its audience, from the internal incident channel to a public status page.
+      - Avoid speculation, blame and unfounded fix-time promises in live updates.
+      - Keep a predictable update cadence, including when there is no new information.
+    prerequisites:
+      - skill: comm-explaining-tradeoffs
+        strength: required
+
+
+challenges:
+  # ================================================================== sd-scalability
+  - slug: sd-scalability-stateless-sessions-mcq
+    skill: sd-scalability
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Users get logged out after adding a second server
+    objective: Recognise that scaling out needs a stateless application tier and pick the fix for server-local sessions.
+    prompt: |
+      A Django app stores sessions as files on each server's local disk:
+
+      ```python
+      SESSION_ENGINE = "django.contrib.sessions.backends.file"  # files in the server's temp directory
+      ```
+
+      Traffic grew, so you added a second app server behind a round-robin load balancer. Users now report being logged out at random.
+
+      Which change fixes the root cause **and** lets you keep adding servers?
+    hints:
+      - Ask where a user's session lives, and which server handles that user's next request.
+      - A fix that only works while each user keeps hitting the same machine won't survive a deploy or a crashed server.
+    explanation: |
+      Round robin sends consecutive requests from the same user to different servers, and each server can only read the session files on its own disk — so about half the time the user looks logged out. Scaling out requires that **any instance can serve any request**: per-user state must live somewhere every instance can reach (the database, Redis) or in the client (signed cookies). Sticky sessions and bigger machines hide the symptom but keep the state tied to one machine.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "Store sessions where every server can reach them (the database or Redis), or in signed cookies, so any server can handle any request."
+          correct: true
+          feedback: "Right — once the app servers are stateless you can add, remove or restart them freely, and the load balancer can send each request anywhere."
+        - id: b
+          text: "Enable sticky sessions on the load balancer so each user always reaches the same server."
+          feedback: "That hides the symptom, but sessions are still lost whenever that server restarts, is redeployed or fails, and a few heavy users can pin their load onto one machine."
+          misconception: {code: sticky-sessions-fix-state, label: "Treats sticky sessions as a fix for server-local state", category: conceptual}
+        - id: c
+          text: "Replace both servers with one larger server."
+          feedback: "Scaling up avoids the problem by going back to one machine, but growth is then capped by the biggest machine you can buy, and that machine is a single point of failure."
+          misconception: {code: vertical-scaling-only, label: "Reaches for a bigger machine instead of removing what blocks scaling out", category: conceptual}
+        - id: d
+          text: "Increase the session expiry time."
+          feedback: "The sessions aren't expiring — the request reached a server that never had that session file. A longer expiry changes nothing."
+          misconception: {code: misreads-session-loss, label: "Misreads lost server-local sessions as expired sessions", category: misread}
+
+  - slug: sd-scalability-peak-rps-estimate
+    skill: sd-scalability
+    kind: short_answer
+    difficulty: 2
+    minutes: 4
+    tags: [interview]
+    title: Estimate peak requests per second
+    objective: Convert daily active users and per-user activity into average and peak request rates.
+    prompt: |
+      A social app has **10 million daily active users**. Each user makes on average **20 API requests per day**. Traffic isn't spread evenly: in the busiest hour the request rate is **3× the daily average**.
+
+      Estimate the **peak** request rate in requests per second, rounded to the nearest thousand. (A day has 86,400 seconds.)
+    hints:
+      - Work out the total number of requests per day first, then turn it into a per-second rate.
+      - The daily average is about 200,000,000 ÷ 86,400 requests per second. Capacity has to cover the busiest hour, not the average.
+    explanation: |
+      10,000,000 users × 20 requests = 200,000,000 requests per day. Divided by 86,400 seconds that is about **2,315 requests per second on average**; the peak is 3× that, about **6,944 ≈ 7,000 requests per second**.
+
+      Always size capacity for the peak, then add headroom for failures and growth. The popular shortcut "a day is about 100,000 seconds" gives 6,000 — fine for an order of magnitude, but about 14% low.
+    solution: |
+      ```text
+      requests per day = 10,000,000 × 20       = 200,000,000
+      average          = 200,000,000 / 86,400  ≈ 2,315 req/s
+      peak             = 3 × 2,315             ≈ 6,944 req/s   →  about 7,000 req/s
+      ```
+    content:
+      placeholder: e.g. 12000
+      accepted: ["7000", "7,000", "7 000", "7k", "7000 rps", "7,000 rps", "7k rps", "7000 req/s", "7,000 req/s", "7000 requests per second", "7,000 requests per second", "~7000", "~7,000", "~7k", "about 7000", "about 7,000", "approximately 7000", "approximately 7,000"]
+      patterns:
+        - "(~ ?|about |around |roughly |approx\\.? |approximately )?(7,?000|7 000|7 ?k|6,?9[0-9][0-9](\\.[0-9]+)?)( ?(rps|qps|req/s|requests/s|requests/sec|requests per second|requests a second|per second|/s))?"
+      partial:
+        - answers: ["6000", "6,000", "6k", "~6000", "~6,000", "~6k", "6000 rps", "6,000 rps", "about 6000", "about 6,000"]
+          score: 0.5
+          feedback: "Close — that's what the 'a day is about 100,000 seconds' shortcut gives. It undercounts by about 14%: with 86,400 seconds the peak is about 6,900 req/s, which rounds to 7,000."
+      wrong:
+        - answers: ["2000", "2,000", "2k", "2300", "2,300", "2315", "2,315", "2314", "2,314", "2314.8", "2,314.8", "2.3k", "~2300", "~2,300", "~2k"]
+          feedback: "That's the daily average (about 2,315 req/s). Capacity has to cover the busiest hour, so multiply by the 3× peak factor."
+          misconception: {code: plans-for-average, label: "Sizes capacity for the average rather than the peak load", category: conceptual}
+        - answers: ["167000", "167,000", "166667", "166,667", "166666", "166,666", "167k"]
+          feedback: "You divided by 3,600 (the seconds in an hour) instead of 86,400 (the seconds in a day)."
+          misconception: {code: estimate-unit-error, label: "Mixes up time units in back-of-the-envelope estimates", category: logic}
+        - answers: ["70000", "70,000", "70k", "700", "694", "69444", "69,444"]
+          feedback: "Check the order of magnitude: 200 million requests a day is a little over 2,000 per second on average, so the peak is in the thousands."
+          misconception: {code: estimate-unit-error, label: "Mixes up time units in back-of-the-envelope estimates", category: logic}
+
+  - slug: sd-scalability-read-heavy-plan
+    skill: sd-scalability
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 12
+    tags: [interview]
+    title: Scale a read-heavy catalogue API for a 5× peak
+    objective: Propose an ordered scaling plan for a read-heavy service and name the trade-offs it introduces.
+    prompt: |
+      You own a product-catalogue API. Today **one VM runs both the Django app and PostgreSQL**. About **95% of requests are reads** (product pages, category listings, search); writes come from a small team of admins editing products.
+
+      The VM already reaches 90% CPU at peak, and the Black Friday sale is expected to bring **5× today's peak traffic**.
+
+      Describe, in order, how you would scale this system. Say what you would do first, why, and what trade-offs your changes introduce.
+    hints:
+      - Before changing the architecture, how would you find out which part is actually using the CPU?
+      - Think separately about the application tier and the database tier — and about what a 95% read share makes cheap.
+      - Every copy of the data you add (caches, replicas) can be slightly out of date. How would you handle that?
+    explanation: |
+      A good plan starts by **measuring** where the CPU goes, then separates the tiers so the app and database stop competing for one machine. The **app tier scales out** once it is stateless (sessions and files in shared storage) behind a load balancer. With 95% reads, **caching** (a CDN for pages and images, Redis for hot queries) usually removes most of the load, and **read replicas** spread the remaining reads. The price is **staleness**: caches and asynchronous replicas can serve old data, so you bound it with TTLs, invalidate on writes, and read from the primary right after a write when it matters.
+    solution: |
+      1. **Measure first.** Use metrics, APM and `pg_stat_statements` (or a load test that replays production traffic) to see whether the CPU is spent in Django or in PostgreSQL and which endpoints and queries dominate. Fix obviously slow queries (missing indexes, N+1 queries) before buying hardware.
+      2. **Separate the tiers.** Move PostgreSQL to its own server (or a managed database) so the app and the database stop competing for CPU.
+      3. **Scale the app tier out.** Make the Django servers stateless (sessions and uploads in shared storage) and run several instances behind a load balancer, with autoscaling for the sale.
+      4. **Cache the reads.** Put a CDN in front of product pages and images with sensible `Cache-Control` headers, and cache hot catalogue queries in Redis. With 95% reads, this takes most of the load off the database.
+      5. **Add read replicas** if the database is still the bottleneck: route read-only queries to replicas and keep writes on the primary, with a connection pooler such as PgBouncer in front.
+
+      **Trade-offs:** cached pages and replicas can serve stale data (TTL expiry, replica lag), so I would invalidate cache entries when admins edit a product and read from the primary straight after a write. There are also more moving parts to monitor and pay for, so I would load-test the new setup at 5× before the sale.
+    content:
+      min_words: 60
+      max_words: 450
+      placeholder: "1. First I would … because …"
+      criteria:
+        - id: measure-first
+          label: Measures to find the actual bottleneck before changing the architecture
+          weight: 1
+          any: ["measur", "metric", "profil", "bottleneck", "monitor", "load test", "benchmark", "apm", "observab", "flame graph", "slow quer", "pg_stat_statements", "explain analy", "find out where", "find out which", "re:\\bwhich (part|component|tier|query|queries|endpoint)"]
+          missing_feedback: "Start by finding out where the CPU goes (app or database, which endpoints and queries) with metrics, profiling or a load test — otherwise you may scale the wrong tier."
+          misconception: {code: scale-before-measuring, label: "Scales components without identifying the bottleneck", category: incomplete}
+        - id: scale-out-app-tier
+          label: Separates the database and scales the stateless app tier horizontally behind a load balancer
+          weight: 2
+          required: true
+          any: ["horizontal", "scale out", "scaling out", "scale it out", "load balanc", "more app servers", "more application servers", "more servers", "more web servers", "additional servers", "additional app", "multiple app", "multiple servers", "multiple instances", "several instances", "several app", "more instances", "stateless", "autoscal", "auto scal", "separate the database", "separate database", "separate server", "own server", "own machine", "dedicated database", "move the database", "move postgres", "managed database"]
+          missing_feedback: "Move the database onto its own machine and run several stateless app instances behind a load balancer, so the app tier can grow horizontally instead of being capped by one VM."
+          misconception: {code: vertical-scaling-only, label: "Reaches for a bigger machine instead of removing what blocks scaling out", category: conceptual}
+        - id: caching
+          label: Caches read-heavy responses (CDN, HTTP caching or an in-memory cache such as Redis)
+          weight: 2
+          any: ["cach", "cdn", "redis", "memcache", "varnish", "content delivery"]
+          missing_feedback: "With 95% reads, caching — a CDN for product pages and images, Redis or memcached for hot queries — is usually the biggest and cheapest win."
+        - id: read-replicas
+          label: Offloads database reads to read replicas
+          weight: 1
+          any: ["replica", "replicat", "follower", "secondary", "secondaries", "standby"]
+          missing_feedback: "If the database is still the bottleneck, read replicas spread the read load over several copies while writes stay on the primary."
+        - id: staleness-tradeoff
+          label: Names the cost of the extra copies — stale data from caches or replica lag — and how to manage it
+          weight: 1
+          any: ["stale", "lag", "invalidat", "eventual", "out of date", "outdated", "ttl", "expir", "consisten", "old data", "older data", "behind the primary"]
+          missing_feedback: "Caches and replicas serve slightly old data. Say how you would bound the staleness: TTLs, invalidating on writes, reading from the primary right after a write."
+          misconception: {code: ignores-staleness, label: "Ignores the staleness that caches and replicas introduce", category: incomplete}
+
+  # ================================================================== sd-load-balancing
+  - slug: sd-load-balancing-algorithm-mcq
+    skill: sd-load-balancing
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: Pick a balancing algorithm for mixed request costs
+    objective: Choose a load-balancing algorithm that accounts for requests of very different cost.
+    prompt: |
+      An API runs on **6 identical servers** behind a load balancer. Most requests finish in about 20 ms, but report exports take 20–60 seconds.
+
+      With round-robin balancing, some servers end up with several slow exports in progress while others are almost idle, and p99 latency spikes.
+
+      Which balancing strategy fits this workload best?
+    hints:
+      - Round robin balances the *number* of requests. Is that the same as balancing the work?
+      - Look for a strategy that reacts to what each server is doing right now.
+    explanation: |
+      Round robin and random selection distribute request **counts**, not **work**. When request costs vary widely, a strategy that tracks in-flight load — least connections, least outstanding requests, or "power of two choices" — steers new requests away from servers busy with slow exports. The structural fix is to move long-running exports to a background job queue so they don't share capacity with fast requests at all.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "Least connections (least outstanding requests): send each new request to the server with the fewest requests in flight."
+          correct: true
+          feedback: "Right — a server stuck on long exports has more requests in flight, so it receives fewer new ones. Moving exports to a background queue would be the long-term fix."
+        - id: b
+          text: "Weighted round robin, with each server's weight set from its CPU count."
+          feedback: "The servers are identical, so every weight would be the same — that is plain round robin, which still ignores how much work each server is doing."
+          misconception: {code: rr-assumes-equal-cost, label: "Assumes round robin balances load when request costs vary", category: conceptual}
+        - id: c
+          text: "IP hash, so each client always reaches the same server."
+          feedback: "Hashing gives affinity, not balance: a client that runs many exports keeps landing on the same server, and the choice still ignores in-flight work."
+          misconception: {code: affinity-is-balancing, label: "Confuses session affinity with load balancing", category: conceptual}
+        - id: d
+          text: "Random selection, so the load evens out statistically."
+          feedback: "Random selection evens out request counts on average, just like round robin, so it is just as blind to which servers are busy with slow requests."
+          misconception: {code: rr-assumes-equal-cost, label: "Assumes round robin balances load when request costs vary", category: conceptual}
+
+  - slug: sd-load-balancing-config-review
+    skill: sd-load-balancing
+    kind: code_review
+    difficulty: 3
+    minutes: 12
+    tags: [scenario]
+    title: Review a load-balancer config for the checkout service
+    objective: Identify health-check and retry settings that cause slow recovery, cascading outages or duplicate side effects.
+    prompt: |
+      A teammate opened a PR adding this load-balancer configuration for the **checkout service** (three app servers sharing one PostgreSQL primary; checkout calls a payment provider). The file uses a vendor-neutral format.
+
+      Review it. Identify the settings that could cause outages, duplicate side effects or slow recovery, explain the impact of each, and say what you would change.
+    hints:
+      - Work out how long a crashed backend keeps receiving traffic with these health-check settings.
+      - What happens to the whole pool if the shared database has a 30-second blip?
+      - A timeout tells you that you didn't get an answer — not that nothing happened.
+    explanation: |
+      Four problems stand out. **Detection is slow**: 120 s × 10 failures leaves a dead backend in rotation for up to 20 minutes. **The health check is deep**: it depends on the shared database and the payment provider, so one dependency blip fails the check on every backend at once and the balancer ejects the whole pool. **POST is retried**: a timed-out POST may already have created the order or charged the card, so retrying can duplicate it — retry only idempotent requests or require idempotency keys. **Retries amplify overload**: five immediate retries can multiply the load up to six-fold exactly when backends are struggling; use few retries with exponential backoff and jitter, or a retry budget.
+    solution: |
+      1. **Failed backends stay in rotation for ~20 minutes.** `interval_seconds: 120` × `unhealthy_threshold: 10` means a dead server keeps receiving traffic for up to 20 minutes. Use a 5–10 s interval with a threshold of 2–3, plus passive outlier detection on real traffic.
+      2. **The health check depends on shared dependencies.** `/health` queries the shared primary and calls the payment provider, so a brief database or provider blip fails the check on all three backends at once and the load balancer ejects the whole pool — a total outage instead of a degraded checkout. Make the balancer's check test the instance itself (process up, able to serve requests) and monitor dependencies separately, so a dependency problem degrades checkout instead of removing every server.
+      3. **POST is retried on timeout.** A timeout doesn't mean the request failed — the first attempt may already have created the order or charged the card, so retrying POST can duplicate side effects. Only retry idempotent requests (GET, and PUT/DELETE only if our handlers really are idempotent), or require an idempotency key before POST can be retried.
+      4. **Five immediate retries amplify an overload.** Timeouts and 5xx responses often mean the backends are overloaded; up to six attempts per request multiplies the load exactly when they are struggling (a retry storm). Allow one or two retries at most, with exponential backoff and jitter or a retry budget, and don't retry 503s that signal overload.
+    content:
+      language: yaml
+      code: |
+        # checkout-service load balancer
+        listener:
+          port: 443
+          tls: terminate
+        algorithm: least_outstanding_requests
+        backends:
+          - checkout-1:8000
+          - checkout-2:8000
+          - checkout-3:8000
+        health_check:
+          path: /health          # handler runs SELECT 1 on the shared primary DB
+                                 # and calls the payment provider's status API;
+                                 # returns 500 if either fails
+          interval_seconds: 120
+          unhealthy_threshold: 10
+        retries:
+          attempts: 5            # retried immediately, no backoff
+          on: [timeout, connect_failure, 5xx]
+          methods: [GET, POST, PUT, DELETE]
+        timeouts:
+          backend_seconds: 30
+      min_words: 40
+      max_words: 450
+      placeholder: List each problem, its impact and your fix…
+      criteria:
+        - id: slow-detection
+          label: Notices that a failed backend stays in rotation for up to 20 minutes (120 s × 10)
+          weight: 1
+          any: ["20 min", "twenty min", "1200", "1,200", "too slow", "slow to detect", "slow detection", "detect", "interval", "threshold", "too long", "takes too long", "minutes before"]
+          missing_feedback: "Work out how long a dead backend stays in rotation: 120 s × 10 failed checks = 20 minutes. Use a short interval (seconds) and a small threshold."
+          misconception: {code: slow-health-checks, label: "Accepts health checks that take minutes to remove a failed backend", category: logic}
+        - id: deep-health-check
+          label: Spots that the health check depends on shared dependencies, so one database or provider blip marks every backend unhealthy at once
+          weight: 2
+          any: ["shared", "dependenc", "depends on", "all three", "all backends", "all the backends", "every backend", "all servers", "all the servers", "every server", "all instances", "every instance", "whole pool", "entire pool", "cascad", "deep health", "deep check", "liveness", "readiness", "database blip", "db blip", "database is down", "db is down", "database goes down", "db goes down"]
+          missing_feedback: "What happens to the pool if the shared database or the payment provider has a 30-second blip? A health check should test the instance itself, not shared dependencies, or every backend fails together."
+          misconception: {code: deep-health-check-cascade, label: "Makes health checks depend on shared dependencies", category: conceptual}
+        - id: non-idempotent-retry
+          label: Flags that retrying POST on timeout can duplicate side effects such as orders or charges
+          weight: 2
+          required: true
+          any: ["idempoten", "duplicat", "double charg", "double order", "charged twice", "charge twice", "charging twice", "twice", "re:\\bposts?\\b", "side effect"]
+          missing_feedback: "A timed-out POST may already have charged the card. Only retry idempotent requests, or require idempotency keys before a POST can be retried."
+          misconception: {code: retries-always-safe, label: "Assumes retrying a failed request is always safe", category: conceptual}
+        - id: retry-amplification
+          label: Notes that five immediate retries amplify load on struggling backends (needs backoff, jitter or a retry budget)
+          weight: 1
+          any: ["backoff", "back off", "jitter", "retry storm", "storm", "amplif", "budget", "thundering", "overload", "re:\\bmultipl(y|ies|ied|ying)\\b", "6x", "6×", "6 times", "six times", "5x", "five times", "exponential", "hammer"]
+          missing_feedback: "When backends time out because they're overloaded, five immediate retries multiply the load. Use fewer attempts with exponential backoff and jitter, or a retry budget."
+          misconception: {code: retry-amplification, label: "Overlooks how retries amplify load during an overload", category: performance}
+
+  - slug: sd-load-balancing-websocket-deploys
+    skill: sd-load-balancing
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 12
+    tags: [interview]
+    title: Load-balance a chat service with WebSockets and rolling deploys
+    objective: Choose a load-balancer layer and algorithm for mixed HTTP and WebSocket traffic, and explain how to deploy without dropping users.
+    prompt: |
+      A chat service runs on 8 servers. It serves a REST API under `/api` (short HTTPS requests) and real-time messaging under `/ws` (WebSocket connections that stay open for hours). The team deploys several times a day with a rolling deploy.
+
+      Explain:
+
+      1. whether you would use a layer-4 or a layer-7 load balancer, and why;
+      2. how you would balance the WebSocket connections;
+      3. how you would deploy without dropping users or overloading the remaining servers.
+    hints:
+      - Which layer can see the URL path?
+      - A WebSocket is one long connection. What does "load" mean for a server holding thousands of them?
+      - Think about what happens to the clients connected to a server you are about to stop — and what they all do next.
+    explanation: |
+      Routing `/api` and `/ws` differently needs a **layer-7** balancer, because only an HTTP-aware balancer can see the path. WebSockets are balanced **per connection**, and each connection stays on its server for hours, so **least connections** tracks the real load far better than round robin; expect new servers to start empty after a deploy. For deploys, **drain** each instance (stop sending it new connections, let in-flight requests finish, close WebSockets gracefully), make clients **reconnect with exponential backoff and jitter** so they don't stampede the remaining servers, and only admit new instances once their **readiness** check passes.
+    solution: |
+      **Layer 7.** I'd use an HTTP-aware (layer 7) load balancer: it can see the path, so it routes `/api` and `/ws` to the right target groups, handles the WebSocket upgrade and runs HTTP health checks. A layer-4 balancer only sees TCP connections and can't route by path.
+
+      **Balancing WebSockets.** Each WebSocket is a long-lived connection that stays on the server that accepted it, so a server's load is its number of open connections, not its request count. I'd use least connections for `/ws`; round robin would leave servers unbalanced. After a deploy or scale-out the new servers start empty, so balance only recovers as clients reconnect.
+
+      **Deploys.** Roll one server (or a small batch) at a time. For each one, deregister it and drain it: the balancer stops sending it new connections, in-flight API requests finish, and the server closes its WebSockets gracefully with a close frame. Clients reconnect with exponential backoff plus random jitter, so thousands of them don't stampede the remaining servers at the same instant. The new version only joins the pool once its readiness check passes.
+    content:
+      min_words: 60
+      max_words: 450
+      placeholder: "1. Layer … because …"
+      criteria:
+        - id: layer-7-routing
+          label: Chooses a layer-7 (HTTP-aware) balancer because it can route by path
+          weight: 2
+          required: true
+          any: ["l7", "layer 7", "layer seven", "re:\\blayer\\s*7\\b", "application layer", "application load balancer", "http aware", "http level", "path based", "by path", "url path", "the path", "routing rule", "host based"]
+          missing_feedback: "Only a layer-7 (HTTP-aware) balancer can see the path, so it can send /api and /ws to the right place and run HTTP health checks; a layer-4 balancer just forwards TCP connections."
+          misconception: {code: l4-l7-confusion, label: "Confuses what layer-4 and layer-7 load balancers can see", category: conceptual}
+        - id: long-lived-connections
+          label: Explains that WebSockets are balanced per long-lived connection, so least connections fits and imbalance appears after deploys
+          weight: 2
+          any: ["least conn", "least connection", "fewest conn", "fewest open", "fewest active", "connection count", "open connections", "number of connections", "long lived", "long running", "persistent", "per connection", "imbalanc", "unbalanc", "uneven", "rebalanc"]
+          missing_feedback: "A WebSocket stays on the server that accepted it for hours, so balance by open connections (least connections) and expect new servers to start empty after a deploy."
+          misconception: {code: rr-assumes-equal-cost, label: "Assumes round robin balances load when request costs vary", category: conceptual}
+        - id: connection-draining
+          label: Drains instances before stopping them so in-flight requests finish and WebSockets close gracefully
+          weight: 2
+          any: ["drain", "deregist", "graceful", "in flight", "inflight", "in progress", "stop sending new", "no new connections", "no new requests", "stop accepting", "stops accepting", "remove it from the pool", "take it out of", "close frame", "finish their", "let them finish", "let existing"]
+          missing_feedback: "Before stopping an instance, take it out of rotation and drain it: no new connections, in-flight requests finish, WebSockets are closed gracefully."
+          misconception: {code: hard-stop-deploys, label: "Stops instances without draining in-flight work", category: incomplete}
+        - id: reconnect-stampede
+          label: Avoids a reconnection stampede (client backoff with jitter, small deploy batches)
+          weight: 1
+          any: ["jitter", "backoff", "back off", "stagger", "thundering", "stampede", "herd", "reconnect storm", "spread out", "spread the reconnect", "random delay", "randomi", "one at a time", "one server at a time", "a few at a time", "small batch", "in batches"]
+          missing_feedback: "When a server closes thousands of WebSockets at once, clients should reconnect with exponential backoff and random jitter, and you should restart only a few servers at a time."
+          misconception: {code: retry-amplification, label: "Overlooks how retries amplify load during an overload", category: performance}
+        - id: readiness-checks
+          label: Only adds new instances to the pool after they pass a health or readiness check
+          weight: 1
+          any: ["health check", "healthcheck", "health probe", "readiness", "ready", "warm up", "warmed up", "warm"]
+          missing_feedback: "Let new instances join the pool only after they pass a readiness check, so the deploy never routes users to a server that can't serve yet."
+
+  # ================================================================== sd-data-partitioning
+  - slug: sd-partitioning-mod-n-mcq
+    skill: sd-data-partitioning
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: What happens when hash-mod-N gets one more node?
+    objective: Predict how many keys move when a hash-mod-N cluster grows by one node.
+    prompt: |
+      A cache cluster picks the node for each key with:
+
+      ```python
+      node = nodes[hash(key) % len(nodes)]
+      ```
+
+      It has **4 nodes** and you add a **5th**. Assuming the hash spreads keys uniformly, roughly what fraction of the keys now map to a **different node** than before?
+    hints:
+      - A key stays where it is only if `hash % 4` and `hash % 5` happen to be equal.
+      - Try the hash values 0 to 19. For how many of them are the two remainders the same?
+    explanation: |
+      A key keeps its node only when `h % 4 == h % 5`. Out of every 20 consecutive hash values that happens for just 4 of them (those congruent to 0, 1, 2 or 3 modulo 20, by the Chinese remainder theorem), so about **20% of keys stay and 80% move** — in a cache, that is a sudden mass of misses hitting the database. **Consistent hashing** (or a fixed number of logical partitions mapped to nodes) moves only about 1/N of the keys — here about 20% — and all of them to the new node.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "About 80%: almost every key's `hash % 5` differs from its `hash % 4`."
+          correct: true
+          feedback: "Right — only hash values whose remainders mod 4 and mod 5 agree (4 out of every 20) stay put. This is why hash-mod-N clusters are painful to resize."
+        - id: b
+          text: "About 20%: only the keys that belong on the new node move."
+          feedback: "That's what consistent hashing achieves — about 1/N of keys move, all to the new node. With modulo placement, changing N reshuffles almost everything."
+          misconception: {code: mod-n-rehash, label: "Assumes hash-mod-N only moves the new node's share of keys", category: conceptual}
+        - id: c
+          text: "None: existing keys stay where they are and only new keys use the 5th node."
+          feedback: "The formula is recomputed on every lookup, so existing keys immediately map elsewhere — and lookups miss until the data is moved or refilled."
+          misconception: {code: placement-is-sticky, label: "Thinks existing keys keep their placement when the node count changes", category: conceptual}
+        - id: d
+          text: "It depends mainly on the quality of the hash function; a good one keeps movement small."
+          feedback: "A good hash makes the remapping *uniform*, not small: the modulus itself changed, so most keys get a different remainder whatever hash you use."
+          misconception: {code: hash-quality-fixes-remap, label: "Thinks a better hash function avoids remapping when nodes change", category: conceptual}
+
+  - slug: sd-partitioning-consistent-hash-ring
+    skill: sd-data-partitioning
+    kind: python_code
+    difficulty: 4
+    minutes: 25
+    tags: [interview]
+    title: Build a consistent-hashing ring with virtual nodes
+    objective: Implement consistent hashing with virtual nodes so that membership changes move only a small share of keys.
+    prompt: |
+      A cache cluster currently picks a node with `hash(key) % len(nodes)`, so adding a single node reshuffles most keys. Replace it with a **consistent-hashing ring** with virtual nodes.
+
+      Implement `HashRing`:
+
+      - `HashRing(nodes=(), vnodes=100)` places each node at `vnodes` points on the ring: virtual node `i` of node `n` sits at position `stable_hash(f"{n}#{i}")`, for `i` in `range(vnodes)`.
+      - `get_node(key)` returns the node that owns the first position **clockwise** from the key: the smallest position `>= stable_hash(key)`, wrapping around to the smallest position on the ring when there is none. Return `None` if the ring is empty.
+      - `add_node(node)` and `remove_node(node)` change membership. Adding a node that is already on the ring, or removing one that isn't, does nothing.
+
+      Use the provided `stable_hash` (Python's built-in `hash()` of a string changes from one process to the next) and keep lookups fast with `bisect` rather than scanning every position.
+    hints:
+      - Keep the ring as a sorted list of positions, plus a way to find which node owns each position.
+      - "`bisect.bisect_left(positions, h)` gives the index of the first position `>= h`. What should happen when it returns `len(positions)`?"
+      - When removing a node, recompute its `vnodes` positions with the same formula and delete exactly those.
+    explanation: |
+      Consistent hashing puts nodes and keys on the same hash ring and gives each key to the next node clockwise. Adding or removing a node only affects the keys on the arcs next to that node's positions — about 1/N of all keys — whereas `hash(key) % N` remaps most keys whenever N changes. Virtual nodes give every physical node many small arcs, which evens out the load and spreads a departing node's keys over all the survivors instead of dumping them on one neighbour.
+    solution: |
+      Keep a dictionary from ring position to node plus a sorted list of the positions. Adding a node inserts its `vnodes` positions; removing it deletes them. A lookup hashes the key and uses `bisect_left` to find the first position `>=` the hash — `bisect_left` rather than `bisect_right`, so a key that hashes exactly onto a position belongs to that position — and wraps to index 0 past the end of the list.
+
+      ```python
+      import bisect
+      import hashlib
+
+
+      def stable_hash(value):
+          return int.from_bytes(hashlib.md5(value.encode("utf-8")).digest()[:8], "big")
+
+
+      class HashRing:
+          def __init__(self, nodes=(), vnodes=100):
+              self.vnodes = vnodes
+              self._owners = {}      # ring position -> node
+              self._positions = []   # sorted ring positions
+              self._nodes = set()
+              for node in nodes:
+                  self.add_node(node)
+
+          def _node_positions(self, node):
+              return [stable_hash(f"{node}#{i}") for i in range(self.vnodes)]
+
+          def add_node(self, node):
+              if node in self._nodes:
+                  return
+              self._nodes.add(node)
+              for position in self._node_positions(node):
+                  self._owners[position] = node
+              self._positions = sorted(self._owners)
+
+          def remove_node(self, node):
+              if node not in self._nodes:
+                  return
+              self._nodes.discard(node)
+              for position in self._node_positions(node):
+                  if self._owners.get(position) == node:
+                      del self._owners[position]
+              self._positions = sorted(self._owners)
+
+          def get_node(self, key):
+              if not self._positions:
+                  return None
+              index = bisect.bisect_left(self._positions, stable_hash(key))
+              if index == len(self._positions):
+                  index = 0  # wrap around the ring
+              return self._owners[self._positions[index]]
+      ```
+
+      When a node joins, it takes over only the arcs just before its own positions, so roughly 1/N of the keys move — all of them to the new node. Re-sorting on every membership change is fine because changes are rare and lookups are O(log n).
+    content:
+      starter_code: |
+        import bisect
+        import hashlib
+
+
+        def stable_hash(value):
+            """Deterministic 64-bit hash of a string (do not change)."""
+            return int.from_bytes(hashlib.md5(value.encode("utf-8")).digest()[:8], "big")
+
+
+        class HashRing:
+            def __init__(self, nodes=(), vnodes=100):
+                self.vnodes = vnodes
+                self.nodes = []
+                for node in nodes:
+                    self.add_node(node)
+
+            def add_node(self, node):
+                if node not in self.nodes:
+                    self.nodes.append(node)
+
+            def remove_node(self, node):
+                if node in self.nodes:
+                    self.nodes.remove(node)
+
+            def get_node(self, key):
+                # TODO: replace hash-mod-N with a consistent-hashing ring.
+                if not self.nodes:
+                    return None
+                return self.nodes[stable_hash(key) % len(self.nodes)]
+      reference_solution: |
+        import bisect
+        import hashlib
+
+
+        def stable_hash(value):
+            """Deterministic 64-bit hash of a string (do not change)."""
+            return int.from_bytes(hashlib.md5(value.encode("utf-8")).digest()[:8], "big")
+
+
+        class HashRing:
+            def __init__(self, nodes=(), vnodes=100):
+                if vnodes < 1:
+                    raise ValueError("vnodes must be at least 1")
+                self.vnodes = vnodes
+                self._owners = {}      # ring position -> node
+                self._positions = []   # sorted ring positions
+                self._nodes = set()
+                for node in nodes:
+                    self.add_node(node)
+
+            def _node_positions(self, node):
+                return [stable_hash(f"{node}#{i}") for i in range(self.vnodes)]
+
+            def add_node(self, node):
+                if node in self._nodes:
+                    return
+                self._nodes.add(node)
+                for position in self._node_positions(node):
+                    self._owners[position] = node
+                self._positions = sorted(self._owners)
+
+            def remove_node(self, node):
+                if node not in self._nodes:
+                    return
+                self._nodes.discard(node)
+                for position in self._node_positions(node):
+                    if self._owners.get(position) == node:
+                        del self._owners[position]
+                self._positions = sorted(self._owners)
+
+            def get_node(self, key):
+                if not self._positions:
+                    return None
+                index = bisect.bisect_left(self._positions, stable_hash(key))
+                if index == len(self._positions):
+                    index = 0  # wrap around the ring
+                return self._owners[self._positions[index]]
+    tests:
+      - name: an empty ring returns None
+        code: |
+          assert HashRing().get_node("user:1") is None
+          ring = HashRing(["a"])
+          ring.remove_node("a")
+          assert ring.get_node("user:1") is None
+      - name: keys go to the first virtual node clockwise
+        code: |
+          def expected(nodes, vnodes, key):
+              points = sorted((stable_hash(f"{n}#{i}"), n) for n in nodes for i in range(vnodes))
+              h = stable_hash(key)
+              for position, node in points:
+                  if position >= h:
+                      return node
+              return points[0][1]
+
+          ring = HashRing(["a", "b", "c"], vnodes=10)
+          for i in range(200):
+              key = f"key-{i}"
+              assert ring.get_node(key) == expected(["a", "b", "c"], 10, key), key
+      - name: adding a node only moves keys onto the new node
+        code: |
+          ring = HashRing(["a", "b", "c", "d"])
+          keys = [f"user:{i}" for i in range(2000)]
+          before = {k: ring.get_node(k) for k in keys}
+          ring.add_node("e")
+          moved = [k for k in keys if ring.get_node(k) != before[k]]
+          assert all(ring.get_node(k) == "e" for k in moved), "keys may only move to the new node"
+          share = len(moved) / len(keys)
+          assert 0.1 < share < 0.35, f"{share:.0%} of keys moved; expected roughly 1/5"
+      - name: removing a node only moves that node's keys
+        hidden: true
+        code: |
+          ring = HashRing(["a", "b", "c", "d", "e"])
+          keys = [f"user:{i}" for i in range(2000)]
+          before = {k: ring.get_node(k) for k in keys}
+          ring.add_node("a")  # already present: must change nothing
+          assert all(ring.get_node(k) == before[k] for k in keys)
+          ring.remove_node("c")
+          ring.remove_node("zzz")  # unknown node: must change nothing
+          for k in keys:
+              now = ring.get_node(k)
+              assert now != "c", "a removed node must not own keys"
+              if before[k] != "c":
+                  assert now == before[k], "keys on other nodes must not move"
+      - name: a key that hashes exactly onto a virtual node belongs to it
+        hidden: true
+        code: |
+          ring = HashRing(["a", "b", "c"], vnodes=5)
+          for n in ["a", "b", "c"]:
+              for i in range(5):
+                  assert ring.get_node(f"{n}#{i}") == n
+      - name: keys past the last position wrap around to the first
+        hidden: true
+        code: |
+          ring = HashRing(["a", "b"], vnodes=1)
+          positions = {stable_hash("a#0"): "a", stable_hash("b#0"): "b"}
+          top = max(positions)
+          key = next(f"k{i}" for i in range(100000) if stable_hash(f"k{i}") > top)
+          assert ring.get_node(key) == positions[min(positions)]
+
+  - slug: sd-partitioning-shard-key-design
+    skill: sd-data-partitioning
+    kind: concept_explanation
+    difficulty: 4
+    minutes: 15
+    tags: [interview]
+    title: Choose a shard key for a multi-tenant events table
+    objective: Evaluate a time-range sharding proposal and design a partitioning scheme that fits the access pattern and handles skewed tenants.
+    prompt: |
+      You are sharding the `events` table of a multi-tenant analytics SaaS. It holds about 5 billion rows and grows by about 50 million rows a day; writes are about 70% of database traffic.
+
+      - Almost every query is *"events for tenant X between two timestamps"*.
+      - A handful of enterprise tenants produce about 30% of all events.
+
+      A teammate proposes **range-partitioning the shards by `created_at`** "so old months are easy to archive".
+
+      Evaluate the proposal and propose a partitioning scheme. Cover where writes go, how the main query is served, hot spots, and what happens when you need to add shards.
+    hints:
+      - Under the teammate's scheme, which shard does a brand-new event go to?
+      - Pick the key so that the most common query touches as few shards as possible.
+      - A few tenants are much bigger than the rest. What does that do to the shards they land on?
+    explanation: |
+      Range-partitioning on a timestamp is a classic **write hot spot**: every new row has the newest `created_at`, so all inserts hit the latest shard. Since queries are always scoped to one tenant, partition by **tenant** (a hash of `tenant_id`), so the main query is served by a single shard and writes spread evenly. **Skewed tenants** need special handling — dedicated shards or splitting a large tenant over several sub-buckets. Time can still organise data *inside* each shard (an index on `(tenant_id, created_at)` and monthly sub-partitions for archiving), and hashing into many **logical shards** or using consistent hashing keeps future resharding cheap.
+    solution: |
+      **The proposal creates a write hot spot.** Every new event has the newest `created_at`, so with range partitioning by time all inserts — about 50 million a day, 70% of the traffic — land on the latest shard while the others sit idle. Reads concentrate there too, since recent data is typically what dashboards ask for, and every time-range shard mixes all tenants together.
+
+      **Partition by tenant instead.** Use a hash of `tenant_id` as the partition key. "Events for tenant X between two timestamps" then goes to a single shard, and hashing spreads the tenants' writes evenly across shards.
+
+      **Handle the big tenants.** The few enterprise tenants producing about 30% of events would make their shards hot, so I'd split them: key on `(tenant_id, bucket)` with, say, 16 sub-buckets for each large tenant, or give them dedicated shards through a directory (lookup table). A query for such a tenant fans out only to its own buckets.
+
+      **Keep time inside each shard.** Within each shard, keep a composite index on `(tenant_id, created_at)` and monthly sub-partitions, so the main query is an index range scan and old months can be detached and archived cheaply — which gives the teammate what they wanted.
+
+      **Adding shards.** Hash into a large fixed number of logical shards (say 1,024) mapped to physical nodes through the directory, or use consistent hashing, so adding a node means moving a few logical shards rather than rehashing every row.
+    content:
+      min_words: 80
+      max_words: 500
+      placeholder: Evaluate the proposal, then describe your scheme…
+      criteria:
+        - id: time-range-hot-spot
+          label: Explains that range-partitioning by created_at sends every new write to the latest shard (a write hot spot)
+          weight: 2
+          required: true
+          any: ["hot spot", "hotspot", "hot shard", "hot partition", "hot node", "latest shard", "latest partition", "newest shard", "newest partition", "current shard", "current partition", "last shard", "last partition", "most recent shard", "most recent partition", "monoton", "all writes", "all new writes", "all inserts", "all the writes", "every insert", "every new event", "every new row", "re:\\b(writes?|inserts?)\\b[^.]{0,60}\\b(same|one|single)\\s+(shard|partition|node)"]
+          missing_feedback: "With time-range partitioning every new event has the latest timestamp, so 100% of the writes hit the newest shard while the others sit idle."
+          misconception: {code: monotonic-range-key, label: "Range-partitions on a monotonically increasing key", category: performance}
+        - id: tenant-key
+          label: Partitions by tenant (for example a hash of tenant_id) so the main query is served by one shard
+          weight: 2
+          any: ["tenant_id", "tenant id", "by tenant", "per tenant", "tenant as the", "tenant as a", "tenant key", "tenant hash", "hash of the tenant", "hash the tenant", "hashing the tenant", "hash of tenant", "hashed tenant", "single shard", "one shard", "same shard", "co locat", "colocat"]
+          missing_feedback: "Use the tenant as (the leading part of) the partition key, hashed to spread tenants evenly; then 'tenant X between two timestamps' is served by one shard."
+          misconception: {code: key-ignores-access-pattern, label: "Chooses a partition key without considering the main query pattern", category: conceptual}
+        - id: skewed-tenants
+          label: Handles the few very large tenants (hot keys), e.g. with sub-buckets or dedicated shards
+          weight: 2
+          any: ["enterprise", "large tenant", "big tenant", "biggest tenant", "largest tenant", "heavy tenant", "noisy", "skew", "hot key", "hot tenant", "celebrit", "whale", "dedicated", "own shard", "own shards", "sub bucket", "subbucket", "bucket", "salt", "sub shard", "split them", "split large", "split big", "split the large", "split the big"]
+          missing_feedback: "A few enterprise tenants produce 30% of events, so a plain tenant hash creates hot shards. Give them dedicated shards or spread each one across sub-buckets (tenant_id + bucket)."
+          misconception: {code: ignores-key-skew, label: "Ignores skew where a few keys carry most of the load", category: performance}
+        - id: time-within-shard
+          label: Keeps time-based organisation inside each shard (composite index, time sub-partitions) for range scans and archiving
+          weight: 1
+          any: ["composite index", "compound index", "composite key", "compound key", "index on", "tenant_id, created_at", "tenant id, created at", "sub partition", "subpartition", "within each shard", "inside each shard", "within each partition", "inside each partition", "within a shard", "per shard", "local partition", "detach", "drop old", "archiv", "retention"]
+          missing_feedback: "Time can still organise data inside each shard: an index on (tenant_id, created_at) for the range query, and monthly sub-partitions so old data can be archived cheaply."
+        - id: resharding-plan
+          label: Plans for adding shards without rehashing everything (many logical shards, a directory or consistent hashing)
+          weight: 1
+          any: ["consistent hash", "virtual", "vnode", "logical shard", "logical partition", "fixed number", "many partitions", "many shards", "directory", "lookup table", "mapping table", "rebalanc", "reshard", "re shard", "migrat", "move data", "moving data", "move a few", "split a shard", "split shards"]
+          missing_feedback: "Say how you'd add shards: hash into many fixed logical shards (or use consistent hashing) mapped to physical nodes, so growth moves a small fraction of the data instead of reshuffling everything."
+
+  # ================================================================== sd-consistency
+  - slug: sd-consistency-cap-partition-mcq
+    skill: sd-consistency
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 3
+    diagnostic: true
+    title: What CAP says when the link between data centres fails
+    objective: Apply the CAP theorem to a replicated system during a network partition.
+    prompt: |
+      A database is replicated across two data centres, **DC-A** and **DC-B**. The network link between them fails, but both data centres are still up and reachable by their local clients.
+
+      A client in DC-A updates a user's email address. A second later, a client in DC-B reads that user's email address.
+
+      What does the CAP theorem tell you about this situation?
+    hints:
+      - Focus on what each data centre can do *while the link is down*.
+      - If DC-B answers the read, can it know about the write in DC-A? If it refuses to answer, which property is lost?
+    explanation: |
+      CAP applies **during a network partition**: a node that can't reach its peers must either answer — possibly with stale data, giving up linearizable consistency — or refuse or delay the request, giving up availability. It is not a free choice of "two out of three"; partitions happen whether you plan for them or not. When the network is healthy you can have both, and the trade-off becomes latency versus consistency (PACELC). The choice can even differ per operation within one product.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "While the link is down, DC-B must either refuse or delay the read (giving up availability) or return the possibly old email (giving up consistency); it cannot do both."
+          correct: true
+          feedback: "Right — that is the whole content of CAP: during a partition, each request forces a choice between a guaranteed up-to-date answer and an answer at all."
+        - id: b
+          text: "Choose a database that is consistent and available (CA), and the partition won't affect it."
+          feedback: "A system that spans a network can't opt out of partitions — the link just failed. 'CA' only describes a system that isn't distributed, or one that stops working entirely when partitioned."
+          misconception: {code: cap-pick-two, label: "Treats CAP as freely choosing two of three properties", category: conceptual}
+        - id: c
+          text: "The read in DC-B will be stale, because replicated databases are always eventually consistent."
+          feedback: "CAP doesn't force staleness: a consistency-first (CP) system can refuse DC-B's read and stay consistent by giving up availability instead."
+          misconception: {code: replication-implies-eventual, label: "Assumes replication always means eventual consistency", category: conceptual}
+        - id: d
+          text: "CAP only applies to NoSQL databases; a relational database with synchronous replication avoids the trade-off."
+          feedback: "CAP applies to any replicated system, SQL included. With synchronous replication a partition makes writes block or fail — that is choosing consistency over availability, not escaping the trade-off."
+          misconception: {code: cap-avoided-by-tech, label: "Believes a particular technology escapes the CAP trade-off", category: conceptual}
+
+  - slug: sd-consistency-quorum-size
+    skill: sd-consistency
+    kind: short_answer
+    difficulty: 3
+    minutes: 4
+    tags: [interview]
+    title: Size a read quorum
+    objective: Use the R + W > N rule to find the smallest read quorum that always overlaps the latest write.
+    prompt: |
+      A leaderless (Dynamo-style) key-value store keeps **N = 5** replicas of each key. A write is acknowledged once **W = 3** replicas have stored it.
+
+      What is the **smallest read quorum R** that guarantees every read contacts at least one replica holding the latest acknowledged write? Answer with a number.
+    hints:
+      - Think about the worst case. Which replicas might a read miss?
+      - The set of replicas you read and the set that acknowledged the write must share at least one member. How big must they be together, compared with N?
+    explanation: |
+      For every read set to overlap every write set you need **R + W > N**: then the R replicas you read and the W that acknowledged the write cannot be disjoint, because together they would need more than N distinct replicas. With N = 5 and W = 3, R must be greater than 2, so **R = 3**. With R = 2, the read could hit exactly the two replicas that missed the write.
+
+      The read then returns the newest value among the responses, identified by its version or timestamp. Overlap alone isn't full linearizability — sloppy quorums, concurrent writes and partially failed writes are classic caveats — but it is the foundation.
+    solution: |
+      R + W > N  →  R + 3 > 5  →  R > 2  →  **R = 3**. Any 3 replicas read and any 3 that acknowledged the write overlap in at least 3 + 3 − 5 = 1 replica.
+    content:
+      placeholder: e.g. 4
+      accepted: ["3", "r=3", "r = 3", "r is 3", "three", "3 replicas", "three replicas", "r=3 replicas"]
+      patterns: ["(r ?(=|is) ?)?(3|three)( replicas| nodes)?"]
+      partial:
+        - answers: ["4", "r=4", "r = 4", "four", "5", "r=5", "r = 5", "five", "all", "all 5", "all five", "n", "r=n", "r = n"]
+          score: 0.3
+          feedback: "That does guarantee overlap, but it isn't the smallest R: the read and write sets only need to share one replica, so R + W > N — R = 3 — is enough. A larger R costs latency and availability."
+      wrong:
+        - answers: ["2", "r=2", "r = 2", "two"]
+          feedback: "With R = 2 and W = 3, R + W = 5 = N: the read could hit exactly the two replicas that missed the write. You need R + W > N, not R + W ≥ N."
+          misconception: {code: quorum-overlap-off-by-one, label: "Uses R + W ≥ N instead of R + W > N", category: edge_case}
+        - answers: ["1", "r=1", "r = 1", "one"]
+          feedback: "With R = 1, the single replica you read may be one of the two that doesn't have the write yet."
+          misconception: {code: replica-reads-always-fresh, label: "Assumes any single replica returns the latest write", category: conceptual}
+
+  - slug: sd-consistency-ticketing-levels
+    skill: sd-consistency
+    kind: concept_explanation
+    difficulty: 4
+    minutes: 15
+    tags: [interview]
+    secondary_skills: [sd-data-partitioning]
+    title: Choose consistency levels for a ticketing platform
+    objective: Match consistency guarantees to product features and decide how each behaves during a network partition.
+    prompt: |
+      You are designing a concert-ticketing platform whose data is replicated across regions. For each item below, say what consistency it needs, why, and how you would provide it:
+
+      1. **Seat reservation** — a seat must never be sold twice.
+      2. The **"tickets left" counter** shown on the busy event page.
+      3. A user changes their **display name** and expects to see the new name immediately.
+      4. During a **network partition between regions**, what should happen to seat reservations and to browsing events?
+    hints:
+      - Which of these items has a rule that must never be broken, and which ones are only informational?
+      - "Item 3 is about one user's view of their own change. Is there a guarantee weaker than strong consistency that covers it?"
+      - For item 4, the answer doesn't have to be the same for every operation.
+    explanation: |
+      Consistency is a per-feature decision. **Seat reservation** protects a hard invariant, so it needs a linearizable, atomic check-and-set on one authoritative copy (a primary or a consensus-replicated store). The **counter** is informational — the reservation enforces the rule — so eventual consistency from replicas or caches is fine. The **display name** needs only **read-your-writes**: the author must see their change, others can lag briefly. During a **partition**, reservations should choose consistency (refuse or pause where the seat's authority is unreachable) while browsing chooses availability (serve possibly stale data).
+    solution: |
+      **1. Seat reservation — strong consistency.** Selling a seat twice is unacceptable, so the reserve operation must be linearizable: each event's seats have one authoritative primary (or a consensus/quorum-replicated store), and reserving is an atomic conditional write — for example `UPDATE seats SET holder_id = %s WHERE id = %s AND holder_id IS NULL` in a transaction — which affects no rows if someone else got there first.
+
+      **2. "Tickets left" counter — eventual consistency.** It's informational; the reservation step enforces the real rule. It can be served from read replicas or a cache that is a few seconds stale, which keeps the busy event page cheap and fast.
+
+      **3. Display name — read-your-writes.** Other users can see the old name briefly, but the user who changed it must see the new one. After a write, route that user's reads to the primary for a short window, or attach a version token and only read from replicas that have caught up.
+
+      **4. During a partition** I'd choose per operation. Reservations choose consistency: a region that can't reach the seat's primary rejects or pauses reservations with a "please try again shortly" message rather than risk a double sale. Browsing chooses availability: event pages and counters keep being served from local replicas, possibly stale.
+    content:
+      min_words: 80
+      max_words: 500
+      placeholder: "1. Seat reservation needs … because …"
+      criteria:
+        - id: strong-for-seats
+          label: Requires strong, atomic consistency for seat reservation (single authority, transaction, conditional write or consensus)
+          weight: 2
+          required: true
+          any: ["strong", "linearizab", "linearisab", "serializab", "serialisab", "single leader", "single primary", "one leader", "one primary", "one authoritative", "authoritative", "transaction", "lock", "compare and set", "compare and swap", "conditional write", "conditional update", "consensus", "quorum", "paxos", "raft", "unique constraint", "select for update", "for update", "atomic"]
+          missing_feedback: "Double-selling a seat is unacceptable, so the reservation needs a strongly consistent, atomic check-and-set on one authoritative copy — a primary or consensus/quorum write, a transaction or a conditional update."
+          misconception: {code: eventual-everywhere, label: "Applies eventual consistency to data with hard invariants", category: conceptual}
+        - id: eventual-for-counter
+          label: Accepts eventual consistency for the informational "tickets left" counter (replicas or caches)
+          weight: 2
+          any: ["eventual", "stale", "approximate", "approximation", "cach", "replica", "a few seconds", "out of date", "outdated", "lag", "doesn't need to be exact", "does not need to be exact", "not need to be exact", "not be exact", "not exact", "informational", "only for display"]
+          missing_feedback: "The counter is informational — the reservation itself enforces the rule — so it can be eventually consistent and served from replicas or a cache."
+          misconception: {code: strong-everywhere, label: "Demands strong consistency where staleness is harmless", category: performance}
+        - id: read-your-writes
+          label: Provides read-your-writes for the user's own change (read from the primary after a write, version tokens, session stickiness)
+          weight: 1
+          any: ["read your", "reads your", "read their own", "see their own", "sees their own", "own write", "own change", "own update", "read after write", "session consisten", "session guarantee", "read from the primary", "read from the leader", "reads from the primary", "reads to the primary", "route their reads", "sticky", "version token", "version number", "version"]
+          missing_feedback: "The display name needs read-your-writes: route that user's reads to the primary for a short time after they write, or pass a version token and only read from replicas that have caught up."
+          misconception: {code: replica-reads-always-fresh, label: "Assumes any single replica returns the latest write", category: conceptual}
+        - id: partition-behaviour
+          label: During a partition, chooses consistency for reservations (reject or pause) and availability for browsing
+          weight: 2
+          any: ["reject", "refuse", "unavailab", "pause", "block", "disable", "degrad", "read only", "error", "try again", "retry later", "sacrific", "give up availability", "gives up availability", "choose consistency", "chooses consistency", "favour consistency", "favor consistency", "prefer consistency", "re:\\bcp\\b", "re:\\bap\\b"]
+          missing_feedback: "Spell out the CAP choice: during a partition, the side that can't reach the seat's authority should refuse or pause reservations (consistency), while browsing keeps working on possibly stale data (availability)."
+
+  # ================================================================== sd-rate-limiting
+  - slug: sd-rate-limiting-fixed-window-mcq
+    skill: sd-rate-limiting
+    kind: multiple_choice
+    difficulty: 3
+    minutes: 2
+    diagnostic: true
+    title: How many requests fit through a fixed window?
+    objective: Recognise the boundary burst that a fixed-window rate limiter allows.
+    prompt: |
+      An API allows **100 requests per minute** per API key using a fixed-window counter: one counter per key per calendar minute (`12:00:00–12:00:59`, `12:01:00–12:01:59`, …), reset at each minute boundary.
+
+      What is the **maximum** number of requests a single key can get accepted within **any 2-second span**?
+    hints:
+      - Picture a client that waits until the very end of a window.
+      - What happens to the counter one second later?
+    explanation: |
+      A fixed window only counts requests inside each calendar minute. A client can send 100 requests at `12:00:59` and another 100 at `12:01:00`: **200 requests in about one second**, double the intended rate. Sliding-window limiters (a log of timestamps, or a weighted counter across the current and previous windows) and token buckets (whose capacity bounds any burst) avoid this boundary burst.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "100 — the limit is 100 per minute."
+          feedback: "That's the intent, but a fixed window counts each calendar minute separately: two adjacent windows can both be filled in the seconds around the boundary."
+          misconception: {code: fixed-window-boundary-burst, label: "Overlooks that fixed windows allow double bursts at the boundary", category: edge_case}
+        - id: b
+          text: "200 — up to 100 at the end of one window and up to 100 at the start of the next."
+          correct: true
+          feedback: "Right — the counter resets at the boundary, so a client can double the intended rate for a moment. Sliding windows or a token bucket prevent this."
+        - id: c
+          text: "About 3 — 100 per minute is about 1.7 requests per second."
+          feedback: "A per-minute limit says nothing about how requests are spread inside the minute: a client can send all 100 in the same second."
+          misconception: {code: limit-implies-smoothing, label: "Assumes a per-period limit spreads requests evenly", category: conceptual}
+        - id: d
+          text: "There is no maximum, because the counter keeps resetting."
+          feedback: "Each window still caps at 100, and a 2-second span can overlap at most two windows, so the most it can see is 200."
+          misconception: {code: misreads-window-reset, label: "Thinks a resetting counter imposes no limit", category: misread}
+
+  - slug: sd-rate-limiting-token-bucket
+    skill: sd-rate-limiting
+    kind: python_code
+    difficulty: 3
+    minutes: 20
+    tags: [interview]
+    title: Implement a token-bucket rate limiter
+    objective: Implement a token bucket with an injected clock that allows bursts up to its capacity and refills continuously.
+    prompt: |
+      Your API gateway needs a per-client rate limiter that allows short bursts but enforces an average rate. Implement a **token bucket**:
+
+      - `TokenBucket(capacity, refill_rate, clock)` starts **full**, with `capacity` tokens, and never holds more than `capacity`.
+      - Tokens refill continuously at `refill_rate` tokens per second, and fractions count: after 0.25 s at 2 tokens per second the bucket has gained 0.5 tokens.
+      - `clock` is a zero-argument function that returns the current time in seconds. Always read the time through it — never call `time.time()` — so tests can control time. (In production you would pass `time.monotonic`, which never jumps backwards.)
+      - `allow(cost=1)` first adds the tokens earned since the last refill. Then, if at least `cost` tokens are available, it removes them and returns `True`; otherwise it returns `False` **and removes nothing**.
+
+      The starter code handles the initial burst but never refills.
+    hints:
+      - Besides the number of tokens, there is one more thing the bucket must remember between calls.
+      - On each call, how much time has passed since you last refilled, and how many tokens is that worth?
+      - Cap the total at `capacity`, keep fractional tokens, and update the "last refill" time whenever you refill.
+    explanation: |
+      A token bucket refills lazily: instead of a background timer, each call computes the tokens earned since the previous call (`elapsed × refill_rate`, capped at `capacity`). Keeping fractional tokens matters — rounding down and resetting the timestamp on every call would starve a client that calls frequently. Capacity bounds the burst, the refill rate bounds the long-run average, and rejected requests must not consume tokens.
+    solution: |
+      Store the token count as a float together with the time of the last refill. On every call, add `elapsed × refill_rate`, cap it at `capacity` and move the timestamp forward — keeping the fractional remainder, so frequent calls still add up. Only then compare with `cost`; a rejected call leaves the tokens untouched.
+
+      ```python
+      class TokenBucket:
+          def __init__(self, capacity, refill_rate, clock):
+              self.capacity = float(capacity)
+              self.refill_rate = float(refill_rate)
+              self.clock = clock
+              self.tokens = float(capacity)
+              self.last = clock()
+
+          def _refill(self):
+              now = self.clock()
+              elapsed = now - self.last
+              if elapsed > 0:
+                  self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+                  self.last = now
+
+          def allow(self, cost=1):
+              self._refill()
+              if cost <= self.tokens:
+                  self.tokens -= cost
+                  return True
+              return False
+      ```
+
+      In a real gateway you keep one bucket per client key; across a fleet, `tokens` and `last` live in a shared store such as Redis and are updated atomically (for example in a Lua script), so concurrent requests can't both spend the same token.
+    content:
+      starter_code: |
+        class TokenBucket:
+            def __init__(self, capacity, refill_rate, clock):
+                self.capacity = capacity
+                self.refill_rate = refill_rate
+                self.clock = clock
+                self.tokens = capacity
+                self.last = clock()
+
+            def allow(self, cost=1):
+                # TODO: add the tokens earned since the last call before checking.
+                if self.tokens >= cost:
+                    self.tokens -= cost
+                    return True
+                return False
+      reference_solution: |
+        class TokenBucket:
+            def __init__(self, capacity, refill_rate, clock):
+                if capacity <= 0 or refill_rate <= 0:
+                    raise ValueError("capacity and refill_rate must be positive")
+                self.capacity = float(capacity)
+                self.refill_rate = float(refill_rate)
+                self.clock = clock
+                self.tokens = float(capacity)
+                self.last = clock()
+
+            def _refill(self):
+                now = self.clock()
+                elapsed = now - self.last
+                if elapsed > 0:
+                    self.tokens = min(self.capacity, self.tokens + elapsed * self.refill_rate)
+                    self.last = now
+
+            def allow(self, cost=1):
+                self._refill()
+                if cost <= self.tokens:
+                    self.tokens -= cost
+                    return True
+                return False
+    tests:
+      - name: starts full and allows a burst up to capacity
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          bucket = TokenBucket(capacity=3, refill_rate=1, clock=FakeClock())
+          assert [bucket.allow() for _ in range(4)] == [True, True, True, False]
+      - name: refills over time
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          clock = FakeClock()
+          bucket = TokenBucket(capacity=2, refill_rate=2, clock=clock)
+          assert bucket.allow() and bucket.allow()
+          assert not bucket.allow()
+          clock.now = 0.5
+          assert bucket.allow(), "0.5 s at 2 tokens/s should add one token"
+          assert not bucket.allow()
+          clock.now = 1.5
+          assert bucket.allow() and bucket.allow()
+          assert not bucket.allow()
+      - name: never holds more than capacity
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          clock = FakeClock()
+          bucket = TokenBucket(capacity=3, refill_rate=10, clock=clock)
+          for _ in range(3):
+              assert bucket.allow()
+          clock.now = 100.0
+          assert [bucket.allow() for _ in range(4)] == [True, True, True, False]
+      - name: rejected requests consume nothing
+        hidden: true
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          bucket = TokenBucket(capacity=5, refill_rate=1, clock=FakeClock())
+          assert bucket.allow(cost=4)
+          assert not bucket.allow(cost=3), "only 1 token is left"
+          assert bucket.allow(cost=1), "the rejected request must not have consumed tokens"
+          assert not bucket.allow()
+      - name: frequent calls still accumulate fractional tokens
+        hidden: true
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          clock = FakeClock()
+          bucket = TokenBucket(capacity=1, refill_rate=1, clock=clock)
+          assert bucket.allow()
+          for t in (0.25, 0.5, 0.75):
+              clock.now = t
+              assert not bucket.allow(), f"only {t} tokens available at t={t}"
+          clock.now = 1.0
+          assert bucket.allow(), "four quarter-second refills add up to one token"
+      - name: a cost above capacity is never allowed
+        hidden: true
+        code: |
+          class FakeClock:
+              def __init__(self):
+                  self.now = 0.0
+              def __call__(self):
+                  return self.now
+
+          clock = FakeClock()
+          bucket = TokenBucket(capacity=2, refill_rate=1, clock=clock)
+          clock.now = 1000.0
+          assert not bucket.allow(cost=3)
+          assert bucket.allow(cost=2)
+
+  - slug: sd-rate-limiting-backpressure-design
+    skill: sd-rate-limiting
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 12
+    tags: [interview]
+    title: Make an upload pipeline degrade gracefully under overload
+    objective: Diagnose unbounded buffering under overload and redesign with bounded queues, load shedding, client backoff and isolation.
+    prompt: |
+      Your public API accepts image uploads. Each API process puts a resize job on an **in-memory queue inside the process**, and a pool of worker threads in the same process drains it.
+
+      During a marketing campaign, uploads arrive at about **3× the rate** the workers can process them. Memory climbs, latency rises for **all** endpoints, and processes are eventually killed for running out of memory. Some mobile clients retry failed uploads **immediately, in a tight loop**.
+
+      Explain what is going wrong, and how you would redesign the system so it degrades gracefully under overload.
+    hints:
+      - Work arrives 3× faster than it can be done. Where does the excess go, and is there any limit on it?
+      - When you can't take more work, what should the API tell the client — and what should the client do next?
+      - Why do endpoints that have nothing to do with uploads slow down too?
+    explanation: |
+      When arrivals exceed capacity, an **unbounded queue** converts overload into ever-growing memory use and latency until the process dies — and here it takes every endpoint down with it. Graceful degradation needs **backpressure**: a bounded (ideally durable, external) queue, **load shedding** with fast `429`/`503` responses and `Retry-After` when it's full, clients that **back off exponentially with jitter**, **isolation** of the heavy work from the rest of the API, and **monitoring and autoscaling** on queue depth — while keeping the bound, because scaling takes time.
+    solution: |
+      **What's wrong:** uploads arrive 3× faster than the workers finish them, and the in-memory queue is unbounded, so the backlog grows without limit. Because it lives inside the API processes, it eats their memory, slows every endpoint, and loses all queued jobs when a process is OOM-killed. Clients retrying immediately in a tight loop multiply the load just when we are overloaded.
+
+      **Redesign:**
+
+      1. **Bound and externalise the queue.** Put jobs on a durable external broker (for example RabbitMQ or SQS), cap the backlog (a broker max-length setting, or a queue-depth check before enqueueing), and run the resize workers as a separate service, so the API processes stay small and other endpoints are isolated from the upload load.
+      2. **Shed load at the edge.** When the queue is over its limit, reject new uploads quickly with `503 Service Unavailable` and a `Retry-After` header; when a single client exceeds its per-key rate limit, return `429 Too Many Requests`. Failing fast is better than accepting work we can't finish.
+      3. **Fix the clients.** Retry with exponential backoff plus random jitter, honour `Retry-After`, and cap the number of attempts.
+      4. **Monitor and scale.** Alert on queue depth and job age, and autoscale the worker pool from queue depth — keeping the bound, because new workers take minutes to arrive.
+
+      Under a spike, some uploads now get a fast "try again shortly" instead of the whole API falling over.
+    content:
+      min_words: 60
+      max_words: 450
+      placeholder: "What's going wrong is … I would …"
+      criteria:
+        - id: bounded-queue
+          label: Identifies the unbounded in-process queue and replaces it with a bounded (ideally durable, external) queue
+          weight: 2
+          required: true
+          any: ["bounded", "unbounded", "queue limit", "max size", "maxsize", "maximum size", "max length", "maximum length", "cap the queue", "capped", "limit the queue", "limit its size", "queue size", "durable queue", "external queue", "message broker", "broker", "rabbitmq", "sqs", "kafka", "celery", "grows without limit", "without limit", "no limit"]
+          missing_feedback: "The root problem is an unbounded buffer: work arrives faster than it's processed, so the queue — and memory — grows until the process dies. Bound it, and move it out of the API process into a durable broker."
+          misconception: {code: unbounded-buffering, label: "Treats an unbounded queue as a way to absorb overload", category: conceptual}
+        - id: shed-load
+          label: Sheds load or pushes back when full, rejecting quickly with 429/503 and Retry-After
+          weight: 2
+          any: ["429", "503", "retry after", "reject", "shed", "load shedding", "too many requests", "service unavailable", "fail fast", "failing fast", "push back", "pushback", "backpressure", "back pressure", "rate limit", "throttl", "admission control", "turn away"]
+          missing_feedback: "When the queue is full, reject new uploads quickly with 429/503 and a Retry-After header rather than accepting work you can't finish."
+          misconception: {code: accepts-all-work, label: "Accepts every request even when it can't be processed in time", category: conceptual}
+        - id: client-backoff
+          label: Fixes the client retry loop with exponential backoff and jitter (honouring Retry-After)
+          weight: 2
+          any: ["backoff", "back off", "jitter", "exponential", "retry budget", "honour retry", "honor retry", "respect retry", "respects retry", "randomi", "random delay", "wait before retrying", "limit retries", "cap the number of retries", "cap retries"]
+          missing_feedback: "Tight retry loops multiply the load exactly when you are overloaded. Clients should back off exponentially with random jitter and honour Retry-After."
+          misconception: {code: retry-amplification, label: "Overlooks how retries amplify load during an overload", category: performance}
+        - id: isolation
+          label: Isolates the upload work so other endpoints stay fast (separate worker service, bulkheads, per-client limits)
+          weight: 1
+          any: ["isolat", "bulkhead", "separate", "dedicated", "own process", "own service", "other endpoints", "out of the api", "outside the api", "per client", "per user", "per key", "per api key", "fair"]
+          missing_feedback: "Keep the overload contained: run resize workers outside the API processes (or in their own pool) and apply per-client limits, so one heavy uploader can't slow every endpoint."
+        - id: monitor-autoscale
+          label: Monitors queue depth or lag and autoscales workers from it
+          weight: 1
+          any: ["autoscal", "auto scal", "scale the workers", "scale workers", "scale out the workers", "more workers", "add workers", "queue depth", "queue length", "lag", "job age", "alert", "monitor", "metric", "dashboard"]
+          missing_feedback: "Track queue depth and processing lag, alert on them, and autoscale workers from that signal — but keep the bound, because scaling takes time."
+
+  # ================================================================== comm-pr-descriptions
+  - slug: comm-pr-desc-best-description-mcq
+    skill: comm-pr-descriptions
+    kind: multiple_choice
+    difficulty: 1
+    minutes: 2
+    diagnostic: true
+    title: Which PR description helps the reviewer most?
+    objective: Recognise the elements a reviewer needs from a PR description beyond what the diff shows.
+    prompt: |
+      You fixed a bug: customers in time zones ahead of UTC sometimes saw yesterday's orders on the "Today" dashboard. The diff is 40 lines across two files.
+
+      Which PR description gives the reviewer the most useful information?
+    hints:
+      - What can the reviewer *not* learn by reading the diff?
+      - Look for the option that covers why, what, how it was verified, and what else it might affect.
+    explanation: |
+      The diff already shows *which lines* changed. A useful description adds what the diff can't: **why** (the problem and who it affects), **what** the approach is in a sentence or two, **how it was verified**, and **risk** — what else the change touches. That lets the reviewer check the change against its intent instead of reverse-engineering it.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "Fix timezone bug."
+          feedback: "Too vague: which bug, why it happened, how it was fixed and how you know it works are all missing."
+          misconception: {code: description-too-vague, label: "Writes descriptions too vague to review against", category: incomplete}
+        - id: b
+          text: "Changed `get_today()` in `orders/utils.py`, updated line 52 of `dashboard/views.py`, added an import."
+          feedback: "This repeats what the diff already shows. The reviewer needs the reason for the change and how it was verified."
+          misconception: {code: describes-diff-not-why, label: "Restates the diff instead of explaining the reason and impact", category: conceptual}
+        - id: c
+          text: "Problem: the Today dashboard computed 'today' in UTC, so users ahead of UTC (e.g. Sydney) saw the previous day's orders until UTC midnight. Fix: compute the date in the user's time zone. Testing: new tests for UTC+10 and UTC−5 around midnight, plus a manual check with a Sydney test account. Risk: the CSV export also calls `get_today()`; it is covered by the new tests."
+          correct: true
+          feedback: "Right — the reviewer learns the problem, the approach, the evidence that it works and what else the change touches, so they can review against the intent."
+        - id: d
+          text: "Took me ages to track this one down — time zones are a nightmare! Should be fine now, let me know if anything looks off."
+          feedback: "Friendly, but there is no context, approach or testing evidence; 'should be fine' asks the reviewer to take it on trust."
+          misconception: {code: no-testing-evidence, label: "Omits how the change was tested", category: incomplete}
+
+  - slug: comm-pr-desc-write-async-export
+    skill: comm-pr-descriptions
+    kind: concept_explanation
+    difficulty: 2
+    minutes: 12
+    tags: [scenario]
+    title: Write the PR description for an async export change
+    objective: Write a PR description that covers the problem, the change, testing evidence, risk and rollout, and where reviewers should focus.
+    prompt: |
+      Write the pull-request description (title and body) for this change:
+
+      - **Problem:** `POST /api/orders/export` built CSV exports inside the request. Exports above roughly 200k rows hit the 30-second gateway timeout and failed, so the largest merchants couldn't export their orders (ticket **OPS-1423**).
+      - **Change:** the endpoint now enqueues a Celery task and returns `202 Accepted` with a job ID. The client polls `GET /api/orders/export/<id>`; when the job is done, the response contains a signed S3 URL for the file, valid for 24 hours. A migration adds an `ExportJob` table.
+      - **Testing:** unit tests for the task, an integration test for the enqueue → poll → download flow, and a 500k-row export on staging, which finished in about 3 minutes.
+      - **Rollout:** the mobile app still expects the old synchronous response, so the new flow is behind the `async_exports` feature flag, off by default.
+    hints:
+      - Imagine a reviewer who has never seen the ticket. What do they need to know first?
+      - Use short sections — for example Why, What changed, Testing, Risk & rollout.
+      - Which parts of this change could break something for someone, and how is that controlled?
+    explanation: |
+      A strong description leads with **why** (large exports time out; link OPS-1423), summarises **what changed** at the level of the new flow rather than file by file, gives concrete **testing evidence**, and is explicit about **risk and rollout** — the migration, the mobile app's dependency on the old behaviour, the feature flag and how to roll back. Pointing reviewers at the trickiest part (failure handling in the task) makes the review faster and better.
+    solution: |
+      **Title:** Move order CSV exports to a background job to stop timeouts on large exports
+
+      **Why**
+      Exports of more than about 200k rows hit the 30-second gateway timeout and fail, so our largest merchants can't export their orders (OPS-1423).
+
+      **What changed**
+      - `POST /api/orders/export` now enqueues a Celery task and returns `202 Accepted` with a job ID instead of building the CSV inside the request.
+      - New `GET /api/orders/export/<id>` returns the job status and, once done, a signed S3 URL for the file, valid for 24 hours.
+      - New `ExportJob` model and migration (additive: it creates one table).
+
+      **Testing**
+      - Unit tests for the export task (success, failure, empty export).
+      - Integration test for the enqueue → poll → download flow.
+      - Ran a 500k-row export on staging: it finished in about 3 minutes.
+
+      **Risk & rollout**
+      - The mobile app still expects the old synchronous response, so the new flow is behind the `async_exports` feature flag (off by default). Plan: enable it for web merchants first, then update the mobile client.
+      - Rollback: turn the flag off. The migration only adds a table, so it is safe to leave in place.
+
+      **Review focus**
+      Please look closely at the task's error handling and how failed jobs are reported to the client.
+    content:
+      min_words: 60
+      max_words: 450
+      placeholder: "Title: …"
+      criteria:
+        - id: why-context
+          label: Explains the problem and its impact (large exports time out) and links the ticket
+          weight: 2
+          required: true
+          any: ["timeout", "time out", "times out", "timed out", "timing out", "30 second", "30s", "30 sec", "ops 1423", "1423", "gateway", "fail", "problem", "why", "motivation", "context", "couldn't export", "could not export", "can't export", "cannot export"]
+          missing_feedback: "Start with why: large exports were timing out at the 30-second gateway limit (OPS-1423). Without the problem, the reviewer can't judge whether the approach fits."
+          misconception: {code: describes-diff-not-why, label: "Restates the diff instead of explaining the reason and impact", category: conceptual}
+        - id: what-changed
+          label: Summarises the new flow (background task, 202 with a job ID, polling endpoint, signed S3 URL)
+          weight: 2
+          any: ["celery", "background", "async", "asynchronous", "202", "job id", "poll", "signed url", "signed s3", "s3", "enqueue", "queue", "task"]
+          missing_feedback: "Summarise the approach in a few lines: the export runs in a Celery task, the endpoint returns 202 with a job ID, the client polls, and the file is served from S3 through a signed URL."
+          misconception: {code: description-too-vague, label: "Writes descriptions too vague to review against", category: incomplete}
+        - id: testing
+          label: Says how the change was tested (unit and integration tests, the 500k-row staging run)
+          weight: 2
+          any: ["test", "staging", "verified", "verify", "500k", "500,000", "500 000", "ran a", "tried"]
+          missing_feedback: "Say how you know it works: the new unit and integration tests and the 500k-row staging export that finished in about 3 minutes."
+          misconception: {code: no-testing-evidence, label: "Omits how the change was tested", category: incomplete}
+        - id: risk-rollout
+          label: Calls out risk and rollout — the migration, the mobile app dependency, the feature flag and how to roll back
+          weight: 2
+          any: ["feature flag", "flag", "async_exports", "mobile", "migration", "rollback", "roll back", "risk", "rollout", "roll out", "backward", "backwards", "breaking"]
+          missing_feedback: "Flag what could break and how it's controlled: the new migration, the mobile app's dependency on the old response, the async_exports flag (off by default) and how to roll back."
+          misconception: {code: hides-risk, label: "Leaves the risky parts of a change unmentioned", category: incomplete}
+        - id: reviewer-guidance
+          label: Tells reviewers where to focus, or notes follow-ups and what is out of scope
+          weight: 1
+          any: ["review focus", "reviewers", "please look", "please check", "please review", "look closely", "pay attention", "focus on", "feedback on", "follow up", "out of scope", "not in this pr", "next step", "todo", "open question", "questions"]
+          missing_feedback: "Point reviewers at what matters most (for example the task's retry and failure handling) and note follow-ups such as updating the mobile client."
+
+  - slug: comm-pr-desc-critique
+    skill: comm-pr-descriptions
+    kind: code_review
+    difficulty: 1
+    minutes: 8
+    tags: [scenario]
+    title: Critique a vague PR description
+    objective: Identify what is missing or harmful in a weak PR description and ask for the specific information reviewers need.
+    prompt: |
+      A teammate asks you to review a PR in the payments module. This is the entire description.
+
+      Review the **description itself** (not the code): what is missing or problematic, why does it matter, and what would you ask the author to change?
+    hints:
+      - Could someone who missed the standup understand what problem this PR solves?
+      - Count how many different kinds of change are in the list. Which one is the riskiest in a payments module?
+      - What does "tests pass locally" actually tell you?
+    explanation: |
+      The description fails a reviewer in four ways. It gives **no context** — "the thing from standup" means nothing to anyone else or to a future reader. It **bundles unrelated changes** (a refactor, a behaviour change, renames and dependency bumps), which makes review hard and independent reverts impossible. It **hides the riskiest change** — "changed retry logic" in payments could cause duplicate charges — without explaining what changed or how to roll back. And "tests pass locally" is **no evidence** of what was tested. Urgency is a reason for a clearer description, not a shorter one.
+    solution: |
+      1. **No context.** The title "Updates" and "the thing from standup" don't say what problem this solves. Please add the motivation and a link to the ticket, so reviewers — and anyone reading this later through `git blame` — understand why.
+      2. **Too many unrelated changes.** A `PaymentService` refactor, a change to retry behaviour, variable renames and dependency bumps are mixed together. Please split them into separate PRs: the refactor and renames can go in quickly, and the risky parts can be reviewed and reverted on their own.
+      3. **The risky part is hidden.** "Changed retry logic" in the payments module could cause duplicate charges if a non-idempotent call is retried. Please explain what changed and why, and how we roll back. Also list which packages were bumped and to which versions.
+      4. **Testing is vague.** "Tests pass locally" — which ones? Please add tests for the new retry behaviour and say how it was verified in CI or on staging.
+
+      If it's urgent, say why (for example a linked incident) so reviewers can prioritise it.
+    content:
+      language: markdown
+      code: |
+        ## Updates
+
+        Did some cleanup in the payments module and fixed the thing from standup.
+        Also bumped a few packages while I was in there.
+
+        Changes:
+        - refactored PaymentService
+        - changed retry logic
+        - renamed some vars
+        - updated requirements.txt
+        - misc fixes
+
+        Should be good to go, tests pass locally. Need this merged today pls!
+      min_words: 30
+      max_words: 400
+      placeholder: List what's missing or problematic and what you would ask for…
+      criteria:
+        - id: missing-context
+          label: Points out the missing why and context ("the thing from standup", vague title, no ticket link)
+          weight: 2
+          required: true
+          any: ["context", "why", "standup", "ticket", "jira", "link", "motivation", "what problem", "which problem", "the problem", "background", "reason", "title", "future reader", "git blame"]
+          missing_feedback: "'The thing from standup' means nothing to anyone who wasn't there, or to whoever reads this in six months. Ask for the problem being solved and a ticket link."
+          misconception: {code: describes-diff-not-why, label: "Restates the diff instead of explaining the reason and impact", category: conceptual}
+        - id: split-unrelated
+          label: Asks to split the unrelated changes (refactor, retry behaviour change, dependency bumps) into separate PRs
+          weight: 2
+          any: ["split", "separate", "unrelated", "too many", "too much", "mixed", "mixing", "bundl", "one pr", "single pr", "smaller", "focused", "scope", "independently"]
+          missing_feedback: "A refactor, a behaviour change and dependency bumps in one PR are hard to review and impossible to revert independently — ask for separate PRs."
+          misconception: {code: bundles-unrelated-changes, label: "Bundles unrelated changes into one PR", category: conceptual}
+        - id: hidden-risk
+          label: Flags the unexplained retry-logic and package changes in payments as risky and asks what changed and how to roll back
+          weight: 2
+          any: ["retry", "retries", "risk", "double charg", "charged twice", "duplicat", "idempoten", "behavio", "rollback", "roll back", "dependency", "dependencies", "package", "versions", "requirements"]
+          missing_feedback: "'Changed retry logic' in payments is the riskiest line here — it could cause double charges — yet it's unexplained. Ask what changed, why and how to roll back; the same goes for which packages were bumped."
+          misconception: {code: hides-risk, label: "Leaves the risky parts of a change unmentioned", category: incomplete}
+        - id: testing-evidence
+          label: Asks for concrete testing evidence beyond "tests pass locally"
+          weight: 1
+          any: ["test", "locally", "staging", "evidence", "verif", "re:\\bci\\b", "coverage", "how was it checked", "how it was checked"]
+          missing_feedback: "'Tests pass locally' doesn't say what was tested. Ask for tests covering the retry change and evidence from CI or staging."
+          misconception: {code: no-testing-evidence, label: "Omits how the change was tested", category: incomplete}
+
+  # ================================================================== comm-code-review-feedback
+  - slug: comm-review-sql-injection-comment-mcq
+    skill: comm-code-review-feedback
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Pick the most effective review comment
+    objective: Recognise a review comment that is specific, explains impact, suggests a fix and signals severity.
+    prompt: |
+      A PR contains this line, where `email` comes straight from the request:
+
+      ```python
+      cursor.execute(f"SELECT * FROM users WHERE email = '{email}'")
+      ```
+
+      Which review comment is the most effective?
+    hints:
+      - Which comment lets the author fix the problem without having to ask a follow-up question?
+      - Look for the location, the impact, a suggested fix and how serious it is.
+    explanation: |
+      An effective comment names the **specific problem**, explains its **impact**, offers a **concrete fix** and signals **severity**, while talking about the code rather than the author. SQL injection is a blocking security issue, so labelling it a nit is as unhelpful as a personal jab or a vague "I wouldn't do it this way".
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "This is a SQL injection hole. Did you even read the security guidelines?"
+          feedback: "It spots the issue, but the jab at the author invites defensiveness, and it offers no fix."
+          misconception: {code: attacks-the-person, label: "Critiques the author instead of the code", category: conceptual}
+        - id: b
+          text: "nit: maybe use parameters here?"
+          feedback: "Right idea, wrong severity: SQL injection is a blocking security issue, and the comment doesn't explain why parameters matter."
+          misconception: {code: misjudged-severity, label: "Mislabels how serious an issue is", category: conceptual}
+        - id: c
+          text: |-
+            Blocking: `email` comes from the request and is interpolated into the SQL, so input like `' OR '1'='1` would return every user (SQL injection). Please pass it as a query parameter instead: `cursor.execute("SELECT * FROM users WHERE email = %s", [email])`.
+          correct: true
+          feedback: "Right — it names the problem and its impact, gives a concrete fix and a clear severity, and it's about the code, not the person."
+        - id: d
+          text: "I wouldn't do it this way."
+          feedback: "Vague: the author can't tell what is wrong, how serious it is or what to do instead."
+          misconception: {code: vague-feedback, label: "Gives feedback without saying what is wrong or what to do", category: incomplete}
+
+  - slug: comm-review-rewrite-harsh-comment
+    skill: comm-code-review-feedback
+    kind: concept_explanation
+    difficulty: 2
+    minutes: 10
+    tags: [scenario]
+    title: Rewrite a harsh review comment
+    objective: Rewrite a harsh review comment so it names the problem and its impact, suggests a fix, signals severity and stays respectful.
+    prompt: |
+      You are reviewing a teammate's PR. This function runs on **every load** of the order-history page:
+
+      ```python
+      def order_summaries(user):
+          summaries = []
+          for order in Order.objects.filter(user=user):
+              summaries.append({
+                  "id": order.id,
+                  "items": order.items.count(),
+                  "customer": order.customer.name,
+              })
+          return summaries
+      ```
+
+      Your first-draft comment was:
+
+      > This is terrible. Have you never heard of N+1 queries? Fix it.
+
+      Rewrite the comment so that it is respectful, specific and actionable.
+    hints:
+      - Name exactly which lines cause extra queries, and roughly how many.
+      - Why should the author care? Think about a user with hundreds of orders.
+      - Offer the fix, say whether it blocks the merge, and keep the tone about the code.
+    explanation: |
+      A good rewrite keeps the technical substance and drops the attack: it names the problem precisely (`order.items.count()` and `order.customer.name` each run a query per order — an N+1 pattern), explains the **impact** (the page gets slower as order history grows), offers a **concrete fix** (`select_related("customer")` plus `annotate(item_count=Count("items"))`), states the **severity**, and uses collaborative language.
+    solution: |
+      **Blocking (performance):** this loop has an N+1 query problem — `order.items.count()` and `order.customer.name` each run a separate query for every order, so a user with 500 orders costs about 1,000 extra queries on every page load, and the page gets slower as their history grows.
+
+      We can get it down to a single query:
+
+      ```python
+      orders = (
+          Order.objects.filter(user=user)
+          .select_related("customer")
+          .annotate(item_count=Count("items"))
+      )
+      ```
+
+      and then use `order.item_count` instead of `order.items.count()`. Happy to pair on it if that's useful — the rest of the change looks good to me.
+    content:
+      min_words: 30
+      max_words: 300
+      placeholder: Write the comment you would post…
+      criteria:
+        - id: specific-problem
+          label: Names the specific problem — each order triggers extra queries (N+1) for its items and customer
+          weight: 2
+          required: true
+          any: ["n+1", "re:\\bn\\s*\\+\\s*1\\b", "n plus 1", "n plus one", "one query per", "a query per", "a separate query", "extra quer", "additional quer", "query for each", "queries for each", "query for every", "queries per order", "per order", "each order", "every order", "in the loop", "inside the loop", "order.items", "order.customer", "items.count", "customer.name"]
+          missing_feedback: "Point to the exact problem: `order.items.count()` and `order.customer.name` each run a query per order, so N orders cost 2N + 1 queries."
+          misconception: {code: vague-feedback, label: "Gives feedback without saying what is wrong or what to do", category: incomplete}
+        - id: impact
+          label: Explains the impact (slow page, cost grows with the number of orders, database load)
+          weight: 2
+          any: ["slow", "latency", "performance", "scale", "grows", "database load", "load on the database", "db load", "hundreds of queries", "thousands of queries", "1,000", "1000", "many queries", "every page load", "each page load", "page load", "response time"]
+          missing_feedback: "Say why it matters: on every page load, a user with 500 orders triggers about 1,000 extra queries, so the page slows down as their history grows."
+        - id: concrete-fix
+          label: Suggests a concrete fix (select_related for the customer, annotate with Count for the items, or prefetch_related)
+          weight: 2
+          any: ["select_related", "prefetch_related", "annotate", "count(", "join", "aggregat", "in one query", "single query", "fewer queries", "batch"]
+          missing_feedback: "Offer a fix: `select_related(\"customer\")` for the customer and `annotate(item_count=Count(\"items\"))` for the count turn 2N + 1 queries into one."
+        - id: collaborative-tone
+          label: Uses a collaborative, code-focused tone (we, a question, an offer to help, acknowledging what works)
+          weight: 1
+          any: ["re:\\bwe\\b", "re:\\blet's\\b", "re:\\blet us\\b", "what do you think", "happy to", "could we", "how about", "i suggest", "suggestion", "thanks", "thank you", "nice", "looks good", "good work", "great", "would you", "could you", "consider", "pair"]
+          missing_feedback: "Keep the tone collaborative and about the code: 'we', a genuine question or an offer to pair goes a long way."
+          misconception: {code: attacks-the-person, label: "Critiques the author instead of the code", category: conceptual}
+        - id: severity
+          label: Signals severity (blocking versus suggestion or nit)
+          weight: 1
+          any: ["blocking", "blocker", "must", "before merg", "before we merg", "suggestion", "nit", "optional", "important", "should be fixed", "priority", "minor", "major", "non blocking"]
+          missing_feedback: "Say how important it is — for example 'Blocking: this runs on every page load' — so the author knows it must be fixed before merging."
+
+  - slug: comm-review-critique-thread
+    skill: comm-code-review-feedback
+    kind: code_review
+    difficulty: 2
+    minutes: 8
+    tags: [scenario]
+    title: Critique a reviewer's comments on a password-reset PR
+    objective: Identify vague, mis-prioritised and personal review comments and explain how each should be written instead.
+    prompt: |
+      A colleague left these comments on a PR that adds a password-reset endpoint. You are asked to coach them on their reviewing.
+
+      Critique the **review comments** (not the code): which ones are unhelpful or harmful, why, and what should they have written instead?
+    hints:
+      - Which comment points at the most serious problem in the PR? How is it labelled?
+      - Imagine you're the author. Which comments tell you what to do next, and which ones don't?
+      - Is a human reviewer the best way to enforce formatting rules?
+    explanation: |
+      Four patterns make this review worse than useless. Comment 1 is **vague and condescending** — it gives no reason or alternative. Comment 2 **mislabels severity**: reset tokens from `random` are predictable (the module isn't cryptographically secure) and a 6-digit code can be brute-forced, so it must be blocking — use `secrets`, expire tokens and limit attempts. Comments 3–6 are **repetitive style nits** that bury that issue and belong to a linter or formatter. Comment 7 **attacks the author** instead of naming the missing tests and what is needed to approve.
+    solution: |
+      - **Comment 1 is vague and condescending.** "Why would you do it like this??" doesn't say what's wrong. Replace it with the actual concern and an alternative, e.g. "This returns a different error for unknown emails, which lets anyone check whether an account exists — could we always return the same response?"
+      - **Comment 2 has the wrong severity.** Generating the reset token with `random.randint` is a security problem, not a nit: `random` isn't cryptographically secure and a 6-digit code can be brute-forced. It should be blocking: use `secrets.token_urlsafe()`, expire the token and limit attempts.
+      - **Comments 3–6 are noise.** Four separate style nits (f-strings, a rename) bury the one critical issue. Group them into a single optional comment — or better, let the linter or formatter enforce them.
+      - **Comment 7 attacks the author.** "You clearly didn't test this" is an accusation without detail. Say which tests are missing — e.g. expired, reused and invalid tokens — and what is needed to approve.
+    content:
+      language: text
+      code: |
+        PR #812: Add password reset endpoint
+
+        Review comments
+
+        1. views.py line 14:  Why would you do it like this??
+        2. views.py line 22:  nit: the reset token is generated with random.randint(100000, 999999)
+        3. views.py line 30:  Use f-strings.
+        4. views.py line 31:  Use f-strings.
+        5. views.py line 35:  Use f-strings.
+        6. views.py line 40:  Rename `tok` to `token`.
+        7. Overall: You clearly didn't test this. Request changes.
+      min_words: 40
+      max_words: 400
+      placeholder: Go through the comments and say what's wrong with each…
+      criteria:
+        - id: vague-comment
+          label: Points out that comment 1 is vague or condescending and should state the concern and an alternative
+          weight: 1
+          any: ["comment 1", "first comment", "re:#\\s?1\\b", "vague", "why would you", "condescend", "rhetorical", "sarcas", "unclear", "doesn't explain", "does not explain", "doesn't say", "does not say", "no explanation", "not actionable", "actionable"]
+          missing_feedback: "'Why would you do it like this??' tells the author nothing. A good comment says what the concern is and suggests an alternative."
+          misconception: {code: vague-feedback, label: "Gives feedback without saying what is wrong or what to do", category: incomplete}
+        - id: security-severity
+          label: Recognises that the random-based reset token is a blocking security issue, not a nit (use secrets, expiry, attempt limits)
+          weight: 2
+          required: true
+          any: ["secrets", "secure", "insecure", "security", "cryptograph", "predictab", "guess", "brute", "blocking", "blocker", "not a nit", "severity", "critical"]
+          missing_feedback: "Comment 2 points at the most important problem and labels it a nit. `random` isn't cryptographically secure and a 6-digit code can be brute-forced: this is blocking — use `secrets`, and add expiry and attempt limits."
+          misconception: {code: misjudged-severity, label: "Mislabels how serious an issue is", category: conceptual}
+        - id: nit-noise
+          label: Notes that the repeated style nits drown out the important issue and belong in a linter, a formatter or one grouped comment
+          weight: 1
+          any: ["f string", "style", "linter", "lint", "formatter", "black", "ruff", "automat", "repeat", "repetit", "noise", "drown", "bury", "buries", "buried", "one comment", "single comment", "group", "batch"]
+          missing_feedback: "Four separate style nits bury the real problem. Group them into one comment, or leave them to a linter or formatter."
+          misconception: {code: nit-flood, label: "Floods reviews with style nits that bury important issues", category: conceptual}
+        - id: personal-attack
+          label: Calls out that "You clearly didn't test this" attacks the author and should instead name the missing tests and what is needed to approve
+          weight: 2
+          any: ["comment 7", "overall comment", "last comment", "final comment", "clearly didn't", "you clearly", "didn't test", "did not test", "accus", "personal", "attack", "blame", "tone", "assum", "which tests", "what tests", "missing tests", "what is needed to approve", "what's needed to approve"]
+          missing_feedback: "'You clearly didn't test this' is about the person and gives no detail. Say which cases lack tests (e.g. expired or reused tokens) and what would get the PR approved."
+          misconception: {code: attacks-the-person, label: "Critiques the author instead of the code", category: conceptual}
+
+  # ================================================================== comm-explaining-tradeoffs
+  - slug: comm-tradeoffs-launch-reply-mcq
+    skill: comm-explaining-tradeoffs
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Reply to "can we launch on Friday?"
+    objective: Recognise a trade-off explanation that gives a non-technical stakeholder options, costs and a recommendation.
+    prompt: |
+      Your product manager asks whether the new search feature can launch next Friday. It works, but at the expected launch traffic it needs either a bigger search cluster, adding about **$4,000 a month**, or **two more weeks** to add caching that keeps costs flat. Marketing has already announced Friday.
+
+      Which reply explains the trade-off best?
+    hints:
+      - What does the PM need in order to make a decision today?
+      - Look for options, their costs in the PM's terms, and a recommendation.
+    explanation: |
+      A good trade-off explanation gives the **options**, what each **costs in the audience's terms** (money, dates, user impact), a **recommendation with its reason**, and asks for the decision. Jargon, silently picking an option, or deferring without sharing what you know all leave the stakeholder unable to decide.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "We could, but the search shards will run hot and p99 latency will blow up unless we put a Redis layer in front of the query path."
+          feedback: "Accurate, but jargon-heavy, and it gives the PM neither options nor a recommendation to act on."
+          misconception: {code: jargon-over-impact, label: "Explains in technical jargon instead of user and business impact", category: conceptual}
+        - id: b
+          text: "Yes, we can launch on Friday."
+          feedback: "It hides the cost: the PM would be surprised by a $4,000-a-month bill they never agreed to."
+          misconception: {code: hides-tradeoff, label: "Presents a decision without its costs or alternatives", category: incomplete}
+        - id: c
+          text: "Two options: launch Friday on a bigger search cluster, which adds about $4,000 a month, or launch two weeks later with caching that keeps costs flat. Users get the same experience either way. I'd launch Friday and add the caching straight after, so we keep the announced date and the extra cost only runs for a few weeks. Does that work for the budget?"
+          correct: true
+          feedback: "Right — options, costs in the PM's terms, user impact, a recommendation with its reason, and a clear question to decide on."
+        - id: d
+          text: "It depends on a lot of technical factors. Let me look into it and get back to you."
+          feedback: "The team already knows the trade-off; holding it back delays a decision the PM could make today."
+          misconception: {code: no-recommendation, label: "Lists or withholds options without recommending one", category: incomplete}
+
+  - slug: comm-tradeoffs-replica-lag-reply
+    skill: comm-explaining-tradeoffs
+    kind: concept_explanation
+    difficulty: 2
+    minutes: 12
+    tags: [scenario]
+    secondary_skills: [sd-consistency]
+    title: Explain a replication-lag trade-off to the head of support
+    objective: Explain a technical cause in plain language and present costed options with a clear recommendation to a non-technical stakeholder.
+    prompt: |
+      The head of customer support, who is not technical, messages you: *"Customers keep telling us their address change didn't save, but it shows up a minute later. Can engineering just make it instant?"*
+
+      What you know:
+
+      - The "My account" page reads from database **replicas** that lag behind the main database by up to about 60 seconds at peak.
+      - **Option A:** read the account page from the main database. Changes appear instantly for everyone, but the main database is near capacity, so this needs about 3 days of work plus a database upgrade costing about $1,500 a month.
+      - **Option B:** right after a customer changes something, read *their* next few page views from the main database. They see their own change immediately; other people (including support agents) may still see the old value for up to a minute. About 2 days of work, no extra running cost.
+      - **Option C:** leave it as it is.
+
+      Write your reply to the head of support (aim for 120–250 words).
+    hints:
+      - Explain *why* it happens in everyday words before talking about fixes.
+      - What does each option cost, and what will customers and support agents actually notice?
+      - Finish with what you recommend and what you need from them.
+    explanation: |
+      A strong reply explains the cause without jargon (the page reads from copies of the database that can be up to a minute behind), lays out the options with their **cost and effort**, describes what **customers and support** will experience with each, makes a **clear recommendation** — B fixes exactly what customers notice at no ongoing cost — and ends with a **next step or a decision to make**.
+    solution: |
+      Hi Priya,
+
+      Good question — here's what's going on. To keep the site fast, the "My account" page reads from copies of our main database. The copies usually catch up quickly, but at busy times they can be up to a minute behind, so a customer who has just changed their address can still see the old one and assumes it didn't save.
+
+      We have three options:
+
+      - **Make it instant for everyone:** about 3 days of work plus a database upgrade costing roughly $1,500 a month, because the main database is already close to its limit.
+      - **Show customers their own change immediately:** about 2 days of work and no extra cost. The person who made the change sees it straight away; anyone else, including support agents, might see the old address for up to a minute.
+      - **Leave it as it is:** no cost, but the confused customers and tickets keep coming.
+
+      I recommend the second option: it fixes exactly what customers notice and complain about, without the monthly cost. If you're happy with that, we can start next sprint — let me know, or I'm happy to talk it through.
+    content:
+      min_words: 80
+      max_words: 350
+      placeholder: "Hi …"
+      criteria:
+        - id: plain-cause
+          label: Explains the cause in plain language (the page reads from copies of the database that catch up after a delay)
+          weight: 2
+          any: ["copy", "copies", "catch up", "catches up", "delay", "behind", "lag", "sync", "replica", "secondary", "mirror", "a minute to update", "takes a minute", "up to a minute"]
+          missing_feedback: "Explain why it happens in everyday words: the page reads from copies of the database that can be up to a minute behind."
+          misconception: {code: jargon-over-impact, label: "Explains in technical jargon instead of user and business impact", category: conceptual}
+        - id: options-with-costs
+          label: Presents the options with their cost and effort (instant everywhere costs 3 days plus about $1,500 a month; own change instant costs 2 days)
+          weight: 2
+          required: true
+          any: ["1,500", "1500", "1.5k", "cost", "per month", "a month", "monthly", "days of work", "3 days", "three days", "2 days", "two days", "budget", "expensive", "cheaper", "price"]
+          missing_feedback: "Lay out the options side by side with what each costs: instant for everyone means about 3 days plus roughly $1,500 a month; showing customers their own change instantly is about 2 days with no extra cost."
+          misconception: {code: hides-tradeoff, label: "Presents a decision without its costs or alternatives", category: incomplete}
+        - id: user-impact
+          label: Frames the options by what customers and support will experience
+          weight: 2
+          any: ["their own change", "own change", "own update", "own address", "their change", "their update", "see it immediately", "see it straight away", "see it right away", "see the change", "see the new", "sees the new", "see their", "sees their", "the person who", "whoever made", "confus", "fewer tickets", "support ticket", "tickets", "fewer calls", "complain", "support agents", "agents"]
+          missing_feedback: "Describe what customers and support will notice: with option B the customer who changed their address sees it immediately — which is what generates the tickets — while agents may see it a minute later."
+        - id: recommendation
+          label: Makes a clear recommendation and gives the reason
+          weight: 2
+          any: ["recommend", "i suggest", "i'd suggest", "i would suggest", "suggest we", "i'd go with", "i would go with", "my advice", "propose", "best option", "i'd choose", "i would choose", "we should", "my vote", "i prefer", "i'd pick", "i would pick"]
+          missing_feedback: "Don't stop at the options — say which one you recommend and why (for example: B fixes what customers actually notice, with no ongoing cost)."
+          misconception: {code: no-recommendation, label: "Lists or withholds options without recommending one", category: incomplete}
+        - id: next-step
+          label: Asks for a decision or offers a concrete next step
+          weight: 1
+          any: ["let me know", "shall we", "shall i", "should we", "next step", "next sprint", "next week", "if you agree", "if that works", "if you're happy", "if you are happy", "happy to", "can start", "could start", "sign off", "decide", "decision", "go ahead", "approve", "your call", "talk it through", "call"]
+          missing_feedback: "Close with the decision you need or the next step, e.g. 'If you're happy with B, we can ship it next sprint.'"
+
+  - slug: comm-tradeoffs-critique-sso-message
+    skill: comm-explaining-tradeoffs
+    kind: code_review
+    difficulty: 2
+    minutes: 8
+    tags: [scenario]
+    title: Critique a trade-off message sent to a VP of Sales
+    objective: Identify why a technical reply fails a non-technical decision-maker and say how to restructure it.
+    prompt: |
+      The VP of Sales asked an engineer: *"Can we give Acme single sign-on (SSO) by the end of the month? It's blocking their renewal."* This was the reply.
+
+      Critique the message: why doesn't it work for this reader, and how should it be rewritten?
+    hints:
+      - Read it as the VP of Sales. Which words would you have to look up?
+      - What exactly did the VP ask? Find the sentence that answers it.
+      - Two approaches are mentioned. Can the reader tell which is faster, cheaper or riskier — or which one the engineer recommends?
+    explanation: |
+      The reply buries a decision-maker in **jargon** (SAML, IdP, JIT, SCIM), **never answers the question** that was asked — can it be done by the end of the month, and if not, when — and mentions **build versus buy without comparing** them on time, cost or risk. It ends with **no recommendation or next step**, so the VP has nothing to act on. Lead with the answer and an estimate, translate the options into business terms, recommend one, and say what happens next.
+    solution: |
+      1. **Too much jargon for the audience.** SAML, SP-initiated flows, IdP metadata, JIT provisioning, SCIM and "multi-IdP tenancy" mean nothing to a VP of Sales. Translate into outcomes: "Acme's staff would log in with their company accounts, and people who leave would lose access automatically."
+      2. **It never answers the question.** The VP asked whether SSO can ship by the end of the month. Lead with the answer and an estimate, even a range with conditions: "Not by the end of the month if we build it ourselves; probably sooner if we use a vendor" — with the team's real numbers.
+      3. **The options aren't compared.** Building versus buying from a vendor is mentioned, but without the time, cost or risk of each, so the reader can't weigh the trade-off. "Lock-in, per-user pricing, data residency" need translating into what they mean for the business.
+      4. **No recommendation or next step.** "Not sure. Depends on a lot of things." leaves the VP with nothing to act on. Recommend an option and the next step, e.g. "I suggest the vendor route; I'll confirm pricing and Acme's requirements by Thursday."
+
+      Also drop "the current auth code is a mess" — it's a complaint, not information the VP can use, and it undermines confidence in the team.
+    content:
+      language: text
+      code: |
+        Re: SSO for Acme by end of month?
+
+        So basically we'd need to implement a SAML 2.0 SP-initiated flow with IdP
+        metadata ingestion, plus JIT provisioning, and SCIM if they want
+        deprovisioning, and our session layer isn't really built for multi-IdP
+        tenancy so there's a refactor of the auth middleware too. Could also buy
+        it from an SSO vendor but that has its own issues (lock-in, per-user
+        pricing, data residency questions). Honestly the current auth code is a
+        mess and needs rewriting anyway. Not sure. Depends on a lot of things.
+      min_words: 30
+      max_words: 400
+      placeholder: Explain what doesn't work for this reader and how to fix it…
+      criteria:
+        - id: jargon
+          label: Points out the jargon (SAML, IdP, JIT, SCIM) that a VP of Sales can't follow
+          weight: 2
+          any: ["jargon", "acronym", "technical terms", "too technical", "saml", "scim", "idp", "plain language", "plain english", "non technical", "nontechnical", "audience", "won't understand", "will not understand", "wouldn't understand", "doesn't understand", "can't follow", "cannot follow", "translate"]
+          missing_feedback: "The VP of Sales won't know what SAML, IdP, JIT or SCIM mean. Translate them into what the customer gets and what it takes."
+          misconception: {code: jargon-over-impact, label: "Explains in technical jargon instead of user and business impact", category: conceptual}
+        - id: no-direct-answer
+          label: Notes that it never answers the actual question (by the end of the month?) with a timeline or estimate
+          weight: 2
+          required: true
+          any: ["answer", "yes or no", "yes/no", "timeline", "time frame", "timeframe", "estimate", "end of month", "end of the month", "deadline", "date", "how long", "weeks", "bottom line", "lead with", "up front", "upfront", "tl;dr", "tldr", "summary first"]
+          missing_feedback: "The VP asked a yes-or-no question with a date. Lead with the answer and a time estimate — even a range with what it depends on — before any detail."
+          misconception: {code: buries-the-answer, label: "Buries or omits the bottom line the audience asked for", category: incomplete}
+        - id: options-not-compared
+          label: Points out that the build and buy options aren't compared on time, cost and risk
+          weight: 1
+          any: ["compar", "build vs", "build versus", "build or buy", "buy", "vendor", "cost", "price", "pricing", "trade off", "tradeoff", "pros and cons", "options", "alternatives"]
+          missing_feedback: "Building and buying are mentioned but never compared. Give each a rough time, cost and risk so the VP can see the trade-off."
+          misconception: {code: hides-tradeoff, label: "Presents a decision without its costs or alternatives", category: incomplete}
+        - id: no-recommendation
+          label: Notes that there is no recommendation or next step
+          weight: 2
+          any: ["recommend", "suggest", "next step", "propos", "what to do", "decision", "decide", "call to action", "action", "nothing to act on", "way forward", "who does what"]
+          missing_feedback: "It ends with 'Not sure. Depends on a lot of things.' Recommend an option and a next step, such as a scoping call with Acme."
+          misconception: {code: no-recommendation, label: "Lists or withholds options without recommending one", category: incomplete}
+
+  # ================================================================== comm-incident-updates
+  - slug: comm-incident-status-page-mcq
+    skill: comm-incident-updates
+    kind: multiple_choice
+    difficulty: 2
+    minutes: 2
+    diagnostic: true
+    title: Choose the best status-page update
+    objective: Recognise a customer-facing incident update that states impact, actions and the next update time without speculating.
+    prompt: |
+      Since 14:05 UTC, about 30% of checkout attempts have been failing. It is now 14:25. The team suspects a recent deploy but hasn't confirmed it.
+
+      Which **status-page** update is best?
+    hints:
+      - Imagine you're a customer reading the status page. What do you need to know?
+      - Look for impact, what is being done and when you'll hear more — without guesses or promises.
+    explanation: |
+      A good public update states the **impact** precisely (what's affected, since when, what still works), what is **being done**, any **workaround**, and **when the next update** will come — in plain language. It avoids unconfirmed causes, blame and fix-time promises, and keeps internal detail such as deploy hashes and error budgets for the internal channel.
+    content:
+      multiple: false
+      options:
+        - id: a
+          text: "We are experiencing issues. We apologise for any inconvenience."
+          feedback: "It says nothing about what is affected, what you're doing or when you'll update again."
+          misconception: {code: update-lacks-impact, label: "Omits who and what is affected", category: incomplete}
+        - id: b
+          text: "A bad deploy by the payments team broke checkout. It will be fixed in 10 minutes."
+          feedback: "It states an unconfirmed cause, blames a team in public and promises a fix time nobody can guarantee."
+          misconception: {code: speculates-and-promises, label: "States unconfirmed causes or promises fix times in live updates", category: conceptual}
+        - id: c
+          text: "Since 14:05 UTC, about 30% of checkout attempts have been failing. Browsing and existing orders are not affected. We are investigating and working to restore checkout. Next update by 14:45 UTC."
+          correct: true
+          feedback: "Right — precise impact and scope, what's being done and a committed next update, with no speculation or promises."
+        - id: d
+          text: "INVESTIGATING: elevated 5xx on checkout-svc after deploy 4f2a91, rolling back, p99 12 s, error budget burned."
+          feedback: "That belongs in the internal incident channel: customers can't parse it, and it presents an unconfirmed cause as fact."
+          misconception: {code: wrong-audience-detail, label: "Uses internal jargon in customer-facing updates", category: conceptual}
+
+  - slug: comm-incident-write-update
+    skill: comm-incident-updates
+    kind: concept_explanation
+    difficulty: 3
+    minutes: 10
+    tags: [scenario]
+    title: Write an internal incident update
+    objective: Write an incident update with impact, status, a caveated ETA, guidance for support and a committed next-update time.
+    prompt: |
+      You are the incident commander. Write the update for the internal **#incident** channel, which support, sales and engineering leads all read.
+
+      The facts at **10:40 UTC**:
+
+      - Since **10:12 UTC**, customers in the **EU region** can't log in to the web app. Users who are already logged in, mobile app logins and the **US region** are not affected.
+      - Cause confirmed: a **configuration change** deployed to the EU login service at 10:10 UTC. The team is **rolling it back**.
+      - Rollbacks of this service normally take about **20 minutes**, but this is the first rollback since the service was migrated, so it **may take longer**.
+    hints:
+      - "Lead with what people would ask first: who is affected, and since when?"
+      - Support and sales will be talking to customers. What can you tell them to say or do?
+      - Give the recovery estimate honestly, and say when people will hear from you next.
+    explanation: |
+      A useful update leads with **impact** (EU web logins down since 10:12 UTC; logged-in users, mobile and the US unaffected), gives the **status and confirmed cause** (configuration change, rollback in progress), an **ETA with its caveat** rather than a promise, **actionable guidance** for support and sales (the mobile app works; point customers to the status page), and a **specific next-update time**.
+    solution: |
+      **[Incident] EU web logins failing — update 10:40 UTC**
+
+      **Impact:** since 10:12 UTC, customers in the EU region can't log in to the web app. Users who are already logged in, mobile app logins and the US region are not affected.
+
+      **Status:** cause identified — a configuration change deployed to the EU login service at 10:10 UTC. We are rolling it back now.
+
+      **Expected recovery:** rollbacks normally take about 20 minutes, so we expect logins to recover around 11:00 UTC. This is the first rollback since the service was migrated, so it may take longer; we'll say so as soon as we know.
+
+      **For support and sales:** customers can log in with the mobile app in the meantime. Please point them to the status page rather than promising a time.
+
+      **Next update:** 11:10 UTC, or sooner if anything changes.
+    content:
+      min_words: 50
+      max_words: 300
+      placeholder: "[Incident] …"
+      criteria:
+        - id: impact
+          label: States the impact — who and what is affected since when (EU web logins since 10:12 UTC) and what isn't
+          weight: 2
+          required: true
+          any: ["eu", "europe", "log in", "login", "sign in", "10:12", "logged in", "unaffected", "not affected", "mobile", "us region", "impact", "affected"]
+          missing_feedback: "Lead with the impact: EU customers can't log in to the web app since 10:12 UTC; logged-in users, mobile and the US are fine."
+          misconception: {code: update-lacks-impact, label: "Omits who and what is affected", category: incomplete}
+        - id: status-cause
+          label: States the current status and the confirmed cause (configuration change identified, rollback in progress)
+          weight: 1
+          any: ["cause", "identified", "config", "configuration", "rolling back", "roll back", "rollback", "reverting", "revert", "root cause"]
+          missing_feedback: "Say where things stand: cause identified (a configuration change at 10:10 UTC) and the rollback is in progress."
+        - id: eta-with-caveat
+          label: Gives a realistic recovery estimate with its uncertainty instead of a promise
+          weight: 2
+          any: ["eta", "expect", "estimate", "about 20", "20 min", "20 minutes", "around 11", "by 11", "may take longer", "might take longer", "could take longer", "may be longer", "might be longer", "not guaranteed", "uncertain", "first rollback", "no guarantee"]
+          missing_feedback: "Give the expected recovery time with its caveat — about 20 minutes, possibly longer because this rollback hasn't been done since the migration — rather than a promise."
+          misconception: {code: speculates-and-promises, label: "States unconfirmed causes or promises fix times in live updates", category: conceptual}
+        - id: support-guidance
+          label: Tells support and sales what to do or say (mobile app workaround, status page, no promised times)
+          weight: 1
+          any: ["workaround", "mobile app", "use the app", "status page", "tell customers", "customers can", "advise", "support should", "support can", "for support", "support team", "for sales", "macro", "canned", "point customers", "point them", "ask customers"]
+          missing_feedback: "Give support and sales something actionable: point customers to the mobile app as a workaround and to the status page for updates."
+        - id: next-update
+          label: Commits to a specific time for the next update
+          weight: 2
+          any: ["next update", "update at", "update by", "update in", "another update", "further update", "re:\\b(by|at)\\s+1[01]:[0-5][0-9]\\b", "re:\\bin\\s+[0-9]+\\s*min"]
+          missing_feedback: "End with when the next update will come (e.g. 'Next update at 11:10 UTC, or sooner if anything changes') — even if there's nothing new by then."
+          misconception: {code: no-update-cadence, label: "Leaves stakeholders without a next-update time", category: incomplete}
+
+  - slug: comm-incident-critique-update
+    skill: comm-incident-updates
+    kind: code_review
+    difficulty: 3
+    minutes: 8
+    tags: [scenario]
+    title: Critique a first incident update
+    objective: Identify understated impact, blame, speculation, unfounded promises and missing cadence in an incident update.
+    prompt: |
+      This was the first message posted in the incident channel. At the time, dashboards showed **about 25% of API requests failing with timeouts since 14:35 UTC**; the alerts had fired at 14:35.
+
+      Critique the update: what is wrong with it, why does it matter during an incident, and what should it have said?
+    hints:
+      - Compare the words in the message with what the dashboards showed.
+      - Which statements are facts, and which are guesses?
+      - When was this posted relative to the alerts, and when will people hear more?
+    explanation: |
+      The update **understates the impact** ("minor slowness" for a quarter of requests failing), **blames an individual and speculates** about an unconfirmed cause in a public channel, makes an **unfounded promise** ("5 mins tops") that will erode trust when it slips, and arrives **45 minutes late with no next-update time**. Good updates state facts precisely, stay blameless, give estimates only when there's a basis, and commit to a cadence.
+    solution: |
+      1. **The impact is understated and vague.** "Some users might be seeing minor slowness" — the dashboards show about 25% of API requests failing with timeouts since 14:35 UTC. Say exactly that, plus which features are affected.
+      2. **Blame and speculation.** "Probably that migration Dave ran … he really should have checked" names an individual and guesses at an unconfirmed cause in a shared channel. Stick to facts ("we're investigating a possible link to this morning's schema migration") and leave cause analysis to a blameless post-incident review.
+      3. **An unfounded promise.** "Should be fixed in 5 mins tops" sets an expectation nobody can back yet; when it slips, people stop trusting the updates. Give an estimate only when there's a basis for one.
+      4. **Too late, and no next update.** The first update came 45 minutes after the alerts fired, and it doesn't say who is leading, what is being done or when the next update will be. Post a first update within minutes, then commit to a cadence: "Next update at 15:50 UTC."
+
+      A better version: "15:20 UTC — Since 14:35 UTC about 25% of API requests are failing with timeouts. Cause not yet confirmed; we're investigating database performance, including this morning's schema migration. Incident lead: Priya. Next update at 15:50 UTC."
+    content:
+      language: text
+      code: |
+        #incident-2291   (posted 15:20 UTC)
+
+        hey all, quick one - seeing some weirdness with the db, probably that
+        migration Dave ran this morning, he really should have checked with
+        someone first. some users might be seeing minor slowness. we're on it,
+        should be fixed in 5 mins tops.
+      min_words: 30
+      max_words: 400
+      placeholder: List what's wrong, why it matters, and what it should have said…
+      criteria:
+        - id: understated-impact
+          label: Points out that the impact is vague and understated ("minor slowness" versus 25% of requests failing since 14:35)
+          weight: 2
+          required: true
+          any: ["minor", "understat", "downplay", "minimi", "misleading", "25%", "25 %", "25 percent", "a quarter", "quarter of", "failing", "timeouts", "impact", "vague", "specific", "numbers", "14:35", "slowness"]
+          missing_feedback: "'Some users might be seeing minor slowness' badly understates 25% of API requests failing since 14:35. State the real impact, with numbers and the start time."
+          misconception: {code: update-lacks-impact, label: "Omits who and what is affected", category: incomplete}
+        - id: blame-speculation
+          label: Flags blaming Dave and speculating about the cause before it is confirmed
+          weight: 2
+          any: ["blame", "dave", "speculat", "probably", "unconfirmed", "not confirmed", "isn't confirmed", "assum", "guess", "naming", "named", "individual", "finger", "post mortem", "postmortem", "post incident"]
+          missing_feedback: "Naming Dave and guessing at the cause is speculation and blame in a shared channel. Stick to confirmed facts; cause analysis belongs in a blameless review."
+          misconception: {code: speculates-and-promises, label: "States unconfirmed causes or promises fix times in live updates", category: conceptual}
+        - id: unfounded-promise
+          label: Notes that "5 mins tops" is an unfounded promise
+          weight: 1
+          any: ["5 min", "five min", "tops", "promis", "eta", "unrealistic", "can't know", "cannot know", "guarantee", "overconfiden", "over confiden", "expectation"]
+          missing_feedback: "'Fixed in 5 mins tops' is a promise nobody can back yet, and trust drops when it slips. Give an estimate only when you have a basis for it."
+          misconception: {code: speculates-and-promises, label: "States unconfirmed causes or promises fix times in live updates", category: conceptual}
+        - id: cadence
+          label: Notes the late first update and the missing next-update time, owner or actions
+          weight: 2
+          any: ["next update", "45 min", "45 minutes", "forty five", "re:\\blate\\b", "too late", "sooner", "earlier", "delay", "cadence", "regular", "when the next", "when people will", "follow up", "owner", "who is leading", "incident lead", "what is being done", "what's being done"]
+          missing_feedback: "The first update came 45 minutes after the alerts, and there's no next-update time. Post early, then commit to a cadence ('Next update at 15:50 UTC')."
+          misconception: {code: no-update-cadence, label: "Leaves stakeholders without a next-update time", category: incomplete}
